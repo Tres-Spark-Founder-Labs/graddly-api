@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -34,6 +35,7 @@ import { Roles } from '../auth/decorators/roles.decorator.js';
 import { ActiveOrganisationGuard } from '../auth/guards/active-organisation.guard.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
+import { PORTAL_TYPE_HEADER } from '../common/constants/organisation-headers.js';
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import {
   ErrorResponseDto,
@@ -42,8 +44,10 @@ import {
 import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
+import { parsePortalType } from '../common/utils/parse-portal-type.util.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { OrganisationRole } from '../organisations/organisation-role.enum.js';
+import { PortalType } from '../organisations/portal-type.enum.js';
 
 import { AcceptInvitationResultDto } from './dto/accept-invitation-result.dto.js';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto.js';
@@ -158,6 +162,13 @@ export class InvitationsController {
     required: false,
     schema: { format: 'uuid', type: 'string' },
   })
+  @ApiHeader({
+    name: 'X-Portal-Type',
+    description:
+      'Portal the invitee should land on. Determines which frontend URL is embedded in the invitation email. Use "apprentice" to send the apprentice portal link.',
+    required: false,
+    schema: { type: 'string', enum: Object.values(PortalType) },
+  })
   @ResponseMessage('Invitation created successfully')
   @ApiOperation({ summary: 'Create an invitation (owner or admin)' })
   @ApiCreatedResponse({
@@ -184,10 +195,15 @@ export class InvitationsController {
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateInvitationDto,
+    @Headers(PORTAL_TYPE_HEADER) rawPortalType?: string,
   ) {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
-    return this.invitationsService.create(user, dto);
+    return this.invitationsService.create(
+      user,
+      dto,
+      parsePortalType(rawPortalType),
+    );
   }
 
   @Post(':id/resend')
@@ -200,6 +216,13 @@ export class InvitationsController {
       'Optional. Overrides the JWT default active organisation when you are a member.',
     required: false,
     schema: { format: 'uuid', type: 'string' },
+  })
+  @ApiHeader({
+    name: 'X-Portal-Type',
+    description:
+      'Portal the invitee should land on. Determines which frontend URL is embedded in the invitation email. Use "apprentice" to send the apprentice portal link.',
+    required: false,
+    schema: { type: 'string', enum: Object.values(PortalType) },
   })
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Invitation resent successfully')
@@ -224,10 +247,15 @@ export class InvitationsController {
   resend(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
+    @Headers(PORTAL_TYPE_HEADER) rawPortalType?: string,
   ) {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
-    return this.invitationsService.resend(user, id);
+    return this.invitationsService.resend(
+      user,
+      id,
+      parsePortalType(rawPortalType),
+    );
   }
 
   @Delete(':id')

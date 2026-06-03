@@ -1,8 +1,10 @@
+import { resolvePortalFrontendUrl } from '../../common/utils/resolve-portal-url.util.js';
 import { EmailTemplate } from '../email-template.enum.js';
 import { formatTokenTtlLabel } from '../format-token-ttl-label.js';
 
 import { BaseEmailPayload } from './base-email.payload.js';
 
+import type { PortalType } from '../../organisations/portal-type.enum.js';
 import type { ConfigService } from '@nestjs/config';
 
 export interface IInvitationAcceptEmailParams {
@@ -10,6 +12,7 @@ export interface IInvitationAcceptEmailParams {
   firstName: string;
   token: string;
   organisationName: string;
+  portalType?: PortalType;
   /** Actual Redis TTL (seconds) for accurate copy in the email. */
   tokenTtlSeconds?: number;
 }
@@ -35,7 +38,7 @@ export class InvitationAcceptEmail extends BaseEmailPayload {
     config: ConfigService,
     params: IInvitationAcceptEmailParams,
   ): InvitationAcceptEmail {
-    const frontendBase = config.get<string>('app.frontend.baseUrl', '');
+    const frontendBase = resolvePortalFrontendUrl(config, params.portalType);
     const ttlSeconds =
       params.tokenTtlSeconds ??
       config.get<number>('app.invitationAccept.tokenTtlSeconds', 604_800);

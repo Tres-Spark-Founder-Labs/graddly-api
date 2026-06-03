@@ -19,6 +19,7 @@ import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { InvitationAcceptEmail } from '../email/payloads/invitation-accept.email.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
+import { PortalType } from '../organisations/portal-type.enum.js';
 import { RedisService } from '../redis/redis.service.js';
 import { User } from '../users/entities/user.entity.js';
 
@@ -146,6 +147,7 @@ export class InvitationsService {
   async create(
     user: AuthenticatedUser,
     dto: CreateInvitationDto,
+    portalType?: PortalType,
   ): Promise<InvitationResponseDto> {
     const orgId = user.organisationId!;
     await this.assertUserNotAlreadyMember(orgId, dto.email);
@@ -189,6 +191,7 @@ export class InvitationsService {
       invitation,
       organisation.name,
       firstName,
+      portalType,
     );
 
     const reloaded = await this.invitationRepo.findOne({
@@ -201,6 +204,7 @@ export class InvitationsService {
   async resend(
     user: AuthenticatedUser,
     invitationId: string,
+    portalType?: PortalType,
   ): Promise<InvitationResponseDto> {
     const orgId = user.organisationId!;
     const invitation = await this.invitationRepo.findOne({
@@ -225,6 +229,7 @@ export class InvitationsService {
       invitation,
       organisation.name,
       firstName,
+      portalType,
     );
 
     const reloaded = await this.invitationRepo.findOne({
@@ -305,6 +310,7 @@ export class InvitationsService {
     invitation: Invitation,
     organisationName: string,
     firstName: string,
+    portalType?: PortalType,
   ): Promise<void> {
     const token = uuidV4();
     const ttl = this.resolveAcceptTokenTtlSeconds(invitation.expiresAt);
@@ -321,6 +327,7 @@ export class InvitationsService {
           firstName,
           token,
           organisationName,
+          portalType,
           tokenTtlSeconds: ttl,
         }),
       );

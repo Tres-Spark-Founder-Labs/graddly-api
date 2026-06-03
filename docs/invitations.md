@@ -6,7 +6,7 @@ Org-scoped invitation flow: owners and admins create invites; invitees accept wi
 
 | Method | Path | Auth | Notes |
 |--------|------|------|--------|
-| POST | `/invitations` | JWT + active org + owner/admin | Body: `email`, `role` (`owner` \| `admin` \| `member`), optional `expiresAt` (ISO 8601). Default expiry is 14 days. |
+| POST | `/invitations` | JWT + active org + owner/admin | Body: `email`, `role` (`owner` \| `admin` \| `member`), optional `expiresAt` (ISO 8601). Default expiry is 14 days. Optional `X-Portal-Type` header selects which frontend the invitation email links to. |
 | GET | `/invitations` | JWT + active org | Query: `page` (default 1), `perPage` (default 20, max 100). Response: `{ message, data: Invitation[], meta: PaginationMeta }`. |
 | POST | `/invitations/:id/resend` | JWT + active org + owner/admin | Refreshes Redis accept token and sends email again. |
 | DELETE | `/invitations/:id` | JWT + active org + owner/admin | Soft-revokes the invite and clears Redis accept tokens for that invitation. |

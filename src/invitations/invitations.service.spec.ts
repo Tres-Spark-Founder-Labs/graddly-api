@@ -8,9 +8,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
+import { InvitationAcceptEmail } from '../email/payloads/invitation-accept.email.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { OrganisationRole } from '../organisations/organisation-role.enum.js';
+import { PortalType } from '../organisations/portal-type.enum.js';
 import { RedisService } from '../redis/redis.service.js';
 import { User } from '../users/entities/user.entity.js';
 
@@ -50,8 +52,17 @@ describe('InvitationsService', () => {
     })),
   };
   const emailDispatch = { enqueue: jest.fn() };
+  const portalUrls: Record<string, string> = {
+    [PortalType.EMPLOYER]: 'https://employer.graddly.test',
+    [PortalType.PROVIDER]: 'https://provider.graddly.test',
+    [PortalType.APPRENTICE]: 'https://apprentice.graddly.test',
+    [PortalType.FLOW]: 'https://flow.graddly.test',
+  };
   const config = {
-    get: jest.fn((_k: string, def?: number) => def ?? 604_800),
+    get: jest.fn((key: string, def?: unknown) => {
+      if (key === 'app.frontend.portalUrls') return portalUrls;
+      return def ?? 604_800;
+    }),
   };
 
   let invitationRepo: {
@@ -189,6 +200,57 @@ describe('InvitationsService', () => {
           token: '00000000-0000-4000-8000-000000000001',
         }),
       ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('create', () => {
+    function acceptUrlFromLastEmail(): string {
+      const calls = emailDispatch.enqueue.mock.calls as unknown[][];
+      const payload = calls.at(-1)?.[0];
+      expect(payload).toBeInstanceOf(InvitationAcceptEmail);
+      return (payload as InvitationAcceptEmail).getTemplateContext()
+        .acceptUrl as string;
+    }
+
+    beforeEach(() => {
+      organisationRepo.findOne.mockResolvedValue({
+        id: 'org-1',
+        name: 'Acme',
+      });
+      // The post-send reload used to build the response DTO.
+      invitationRepo.findOne.mockResolvedValue({
+        id: 'inv-1',
+        email: 'new@example.com',
+        role: OrganisationRole.MEMBER,
+        expiresAt: new Date(Date.now() + 86_400_000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        invitedBy: null,
+      });
+    });
+
+    it('embeds the frontend URL for the portal type from the header', async () => {
+      await service.create(
+        baseUser({ organisationId: 'org-1' }),
+        { email: 'new@example.com', role: OrganisationRole.MEMBER },
+        PortalType.EMPLOYER,
+      );
+
+      expect(acceptUrlFromLastEmail()).toContain(
+        portalUrls[PortalType.EMPLOYER],
+      );
+    });
+
+    it('uses the apprentice portal URL when portal type is apprentice', async () => {
+      await service.create(
+        baseUser({ organisationId: 'org-1' }),
+        { email: 'new@example.com', role: OrganisationRole.MEMBER },
+        PortalType.APPRENTICE,
+      );
+
+      expect(acceptUrlFromLastEmail()).toContain(
+        portalUrls[PortalType.APPRENTICE],
+      );
     });
   });
 

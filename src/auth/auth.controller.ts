@@ -37,6 +37,7 @@ import {
   ValidationErrorResponseDto,
 } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
+import { parsePortalType } from '../common/utils/parse-portal-type.util.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
 import { UpdateProfileDto } from '../users/dto/update-profile.dto.js';
 import { UsersService } from '../users/users.service.js';
@@ -53,16 +54,6 @@ import { VerifyEmailDto } from './dto/verify-email.dto.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 
 import type { AuthenticatedUser } from './interfaces/authenticated-user.interface.js';
-
-/** Safely coerce the raw header value to a known PortalType, or undefined.
- *  Handles comma-joined duplicates (e.g. "provider, provider") by taking the first token. */
-function parsePortalType(raw: string | undefined): PortalType | undefined {
-  if (!raw) return undefined;
-  const lower = raw.split(',')[0].trim().toLowerCase();
-  return (Object.values(PortalType) as string[]).includes(lower)
-    ? (lower as PortalType)
-    : undefined;
-}
 
 type MeResult = Omit<
   AuthenticatedUser,

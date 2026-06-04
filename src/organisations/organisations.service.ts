@@ -80,8 +80,8 @@ export class OrganisationsService {
     await this.dataSource.transaction(async (manager) => {
       await manager.query(
         `INSERT INTO organisations
-          (id, name, slug, "portalType", ukprn, address, city, postcode, country, "orgEmail", "orgPhone", website)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          (id, name, slug, "portalType", ukprn, address, city, postcode, country, "orgEmail", "orgPhone", website, "logoUrl")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
         [
           id,
           dto.name.trim(),
@@ -95,6 +95,7 @@ export class OrganisationsService {
           dto.orgEmail.trim(),
           dto.orgPhone?.trim() || null,
           dto.website?.trim() || null,
+          dto.logoUrl?.trim() || null,
         ],
       );
 
@@ -155,6 +156,8 @@ export class OrganisationsService {
       organisation.orgPhone = dto.orgPhone?.trim() || null;
     if (dto.website !== undefined)
       organisation.website = dto.website?.trim() || null;
+    if (dto.logoUrl !== undefined)
+      organisation.logoUrl = dto.logoUrl?.trim() || null;
 
     return this.organisationsRepository.save(organisation);
   }

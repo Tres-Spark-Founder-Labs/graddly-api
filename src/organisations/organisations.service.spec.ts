@@ -132,6 +132,7 @@ describe('OrganisationsService', () => {
           'info@acme.co.uk',
           null,
           null,
+          null,
         ],
       );
       expect(mockManager.create).toHaveBeenCalledWith(
@@ -263,6 +264,27 @@ describe('OrganisationsService', () => {
       expect(result.name).toBe('New Name');
       expect(result.city).toBe('London');
       expect(result.slug).toBe('old-name'); // slug unchanged
+    });
+
+    it('sets logoUrl when provided and clears it on empty string', async () => {
+      const existing = {
+        id: 'org-1',
+        name: 'Acme',
+        slug: 'acme',
+        logoUrl: null,
+      } as Organisation;
+      repository.findOne.mockResolvedValue(existing);
+      repository.save.mockImplementation((o: Organisation) =>
+        Promise.resolve(o),
+      );
+
+      const set = await service.update('org-1', {
+        logoUrl: 'https://cdn.example.com/logo.png',
+      });
+      expect(set.logoUrl).toBe('https://cdn.example.com/logo.png');
+
+      const cleared = await service.update('org-1', { logoUrl: '' });
+      expect(cleared.logoUrl).toBeNull();
     });
   });
 

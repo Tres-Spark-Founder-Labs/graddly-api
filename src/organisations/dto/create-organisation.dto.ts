@@ -69,6 +69,17 @@ export class CreateOrganisationDto {
   @IsUrl({}, { message: 'Enter a valid URL (including https://)' })
   website?: string;
 
+  @ApiPropertyOptional({
+    example:
+      'https://bucket.s3.eu-west-2.amazonaws.com/orgs/uuid/general/uuid/logo.png',
+    maxLength: 500,
+    description: 'Public URL of the organisation logo (e.g. an S3 object URL)',
+  })
+  @IsOptional()
+  @IsUrl({}, { message: 'Enter a valid URL (including https://)' })
+  @MaxLength(500)
+  logoUrl?: string;
+
   @ApiPropertyOptional({ enum: PortalType, example: PortalType.PROVIDER })
   @IsOptional()
   @IsEnum(PortalType)

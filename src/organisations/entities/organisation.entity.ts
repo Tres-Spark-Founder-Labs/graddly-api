@@ -48,6 +48,9 @@ export class Organisation extends BaseEntity {
   @Column({ type: 'varchar', length: 500, nullable: true })
   website!: string | null;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  logoUrl!: string | null;
+
   @OneToMany('OrganisationMembership', 'organisation')
   memberships!: OrganisationMembership[];
 }

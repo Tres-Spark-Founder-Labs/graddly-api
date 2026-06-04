@@ -48,6 +48,13 @@ export class OrganisationSummaryDto {
     nullable: true,
   })
   website!: string | null;
+
+  @ApiPropertyOptional({
+    example:
+      'https://bucket.s3.eu-west-2.amazonaws.com/orgs/uuid/general/uuid/logo.png',
+    nullable: true,
+  })
+  logoUrl!: string | null;
 }
 
 /** Full organisation resource returned by CRUD endpoints. */
@@ -96,6 +103,13 @@ export class OrganisationResponseDto {
     nullable: true,
   })
   website!: string | null;
+
+  @ApiPropertyOptional({
+    example:
+      'https://bucket.s3.eu-west-2.amazonaws.com/orgs/uuid/general/uuid/logo.png',
+    nullable: true,
+  })
+  logoUrl!: string | null;
 
   @ApiProperty()
   createdAt!: Date;

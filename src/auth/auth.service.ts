@@ -57,6 +57,7 @@ type MembershipRow = {
   oOrgEmail: string | null;
   oOrgPhone: string | null;
   oWebsite: string | null;
+  oLogoUrl: string | null;
 };
 
 @Injectable()
@@ -253,6 +254,7 @@ export class AuthService {
       .addSelect('o.orgEmail', 'oOrgEmail')
       .addSelect('o.orgPhone', 'oOrgPhone')
       .addSelect('o.website', 'oWebsite')
+      .addSelect('o.logoUrl', 'oLogoUrl')
       .where('m."userId" = :userId', { userId })
       .andWhere('m.status = :status', { status: MembershipStatus.ACTIVE })
       .andWhere('o.portalType = :portalType', { portalType })
@@ -280,6 +282,7 @@ export class AuthService {
         orgEmail: row.oOrgEmail ?? null,
         orgPhone: row.oOrgPhone ?? null,
         website: row.oWebsite ?? null,
+        logoUrl: row.oLogoUrl ?? null,
       },
     };
   }

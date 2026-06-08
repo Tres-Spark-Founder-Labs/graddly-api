@@ -280,17 +280,19 @@ describe('AuthController (e2e)', () => {
           createdAt: expect.any(String),
           updatedAt: expect.any(String),
           activeOrganisation: null,
+          organisations: [],
         },
       });
     });
 
-    it('activeOrganisation is null for a user with no organisation membership', async () => {
+    it('activeOrganisation is null and organisations is empty for a user with no membership', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/auth/me')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
       expect(res.body.data.activeOrganisation).toBeNull();
+      expect(res.body.data.organisations).toEqual([]);
     });
 
     it('should return 401 without a token', async () => {
@@ -557,7 +559,7 @@ describe('AuthController (e2e)', () => {
     });
   });
 
-  describe('GET /auth/me — activeOrganisation and portal type scoping', () => {
+  describe('GET /auth/me — active organisation resolution and organisations list', () => {
     let portalToken: string;
     let portalUserId: string;
     let providerOrgId: string;
@@ -605,88 +607,97 @@ describe('AuthController (e2e)', () => {
       employerOrgId = employerRes.body.data.id as string;
     });
 
-    it('activeOrganisation is null when user has no memberships', async () => {
+    it('organisations is an empty array and activeOrganisation null when user has no memberships', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/auth/me')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
+      expect(res.body.data.organisations).toEqual([]);
       expect(res.body.data.activeOrganisation).toBeNull();
       expect(res.body.data).not.toHaveProperty('memberships');
     });
 
-    it('returns null when no X-Portal-Type header is sent', async () => {
+    it('organisations lists every active membership with only id, name, portalType, slug', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/auth/me')
         .set('Authorization', `Bearer ${portalToken}`)
         .expect(200);
 
-      expect(res.body.data.activeOrganisation).toBeNull();
+      const organisations = res.body.data.organisations as Array<
+        Record<string, unknown>
+      >;
+      const orgIds = organisations.map((o) => o.id);
+      expect(orgIds).toEqual(
+        expect.arrayContaining([providerOrgId, employerOrgId]),
+      );
+      for (const org of organisations) {
+        expect(Object.keys(org).sort()).toEqual(
+          ['id', 'name', 'portalType', 'slug'].sort(),
+        );
+      }
     });
 
-    it('scopes activeOrganisation to provider portal when X-Portal-Type: provider', async () => {
+    it('without X-Organisation-Id, activeOrganisation is the first recent org (owner-first default)', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/auth/me')
         .set('Authorization', `Bearer ${portalToken}`)
-        .set('X-Portal-Type', 'provider')
         .expect(200);
 
+      // Both orgs are owned by this user; the provider org was created first,
+      // so role-priority + earliest join date resolves to it.
+      expect(res.body.data.activeOrganisation).not.toBeNull();
       expect(res.body.data.activeOrganisation.organisation.id).toBe(
         providerOrgId,
       );
       expect(res.body.data.activeOrganisation.membershipStatus).toBe('active');
-      expect(res.body.data.activeOrganisation.organisation.portalType).toBe(
-        'provider',
-      );
     });
 
-    it('scopes activeOrganisation to employer portal when X-Portal-Type: employer', async () => {
+    it('with a valid X-Organisation-Id, activeOrganisation is scoped to that org', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/auth/me')
         .set('Authorization', `Bearer ${portalToken}`)
-        .set('X-Portal-Type', 'employer')
+        .set('X-Organisation-Id', employerOrgId)
         .expect(200);
 
       expect(res.body.data.activeOrganisation.organisation.id).toBe(
         employerOrgId,
       );
-      expect(res.body.data.activeOrganisation.membershipStatus).toBe('active');
       expect(res.body.data.activeOrganisation.organisation.portalType).toBe(
         'employer',
       );
     });
 
-    it('returns activeOrganisation: null when portal type has no matching membership', async () => {
+    it('with a malformed X-Organisation-Id, activeOrganisation is null but organisations still returns', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/auth/me')
         .set('Authorization', `Bearer ${portalToken}`)
-        .set('X-Portal-Type', 'apprentice')
+        .set('X-Organisation-Id', 'not-a-uuid')
         .expect(200);
 
       expect(res.body.data.activeOrganisation).toBeNull();
+      const orgIds = (
+        res.body.data.organisations as Array<{ id: string }>
+      ).map((o) => o.id);
+      expect(orgIds).toEqual(
+        expect.arrayContaining([providerOrgId, employerOrgId]),
+      );
     });
 
-    it('returns null when X-Portal-Type is invalid', async () => {
-      const res = await request(app.getHttpServer())
+    it('returns 403 when X-Organisation-Id is a valid UUID for an org the user does not belong to', async () => {
+      await request(app.getHttpServer())
         .get('/api/v1/auth/me')
         .set('Authorization', `Bearer ${portalToken}`)
-        .set('X-Portal-Type', 'not-a-real-portal')
-        .expect(200);
-
-      expect(res.body.data.activeOrganisation).toBeNull();
+        .set('X-Organisation-Id', '11111111-1111-1111-1111-111111111111')
+        .expect(403);
     });
 
     it('activeOrganisation.organisation exposes only the allowed fields — no audit columns', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/auth/me')
         .set('Authorization', `Bearer ${portalToken}`)
-        .set('X-Portal-Type', 'provider')
         .expect(200);
 
-      const org = res.body.data.activeOrganisation.organisation as Record<
-        string,
-        unknown
-      >;
       const allowedKeys = [
         'id',
         'name',
@@ -702,10 +713,15 @@ describe('AuthController (e2e)', () => {
         'orgPhone',
         'website',
       ].sort();
+
+      const org = res.body.data.activeOrganisation.organisation as Record<
+        string,
+        unknown
+      >;
       expect(Object.keys(org).sort()).toEqual(allowedKeys);
     });
 
-    it('revoked membership is excluded from activeOrganisation resolution', async () => {
+    it('revoked membership is excluded from both activeOrganisation and organisations', async () => {
       const pg = createE2ePgClient();
       await pg.connect();
 
@@ -715,13 +731,23 @@ describe('AuthController (e2e)', () => {
           [portalUserId, providerOrgId],
         );
 
-        const res = await request(app.getHttpServer())
+        // organisations no longer lists the revoked org.
+        const listRes = await request(app.getHttpServer())
           .get('/api/v1/auth/me')
           .set('Authorization', `Bearer ${portalToken}`)
-          .set('X-Portal-Type', 'provider')
           .expect(200);
+        const orgIds = (
+          listRes.body.data.organisations as Array<{ id: string }>
+        ).map((o) => o.id);
+        expect(orgIds).not.toContain(providerOrgId);
+        expect(orgIds).toContain(employerOrgId);
 
-        expect(res.body.data.activeOrganisation).toBeNull();
+        // Requesting the revoked org explicitly is now a 403 (no active membership).
+        await request(app.getHttpServer())
+          .get('/api/v1/auth/me')
+          .set('Authorization', `Bearer ${portalToken}`)
+          .set('X-Organisation-Id', providerOrgId)
+          .expect(403);
       } finally {
         await pg.query(
           `UPDATE organisation_memberships SET status = 'active' WHERE "userId" = $1 AND "organisationId" = $2`,

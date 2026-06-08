@@ -5,7 +5,6 @@ import {
   Headers,
   HttpCode,
   HttpStatus,
-  Logger,
   Patch,
   Post,
   UseGuards,
@@ -25,8 +24,12 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { validate as validateUuid } from 'uuid';
 
-import { PORTAL_TYPE_HEADER } from '../common/constants/organisation-headers.js';
+import {
+  ORGANISATION_ID_HEADER,
+  PORTAL_TYPE_HEADER,
+} from '../common/constants/organisation-headers.js';
 import {
   ApiAuthResponseDto,
   ApiMeResponseDto,
@@ -38,6 +41,7 @@ import {
 } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { parsePortalType } from '../common/utils/parse-portal-type.util.js';
+import { OrganisationListItemDto } from '../organisations/dto/organisation-list-item.dto.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
 import { UpdateProfileDto } from '../users/dto/update-profile.dto.js';
 import { UsersService } from '../users/users.service.js';
@@ -58,13 +62,14 @@ import type { AuthenticatedUser } from './interfaces/authenticated-user.interfac
 type MeResult = Omit<
   AuthenticatedUser,
   'organisationId' | 'roles' | 'memberships' | 'password'
-> & { activeOrganisation: ActiveOrganisationMeDto | null };
+> & {
+  activeOrganisation: ActiveOrganisationMeDto | null;
+  organisations: OrganisationListItemDto[];
+};
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  private readonly logger = new Logger(AuthController.name);
-
   constructor(
     private readonly authService: AuthService,
     private readonly usersService: UsersService,
@@ -343,20 +348,28 @@ export class AuthController {
   @ApiBearerAuth()
   @ResponseMessage('User profile retrieved')
   @ApiHeader({
-    name: 'X-Portal-Type',
+    name: 'X-Organisation-Id',
     description:
-      "Required for a non-null activeOrganisation. Must be a valid portal type (employer | apprentice | flow | provider) whose value matches the user's membership. Missing or unrecognised values yield activeOrganisation: null.",
+      'Selects the active organisation. When omitted/blank, the first recent ' +
+      'organisation is used. A malformed value yields activeOrganisation: null. ' +
+      'A valid UUID for an organisation the user does not belong to returns 403.',
     required: false,
-    schema: { type: 'string', enum: Object.values(PortalType) },
+    schema: { format: 'uuid', type: 'string' },
   })
   @ApiOperation({
     summary: 'Get current user profile',
     description:
-      "Returns the authenticated user's profile. activeOrganisation is populated only when X-Portal-Type is a valid enum value and the user holds an active membership in an organisation of that portal type.",
+      "Returns the authenticated user's profile. activeOrganisation is resolved " +
+      'from X-Organisation-Id (or the first recent org when absent); organisations ' +
+      'lists every organisation the user actively belongs to.',
   })
   @ApiOkResponse({
-    description: 'User profile with active organisation',
+    description: 'User profile with active organisation and organisations list',
     type: ApiMeResponseDto,
+  })
+  @ApiForbiddenResponse({
+    description: 'X-Organisation-Id refers to an organisation the user is not a member of',
+    type: ErrorResponseDto,
   })
   @ApiUnauthorizedResponse({
     description: 'Missing or invalid access token',
@@ -364,22 +377,10 @@ export class AuthController {
   })
   async me(
     @CurrentUser() user: AuthenticatedUser,
-    @Headers(PORTAL_TYPE_HEADER) rawPortalType?: string,
+    @Headers(ORGANISATION_ID_HEADER) rawOrganisationId?: string,
   ): Promise<MeResult> {
-    const portalType = parsePortalType(rawPortalType);
-
-    let activeOrganisation: ActiveOrganisationMeDto | null = null;
-    if (portalType) {
-      try {
-        activeOrganisation =
-          await this.authService.resolveActiveOrganisationForUser(
-            user.id,
-            portalType,
-          );
-      } catch (err) {
-        this.logger.error('Failed to resolve active organisation for /me', err);
-      }
-    }
+    const { activeOrganisation, organisations } =
+      await this.resolveActiveOrganisationContext(user.id, rawOrganisationId);
 
     const {
       organisationId: _organisationId,
@@ -388,7 +389,7 @@ export class AuthController {
       password: _password,
       ...publicUser
     } = user;
-    return { ...publicUser, activeOrganisation };
+    return { ...publicUser, activeOrganisation, organisations };
   }
 
   @Patch('me')
@@ -397,16 +398,22 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Profile updated successfully')
   @ApiHeader({
-    name: 'X-Portal-Type',
+    name: 'X-Organisation-Id',
     description:
-      "Required for a non-null activeOrganisation. Must be a valid portal type matching the user's membership. Missing or unrecognised values yield activeOrganisation: null.",
+      'Selects the active organisation returned with the updated profile. When ' +
+      'omitted/blank, the first recent organisation is used. A malformed value ' +
+      'yields activeOrganisation: null. A valid UUID for an organisation the user ' +
+      'does not belong to returns 403.',
     required: false,
-    schema: { type: 'string', enum: Object.values(PortalType) },
+    schema: { format: 'uuid', type: 'string' },
   })
   @ApiOperation({
     summary: 'Update current user profile',
     description:
-      "Partially updates the authenticated user's profile. Email and password changes require their own dedicated flows. Returns the full updated profile with activeOrganisation when X-Portal-Type is provided.",
+      "Partially updates the authenticated user's profile. Email and password " +
+      'changes require their own dedicated flows. Returns the full updated profile ' +
+      'with activeOrganisation (resolved from X-Organisation-Id) and the ' +
+      'organisations list.',
   })
   @ApiOkResponse({
     description: 'Updated user profile',
@@ -416,6 +423,10 @@ export class AuthController {
     description: 'Validation failed',
     type: ValidationErrorResponseDto,
   })
+  @ApiForbiddenResponse({
+    description: 'X-Organisation-Id refers to an organisation the user is not a member of',
+    type: ErrorResponseDto,
+  })
   @ApiUnauthorizedResponse({
     description: 'Missing or invalid access token',
     type: ErrorResponseDto,
@@ -423,30 +434,52 @@ export class AuthController {
   async updateMe(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdateProfileDto,
-    @Headers(PORTAL_TYPE_HEADER) rawPortalType?: string,
+    @Headers(ORGANISATION_ID_HEADER) rawOrganisationId?: string,
   ): Promise<MeResult> {
-    const portalType = parsePortalType(rawPortalType);
-
-    const [updatedUser, activeOrganisation] = await Promise.all([
-      this.usersService.updateProfile(user.id, dto),
-      portalType
-        ? this.authService
-            .resolveActiveOrganisationForUser(user.id, portalType)
-            .catch((err) => {
-              this.logger.error(
-                'Failed to resolve active organisation after profile update',
-                err,
-              );
-              return null;
-            })
-        : Promise.resolve(null),
-    ]);
+    const [updatedUser, { activeOrganisation, organisations }] =
+      await Promise.all([
+        this.usersService.updateProfile(user.id, dto),
+        this.resolveActiveOrganisationContext(user.id, rawOrganisationId),
+      ]);
 
     const {
       password: _password,
       memberships: _memberships,
       ...publicUser
     } = updatedUser;
-    return { ...publicUser, activeOrganisation };
+    return { ...publicUser, activeOrganisation, organisations };
+  }
+
+  /**
+   * Resolves the `{ activeOrganisation, organisations }` pair for the `/me`
+   * endpoints from the raw `X-Organisation-Id` header value.
+   *
+   * - blank/absent header → first recent active org (or null when none)
+   * - malformed (non-UUID) header → activeOrganisation: null
+   * - valid UUID, user not a member → 403 (propagated from the service)
+   *
+   * The organisations list is always returned in full regardless of the header.
+   */
+  private async resolveActiveOrganisationContext(
+    userId: string,
+    rawOrganisationId?: string,
+  ): Promise<{
+    activeOrganisation: ActiveOrganisationMeDto | null;
+    organisations: OrganisationListItemDto[];
+  }> {
+    const trimmed = rawOrganisationId?.trim();
+    const malformed = !!trimmed && !validateUuid(trimmed);
+
+    const [activeOrganisation, organisations] = await Promise.all([
+      malformed
+        ? Promise.resolve(null)
+        : this.authService.resolveActiveOrganisationForUser(
+            userId,
+            trimmed || undefined,
+          ),
+      this.authService.resolveOrganisationsForUser(userId),
+    ]);
+
+    return { activeOrganisation, organisations };
   }
 }

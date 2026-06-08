@@ -16,6 +16,7 @@ import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailVerificationEmail } from '../email/payloads/email-verification.email.js';
 import { PasswordResetEmail } from '../email/payloads/password-reset.email.js';
+import { OrganisationListItemDto } from '../organisations/dto/organisation-list-item.dto.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
 import { MembershipStatus } from '../organisations/membership-status.enum.js';
 import { OrganisationRole } from '../organisations/organisation-role.enum.js';
@@ -73,7 +74,7 @@ export class AuthService {
     private readonly emailDispatch: EmailDispatchService,
     @InjectRepository(OrganisationMembership)
     private readonly membershipRepo: Repository<OrganisationMembership>,
-  ) {}
+  ) { }
 
   async signup(dto: SignupDto, portalType?: PortalType): Promise<void> {
     const user = await this.usersService.create(dto);
@@ -226,17 +227,36 @@ export class AuthService {
    * Returns null when no active membership exists for that portal. Single round-trip, no N+1.
    * getRawOne() is intentional: innerJoinAndSelect + select() leaves the relation unhydrated in TypeORM.
    */
+  /**
+   * SQL `CASE` expression ordering memberships by role priority
+   * (owner > admin > member). Shared by the active-org and organisations-list
+   * resolvers so "first recent org" means the same thing everywhere.
+   */
+  private readonly membershipRoleOrder =
+    `CASE m.role` +
+    ` WHEN '${OrganisationRole.OWNER}' THEN 0` +
+    ` WHEN '${OrganisationRole.ADMIN}' THEN 1` +
+    ` WHEN '${OrganisationRole.MEMBER}' THEN 2 ELSE 3 END`;
+
+  /**
+   * Resolves the active organisation for `/me`, driven by the optional
+   * `X-Organisation-Id` value supplied by the caller:
+   *
+   * - `organisationId` omitted/blank → the user's first recent active org
+   *   (role priority owner > admin > member, then earliest join date). Returns
+   *   `null` when the user has no active membership.
+   * - `organisationId` provided and the user is an active member → that org.
+   * - `organisationId` provided but the user is not an active member →
+   *   `ForbiddenException` (403).
+   *
+   * A malformed (non-UUID) `X-Organisation-Id` never reaches this method: the
+   * controller short-circuits and returns `null` for those.
+   */
   async resolveActiveOrganisationForUser(
     userId: string,
-    portalType: PortalType,
+    organisationId?: string,
   ): Promise<ActiveOrganisationMeDto | null> {
-    const roleOrder =
-      `CASE m.role` +
-      ` WHEN '${OrganisationRole.OWNER}' THEN 0` +
-      ` WHEN '${OrganisationRole.ADMIN}' THEN 1` +
-      ` WHEN '${OrganisationRole.MEMBER}' THEN 2 ELSE 3 END`;
-
-    const row = await this.membershipRepo
+    const qb = this.membershipRepo
       .createQueryBuilder('m')
       .innerJoin('m.organisation', 'o')
       .select('m.role', 'mRole')
@@ -256,14 +276,28 @@ export class AuthService {
       .addSelect('o.website', 'oWebsite')
       .addSelect('o.logoUrl', 'oLogoUrl')
       .where('m."userId" = :userId', { userId })
-      .andWhere('m.status = :status', { status: MembershipStatus.ACTIVE })
-      .andWhere('o.portalType = :portalType', { portalType })
-      .orderBy(roleOrder, 'ASC')
+      .andWhere('m.status = :status', { status: MembershipStatus.ACTIVE });
+
+    if (organisationId) {
+      qb.andWhere('o.id = :organisationId', { organisationId });
+    }
+
+    const row = await qb
+      .orderBy(this.membershipRoleOrder, 'ASC')
       .addOrderBy('m.joinedAt', 'ASC')
       .limit(1)
       .getRawOne<MembershipRow>();
 
-    if (!row) return null;
+    if (!row) {
+      // A specific org was requested but the user is not an active member.
+      if (organisationId) {
+        throw new ForbiddenException(
+          'You are not a member of this organisation',
+        );
+      }
+      // No org requested and the user has no active membership.
+      return null;
+    }
 
     return {
       roles: [row.mRole],
@@ -285,6 +319,37 @@ export class AuthService {
         logoUrl: row.oLogoUrl ?? null,
       },
     };
+  }
+
+  /**
+   * Lightweight list of every active organisation the user belongs to, ordered
+   * by role priority then join date. Carries only the fields a client needs to
+   * render an org switcher: id, name, portalType, slug.
+   */
+  async resolveOrganisationsForUser(
+    userId: string,
+  ): Promise<OrganisationListItemDto[]> {
+    const rows = await this.membershipRepo
+      .createQueryBuilder('m')
+      .innerJoin('m.organisation', 'o')
+      .select('o.id', 'oId')
+      .addSelect('o.name', 'oName')
+      .addSelect('o.portalType', 'oPortalType')
+      .addSelect('o.slug', 'oSlug')
+      .where('m."userId" = :userId', { userId })
+      .andWhere('m.status = :status', { status: MembershipStatus.ACTIVE })
+      .orderBy(this.membershipRoleOrder, 'ASC')
+      .addOrderBy('m.joinedAt', 'ASC')
+      .getRawMany<
+        Pick<MembershipRow, 'oId' | 'oName' | 'oPortalType' | 'oSlug'>
+      >();
+
+    return rows.map((row) => ({
+      id: row.oId,
+      name: row.oName,
+      portalType: (row.oPortalType as PortalType) ?? null,
+      slug: row.oSlug,
+    }));
   }
 
   private async sendVerificationEmail(
@@ -362,9 +427,9 @@ export class AuthService {
       email: user.email,
       ...(membership?.organisation
         ? {
-            orgId: membership.organisation.id,
-            roles: [membership.role],
-          }
+          orgId: membership.organisation.id,
+          roles: [membership.role],
+        }
         : {}),
     };
 

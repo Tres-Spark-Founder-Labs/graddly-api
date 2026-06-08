@@ -1,6 +1,8 @@
 import { CommitmentSignature } from '../commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatementGroup } from '../commitments/entities/commitment-statement-group.entity.js';
 import { CommitmentStatement } from '../commitments/entities/commitment-statement.entity.js';
+import { IlrLearnerRecord } from '../ilr/entities/ilr-learner-record.entity.js';
+import { IlrSubmission } from '../ilr/entities/ilr-submission.entity.js';
 import { Invitation } from '../invitations/entities/invitation.entity.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
@@ -110,6 +112,22 @@ describe('audit-organisation-id.resolver', () => {
     );
   });
 
+  it('resolves organisation id for ILR entities', () => {
+    const record = Object.assign(new IlrLearnerRecord(), {
+      organisationId: 'org-ilr',
+    });
+    expect(resolveAuditOrganisationId(record, 'ilr_learner_records')).toBe(
+      'org-ilr',
+    );
+
+    const submission = Object.assign(new IlrSubmission(), {
+      organisationId: 'org-sub',
+    });
+    expect(resolveAuditOrganisationId(submission, 'ilr_submissions')).toBe(
+      'org-sub',
+    );
+  });
+
   it('resolves organisation id for withdrawal completion pushes', () => {
     const push = Object.assign(new WithdrawalCompletionPush(), {
       organisationId: 'org-push',
@@ -131,6 +149,8 @@ describe('audit-organisation-id.resolver', () => {
     expect(isAuditedEntity(new CommitmentSignature())).toBe(true);
     expect(isAuditedEntity(new KsbDefinition())).toBe(true);
     expect(isAuditedEntity(new KsEvidenceItem())).toBe(true);
+    expect(isAuditedEntity(new IlrLearnerRecord())).toBe(true);
+    expect(isAuditedEntity(new IlrSubmission())).toBe(true);
     expect(isAuditedEntity(new WithdrawalCompletionPush())).toBe(true);
     expect(isAuditedEntity({ id: 'x' })).toBe(false);
   });

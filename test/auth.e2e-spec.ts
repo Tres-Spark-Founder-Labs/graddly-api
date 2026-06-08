@@ -701,6 +701,7 @@ describe('AuthController (e2e)', () => {
         'orgEmail',
         'orgPhone',
         'website',
+        'logoUrl',
       ].sort();
       expect(Object.keys(org).sort()).toEqual(allowedKeys);
     });

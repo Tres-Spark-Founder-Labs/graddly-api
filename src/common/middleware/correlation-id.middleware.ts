@@ -4,7 +4,10 @@ import { Injectable, NestMiddleware } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
 import { NextFunction, Request, Response } from 'express';
 
-import { clearLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
+import {
+  clearLastKnownOrganisationIdForGuc,
+  clearLastKnownUserIdForGuc,
+} from '../../database/apply-tenant-gucs.js';
 import {
   clearTenantRequestContext,
   enterCorrelationContext,
@@ -50,6 +53,7 @@ export class CorrelationIdMiddleware implements NestMiddleware {
     const clearRequestTenantState = (): void => {
       resetSynchronousTenantFallback();
       clearLastKnownUserIdForGuc();
+      clearLastKnownOrganisationIdForGuc();
       clearTenantRequestContext(correlationId);
     };
     res.on('finish', clearRequestTenantState);

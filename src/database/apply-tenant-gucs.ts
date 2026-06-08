@@ -28,12 +28,23 @@ let runGucQuery: GucQueryFn | null = null;
 /** Last-resort user id when ALS is lost in pool callbacks (set from controllers/guards). */
 let lastKnownUserIdForGuc = '';
 
+/** Last-resort org id when ALS is lost in pool callbacks (set from guards). */
+let lastKnownOrganisationIdForGuc = '';
+
 export function setLastKnownUserIdForGuc(userId: string): void {
   lastKnownUserIdForGuc = userId;
 }
 
 export function clearLastKnownUserIdForGuc(): void {
   lastKnownUserIdForGuc = '';
+}
+
+export function setLastKnownOrganisationIdForGuc(organisationId: string): void {
+  lastKnownOrganisationIdForGuc = organisationId;
+}
+
+export function clearLastKnownOrganisationIdForGuc(): void {
+  lastKnownOrganisationIdForGuc = '';
 }
 
 /** Wired from {@link patchPostgresQueryRunnerForTenantGucs} to avoid recursive query patching. */
@@ -48,6 +59,7 @@ function resolveTenantGucValues(): [string, string, string] {
     getCurrentOrganisationId() ??
     tenant?.currentOrganisationId ??
     fallback.currentOrganisationId ??
+    lastKnownOrganisationIdForGuc ??
     '';
   const userId =
     getCurrentUserId() ??

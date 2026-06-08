@@ -7,4 +7,6 @@ export enum NotificationType {
   REVIEW = 'review',
   COMMITMENT = 'commitment',
   PORTFOLIO = 'portfolio',
+  ILR_SUBMISSION_SUCCEEDED = 'ilr_submission_succeeded',
+  ILR_SUBMISSION_FAILED = 'ilr_submission_failed',
 }

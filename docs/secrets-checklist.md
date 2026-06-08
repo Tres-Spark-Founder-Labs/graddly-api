@@ -60,6 +60,15 @@ See [file-storage.md](./file-storage.md) for client upload flow and allowed MIME
 | Redirect URI | `OIDC_REDIRECT_URI` | Must match the URL registered in One Login for this environment. |
 | OIDC session signing | `OIDC_SESSION_SECRET` | Min **32** characters in production/staging when OIDC is enabled. |
 
+## When ILR ESFA submit (`http` provider) is enabled
+
+| Item | Variable | Notes |
+|------|-----------|--------|
+| ILR ESFA provider | `ILR_ESFA_PROVIDER` | Set to `http` for OAuth REST stub; default `noop` needs no credentials. See [ilr.md](./ilr.md). |
+| API base / token | `ILR_ESFA_BASE_URL`, `ILR_ESFA_TOKEN_URL` | Required when provider is `http`. |
+| OAuth client | `ILR_ESFA_CLIENT_ID`, `ILR_ESFA_CLIENT_SECRET`, `ILR_ESFA_SCOPE` | Client credentials for ESFA sandbox/production when available. |
+| Submit path | `ILR_ESFA_SUBMIT_PATH` | Default `/api/v1/ilr/submit`. |
+
 ## Operational hygiene
 
 - Store secrets in your platform’s secret manager (e.g. AWS Secrets Manager, GCP Secret Manager, Vault), not only in flat `.env` files on disk.

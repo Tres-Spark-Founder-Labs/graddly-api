@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import * as path from 'path';
 
 import * as dotenv from 'dotenv';
@@ -35,6 +36,22 @@ export default async function globalSetup(): Promise<void> {
 
   for (const { tablename } of tables.rows) {
     await pg.query(`TRUNCATE TABLE "${tablename}" RESTART IDENTITY CASCADE`);
+  }
+
+  const ilrTable = await pg.query(
+    `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'ilr_mapping_configs'`,
+  );
+  if (ilrTable.rowCount) {
+    const seedPath = path.resolve(
+      __dirname,
+      '../src/ilr/config/seeds/ilr-mapping-2025-26.v1.json',
+    );
+    const config = JSON.parse(fs.readFileSync(seedPath, 'utf8')) as object;
+    await pg.query(
+      `INSERT INTO ilr_mapping_configs ("academicYear", version, status, config, "publishedAt")
+       VALUES ($1, 1, 'published', $2::jsonb, now())`,
+      ['2025-26', JSON.stringify(config)],
+    );
   }
 
   await pg.end();

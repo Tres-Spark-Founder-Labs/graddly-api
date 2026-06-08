@@ -712,6 +712,7 @@ describe('AuthController (e2e)', () => {
         'orgEmail',
         'orgPhone',
         'website',
+        'logoUrl',
       ].sort();
 
       const org = res.body.data.activeOrganisation.organisation as Record<

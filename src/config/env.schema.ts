@@ -210,6 +210,25 @@ export const envSchema = z
       .default(0),
 
     WITHDRAWAL_PUSH_ENDPOINT_URL: z.string().url().optional().default(''),
+
+    ILR_ESFA_PROVIDER: z.enum(['noop', 'http']).default('noop'),
+    ILR_ESFA_BASE_URL: z.string().url().optional().default(''),
+    ILR_ESFA_TOKEN_URL: z.string().url().optional().default(''),
+    ILR_ESFA_CLIENT_ID: z.string().optional().default(''),
+    ILR_ESFA_CLIENT_SECRET: z.string().optional().default(''),
+    ILR_ESFA_SCOPE: z.string().optional().default(''),
+    ILR_ESFA_SUBMIT_PATH: z.string().min(1).default('/api/v1/ilr/submit'),
+    ILR_ESFA_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1000)
+      .max(60000)
+      .default(15000),
+    ILR_CONFIG_WRITE_ENABLED: z
+      .string()
+      .optional()
+      .default('false')
+      .transform((v) => v === 'true'),
   })
   .superRefine((data, ctx) => {
     const deployed =

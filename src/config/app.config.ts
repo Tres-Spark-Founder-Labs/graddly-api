@@ -144,5 +144,18 @@ export default registerAs('app', () => {
     portfolio: {
       heatmapCacheTtlSeconds: e.PORTFOLIO_HEATMAP_CACHE_TTL_SECONDS,
     },
+    ilr: {
+      configWriteEnabled: e.ILR_CONFIG_WRITE_ENABLED,
+      esfa: {
+        provider: e.ILR_ESFA_PROVIDER,
+        baseUrl: e.ILR_ESFA_BASE_URL,
+        tokenUrl: e.ILR_ESFA_TOKEN_URL,
+        clientId: e.ILR_ESFA_CLIENT_ID,
+        clientSecret: e.ILR_ESFA_CLIENT_SECRET,
+        scope: e.ILR_ESFA_SCOPE,
+        submitPath: e.ILR_ESFA_SUBMIT_PATH,
+        timeoutMs: e.ILR_ESFA_TIMEOUT_MS,
+      },
+    },
   };
 });

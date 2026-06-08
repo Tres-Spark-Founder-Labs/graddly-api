@@ -4,6 +4,8 @@ import { CommitmentStatementGroup } from '../commitments/entities/commitment-sta
 import { CommitmentStatement } from '../commitments/entities/commitment-statement.entity.js';
 import { DasLevyBalance } from '../das/entities/das-levy-balance.entity.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
+import { IlrLearnerRecord } from '../ilr/entities/ilr-learner-record.entity.js';
+import { IlrSubmission } from '../ilr/entities/ilr-submission.entity.js';
 import { Invitation } from '../invitations/entities/invitation.entity.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
@@ -39,6 +41,8 @@ export type OrganisationScopedEntity =
   | KsEvidenceItem
   | KsEvidenceKsbMapping
   | EnrolmentKsbCoverage
+  | IlrLearnerRecord
+  | IlrSubmission
   | WithdrawalCompletionPush
   | (Record<string, unknown> & {
       organisationId?: string;
@@ -83,6 +87,8 @@ export function resolveAuditOrganisationId(
     entityType === 'ks_evidence_items' ||
     entityType === 'ks_evidence_ksb_mappings' ||
     entityType === 'enrolment_ksb_coverage' ||
+    entityType === 'ilr_learner_records' ||
+    entityType === 'ilr_submissions' ||
     entityType === 'withdrawal_completion_pushes'
   ) {
     const scoped = entity as { organisationId?: string };
@@ -117,6 +123,8 @@ export function isAuditedEntity(entity: unknown): boolean {
     ctor === KsEvidenceItem ||
     ctor === KsEvidenceKsbMapping ||
     ctor === EnrolmentKsbCoverage ||
+    ctor === IlrLearnerRecord ||
+    ctor === IlrSubmission ||
     ctor === WithdrawalCompletionPush
   );
 }

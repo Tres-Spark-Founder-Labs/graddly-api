@@ -1,0 +1,50 @@
+{
+  "_comment": "Minimal apprenticeship ILR field subset for 2025-26 v1 — not the full ESFA specification. Expand annually via new published mapping config versions.",
+  "academicYear": "2025-26",
+  "entities": {
+    "Learner": {
+      "LearnRefNumber": {
+        "source": "enrolment.id",
+        "transform": "ilrRef",
+        "required": true
+      },
+      "FamilyName": { "source": "apprentice.lastName", "required": true },
+      "GivenNames": { "source": "apprentice.firstName", "required": true },
+      "ULN": { "source": "manual", "required": false }
+    },
+    "LearningDelivery": {
+      "LearnAimRef": { "source": "standard.code", "required": true },
+      "LearnStartDate": {
+        "source": "enrolment.plannedStartDate",
+        "transform": "ilrDate",
+        "required": true
+      },
+      "LearnPlanEndDate": {
+        "source": "enrolment.plannedEndDate",
+        "transform": "ilrDate",
+        "required": false
+      },
+      "ProgType": { "source": "constant", "value": "25", "required": true }
+    },
+    "Provider": {
+      "UKPRN": { "source": "organisation.ukprn", "required": true }
+    }
+  },
+  "rules": [
+    {
+      "code": "ILR001",
+      "severity": "error",
+      "field": "Provider.UKPRN",
+      "type": "required",
+      "message": "Provider UKPRN is required for ILR submission."
+    },
+    {
+      "code": "ILR002",
+      "severity": "error",
+      "field": "LearningDelivery.LearnStartDate",
+      "type": "dateNotAfter",
+      "otherField": "LearningDelivery.LearnPlanEndDate",
+      "message": "Start date must be on or before planned end date."
+    }
+  ]
+}

@@ -254,6 +254,52 @@ describe('InvitationsService', () => {
     });
   });
 
+  describe('resend', () => {
+    it('re-sends invitation email for valid pending invite', async () => {
+      invitationRepo.findOne
+        .mockResolvedValueOnce({
+          id: 'inv-1',
+          email: 'new@example.com',
+          expiresAt: new Date(Date.now() + 86_400_000),
+          organisation: { id: 'org-1', name: 'Acme' },
+          invitedBy: null,
+        })
+        .mockResolvedValueOnce({
+          id: 'inv-1',
+          email: 'new@example.com',
+          role: OrganisationRole.MEMBER,
+          expiresAt: new Date(Date.now() + 86_400_000),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          invitedBy: null,
+        });
+
+      const result = await service.resend(
+        baseUser({ organisationId: 'org-1' }),
+        'inv-1',
+        PortalType.EMPLOYER,
+      );
+
+      expect(result.id).toBe('inv-1');
+      expect(redis.set).toHaveBeenCalled();
+      expect(emailDispatch.enqueue).toHaveBeenCalled();
+    });
+  });
+
+  describe('revoke', () => {
+    it('soft-removes invitation and clears accept tokens', async () => {
+      invitationRepo.findOne.mockResolvedValue({
+        id: 'inv-1',
+        organisation: { id: 'org-1' },
+        isDeleted: false,
+      });
+
+      await service.revoke(baseUser({ organisationId: 'org-1' }), 'inv-1');
+
+      expect(invitationRepo.softRemove).toHaveBeenCalled();
+    });
+  });
+
   describe('list', () => {
     it('returns paginated rows', async () => {
       const row = {

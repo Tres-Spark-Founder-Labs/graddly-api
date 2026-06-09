@@ -132,4 +132,14 @@ describe('NotificationsService', () => {
     expect(result.id).toBe('n-new');
     expect(notificationRepo.save).toHaveBeenCalled();
   });
+
+  it('marks all notifications as read for user', async () => {
+    qb.execute.mockResolvedValue({ affected: 3 });
+
+    const result = await service.markAllRead('user-1');
+
+    expect(result.updated).toBe(3);
+    expect(qb.update).toHaveBeenCalled();
+    expect(qb.execute).toHaveBeenCalled();
+  });
 });

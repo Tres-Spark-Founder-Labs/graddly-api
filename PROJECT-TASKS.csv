@@ -78,3 +78,6 @@ phase_order,phase,task_id,task,status,timeline,story_points,assignee,depends_on,
 21,U,GDP-001,Data retention scheduled jobs,Not started,Phase U,5,TBD,,
 21,U,GDP-002,Right to erasure anonymise + audit retain,Not started,Phase U,8,TBD,GDP-001 AUD-001,
 21,U,PERF-001,Index review + load-test checklist,Not started,Phase U,5,TBD,,
+22,QA,QA-001,Swagger envelope uplift on 18 controllers,Done,QA Epic,8,TBD,,"getSchemaPath envelope + auth/org extras"
+22,QA,QA-002,E2e dedicated files + route matrix,Done,QA Epic,13,TBD,,"14 new/split specs + route gap fills"
+22,QA,QA-003,Unit spec coverage complete,Done,QA Epic,21,TBD,,"23 new service specs + 37 gap fills"

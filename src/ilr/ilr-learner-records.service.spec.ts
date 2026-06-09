@@ -118,4 +118,73 @@ describe('IlrLearnerRecordsService', () => {
     expect(result.status).toBe(IlrLearnerRecordStatus.DRAFT);
     expect(result.manualOverrides['Learner.ULN']).toBe('2222222222');
   });
+
+  it('returns paginated learner records', async () => {
+    const qb = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest
+        .fn()
+        .mockResolvedValue([[buildLearnerRecordFixture()], 1]),
+    };
+    repo.createQueryBuilder.mockReturnValue(qb);
+
+    const result = await service.findAll(user as never, {
+      page: 1,
+      perPage: 10,
+    });
+
+    expect(result.items).toHaveLength(1);
+  });
+
+  it('returns learner record by id', async () => {
+    const record = {
+      ...buildLearnerRecordFixture({ id: 'record-1' }),
+      organisationId: 'org-1',
+    };
+    repo.findOne.mockResolvedValue(record);
+
+    const result = await service.findOne(user as never, 'record-1');
+
+    expect(result.id).toBe('record-1');
+  });
+
+  it('validates learner record and updates status', async () => {
+    repo.findOne.mockResolvedValue({
+      ...buildLearnerRecordFixture({ id: 'record-1' }),
+      organisationId: 'org-1',
+    });
+
+    const result = await service.validate(user as never, 'record-1');
+
+    expect(result.status).toBe(IlrLearnerRecordStatus.VALIDATED);
+    expect(repo.save).toHaveBeenCalled();
+  });
+
+  it('returns validation report without persisting', async () => {
+    repo.findOne.mockResolvedValue({
+      ...buildLearnerRecordFixture({ id: 'record-1' }),
+      organisationId: 'org-1',
+    });
+
+    const report = await service.getValidationReport(user as never, 'record-1');
+
+    expect(report).toHaveProperty('isValid');
+    expect(report).toHaveProperty('issues');
+  });
+
+  it('requires record entity for organisation', async () => {
+    const record = {
+      ...buildLearnerRecordFixture({ id: 'record-1' }),
+      organisationId: 'org-1',
+    };
+    repo.findOne.mockResolvedValue(record);
+
+    await expect(
+      service.requireRecordEntity('org-1', 'record-1'),
+    ).resolves.toEqual(record);
+  });
 });

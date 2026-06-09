@@ -14,6 +14,7 @@ import {
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
 
 import { ErrorResponseDto } from '../../common/dto/error-response.dto.js';
@@ -37,7 +38,12 @@ export class DonorOAuthController {
   })
   @ApiOkResponse({
     description: 'OAuth completed (JSON when no frontend redirect configured)',
-    type: DonorLinkResponseDto,
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(DonorLinkResponseDto) },
+      },
+    },
   })
   @ApiFoundResponse({
     description: 'Redirect to Flow portal after successful consent',

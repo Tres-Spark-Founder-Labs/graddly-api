@@ -110,6 +110,14 @@ describe('OidcAuthService', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
+  it('returns configured success redirect URI', () => {
+    configService.get.mockReturnValue('https://app.example.com/auth/callback');
+
+    expect(service.getSuccessRedirectUri()).toBe(
+      'https://app.example.com/auth/callback',
+    );
+  });
+
   it('builds success redirect URL with fragment tokens', () => {
     configService.get.mockReturnValue('https://app.example.com/auth/callback');
 

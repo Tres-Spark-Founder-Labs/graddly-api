@@ -34,6 +34,15 @@ describe('CommitmentPipelineService', () => {
     );
   });
 
+  it('maps commitment statement entity to pipeline status', () => {
+    expect(
+      service.mapFromStatement({
+        status: CommitmentStatementStatus.SIGNED,
+      } as never),
+    ).toBe(CommitmentPipelineStatus.SIGNED);
+    expect(service.mapFromStatement(null)).toBe(CommitmentPipelineStatus.NONE);
+  });
+
   it('returns the most advanced pipeline status', () => {
     expect(
       service.mostAdvanced([

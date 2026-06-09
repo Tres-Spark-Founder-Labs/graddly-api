@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 import { PdfGenerationJob } from '../pdf/entities/pdf-generation-job.entity.js';
+import { PdfJobStatus } from '../pdf/enums/pdf-job-status.enum.js';
 import { SequentialCoSignOrchestrator } from '../signing/sequential-co-sign.orchestrator.js';
 
 import { ReviewSignature } from './entities/review-signature.entity.js';
@@ -151,5 +152,30 @@ describe('ReviewsCoSignService', () => {
         '127.0.0.1',
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('initializes signature slots when snapshot PDF is ready', async () => {
+    const review = {
+      id: 'r-1',
+      organisationId: 'org-1',
+      status: ReviewStatus.IN_PROGRESS,
+      snapshotPdfJobId: 'job-1',
+      apprenticeUserId: 'u-app',
+      tutorUserId: 'u-tutor',
+      employerManagerUserId: 'u-emp',
+    };
+    pdfJobRepo.findOne.mockResolvedValue({
+      id: 'job-1',
+      status: PdfJobStatus.COMPLETED,
+      outputKey: 'pdf-key',
+    });
+    signatureRepo.count.mockResolvedValue(0);
+    signatureRepo.save.mockResolvedValue([]);
+    reviewRepo.save.mockImplementation((v: unknown) => Promise.resolve(v));
+
+    await service.initializeForSigning(review as never);
+
+    expect(signatureRepo.save).toHaveBeenCalled();
+    expect(reviewRepo.save).toHaveBeenCalled();
   });
 });

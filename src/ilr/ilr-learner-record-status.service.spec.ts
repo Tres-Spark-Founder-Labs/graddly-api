@@ -15,6 +15,10 @@ describe('IlrLearnerRecordStatusService', () => {
     );
   });
 
+  it('resets status to draft', () => {
+    expect(service.resetToDraft()).toBe(IlrLearnerRecordStatus.DRAFT);
+  });
+
   it('blocks submit unless validated', () => {
     expect(() => service.assertCanSubmit(IlrLearnerRecordStatus.DRAFT)).toThrow(
       BadRequestException,

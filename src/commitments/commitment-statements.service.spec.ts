@@ -17,8 +17,18 @@ describe('CommitmentStatementsService', () => {
     create: jest.fn((v: unknown) => v),
     save: jest.fn((v: { id?: string }) => ({ id: 'group-1', ...v })),
   };
+  const statementQueryBuilder = {
+    innerJoinAndSelect: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    skip: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
+    getManyAndCount: jest.fn(),
+  };
   const statementRepo = {
     findOne: jest.fn(),
+    createQueryBuilder: jest.fn(() => statementQueryBuilder),
     create: jest.fn((v: unknown) => v),
     save: jest.fn((v: { id?: string; version?: number }) => ({
       id: v.id ?? `stmt-${v.version ?? 1}`,
@@ -140,5 +150,177 @@ describe('CommitmentStatementsService', () => {
         employerManagerUserId: 'u3',
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('returns paginated statements', async () => {
+    const row = {
+      id: 'stmt-1',
+      groupId: 'group-1',
+      organisationId: 'org-1',
+      version: 1,
+      status: CommitmentStatementStatus.DRAFT,
+      content,
+      apprenticeUserId: 'u1',
+      tutorUserId: 'u2',
+      employerManagerUserId: 'u3',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      group: {
+        enrolmentId: 'enr-1',
+        apprenticeId: 'app-1',
+      },
+    };
+    statementQueryBuilder.getManyAndCount.mockResolvedValue([[row], 1]);
+    groupRepo.findOne.mockResolvedValue({
+      id: 'group-1',
+      enrolmentId: 'enr-1',
+      apprenticeId: 'app-1',
+    });
+
+    const result = await service.findAll(user, { page: 1, perPage: 20 });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].version).toBe(1);
+  });
+
+  it('returns statement by id', async () => {
+    statementRepo.findOne.mockResolvedValue({
+      id: 'stmt-1',
+      groupId: 'group-1',
+      organisationId: 'org-1',
+      version: 1,
+      status: CommitmentStatementStatus.DRAFT,
+      content,
+      apprenticeUserId: 'u1',
+      tutorUserId: 'u2',
+      employerManagerUserId: 'u3',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    groupRepo.findOne.mockResolvedValue({
+      id: 'group-1',
+      enrolmentId: 'enr-1',
+      apprenticeId: 'app-1',
+    });
+
+    const result = await service.findOne(user, 'stmt-1');
+
+    expect(result.id).toBe('stmt-1');
+  });
+
+  it('updates draft statement content', async () => {
+    statementRepo.findOne.mockResolvedValue({
+      id: 'stmt-1',
+      groupId: 'group-1',
+      organisationId: 'org-1',
+      version: 1,
+      status: CommitmentStatementStatus.DRAFT,
+      content,
+      apprenticeUserId: 'u1',
+      tutorUserId: 'u2',
+      employerManagerUserId: 'u3',
+    });
+    groupRepo.findOne.mockResolvedValue({
+      id: 'group-1',
+      enrolmentId: 'enr-1',
+      apprenticeId: 'app-1',
+    });
+
+    const updated = await service.update(user, 'stmt-1', {
+      content: { ...content, trainingPlanSummary: 'Updated plan' },
+    });
+
+    expect(updated.content.trainingPlanSummary).toBe('Updated plan');
+  });
+
+  it('publishes draft statement and enqueues snapshot PDF', async () => {
+    statementRepo.findOne.mockResolvedValue({
+      id: 'stmt-1',
+      groupId: 'group-1',
+      organisationId: 'org-1',
+      version: 1,
+      status: CommitmentStatementStatus.DRAFT,
+      content,
+      apprenticeUserId: 'u1',
+      tutorUserId: 'u2',
+      employerManagerUserId: 'u3',
+      snapshotPdfJobId: null,
+    });
+    groupRepo.findOne.mockResolvedValue({
+      id: 'group-1',
+      enrolmentId: 'enr-1',
+      apprenticeId: 'app-1',
+    });
+    pdfDispatch.enqueue.mockResolvedValue({ id: 'pdf-job-1' });
+
+    const result = await service.publish(user, 'stmt-1');
+
+    expect(result.status).toBe(CommitmentStatementStatus.SUBMITTED);
+    expect(pdfDispatch.enqueue).toHaveBeenCalled();
+  });
+
+  it('cancels draft statement', async () => {
+    statementRepo.findOne.mockResolvedValue({
+      id: 'stmt-1',
+      groupId: 'group-1',
+      organisationId: 'org-1',
+      version: 1,
+      status: CommitmentStatementStatus.DRAFT,
+      content,
+      apprenticeUserId: 'u1',
+      tutorUserId: 'u2',
+      employerManagerUserId: 'u3',
+    });
+    groupRepo.findOne.mockResolvedValue({
+      id: 'group-1',
+      enrolmentId: 'enr-1',
+      apprenticeId: 'app-1',
+    });
+
+    const result = await service.cancel(user, 'stmt-1');
+
+    expect(result.status).toBe(CommitmentStatementStatus.CANCELLED);
+  });
+
+  it('finds statement entity by id', async () => {
+    const entity = {
+      id: 'stmt-1',
+      organisationId: 'org-1',
+    } as CommitmentStatement;
+    statementRepo.findOne.mockResolvedValue(entity);
+
+    await expect(service.findStatementEntity(user, 'stmt-1')).resolves.toEqual(
+      entity,
+    );
+  });
+
+  it('maps statement entity to response DTO', () => {
+    const statement = {
+      id: 'stmt-1',
+      groupId: 'group-1',
+      organisationId: 'org-1',
+      version: 1,
+      status: CommitmentStatementStatus.DRAFT,
+      content,
+      apprenticeUserId: 'u1',
+      tutorUserId: 'u2',
+      employerManagerUserId: 'u3',
+      createdAt: new Date('2026-01-01'),
+      updatedAt: new Date('2026-01-02'),
+      publishedAt: null,
+      publishedByUserId: null,
+      supersededAt: null,
+      snapshotPdfJobId: null,
+      finalSignedPdfKey: null,
+    } as CommitmentStatement;
+    const group = {
+      enrolmentId: 'enr-1',
+      apprenticeId: 'app-1',
+    } as CommitmentStatementGroup;
+
+    const response = service.toResponse(statement, group);
+
+    expect(response.enrolmentId).toBe('enr-1');
+    expect(response.version).toBe(1);
   });
 });

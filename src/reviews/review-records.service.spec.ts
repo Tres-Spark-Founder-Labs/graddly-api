@@ -76,4 +76,25 @@ describe('ReviewRecordsService', () => {
       NotFoundException,
     );
   });
+
+  it('returns payload for PDF generation', async () => {
+    reviewRepo.findOne.mockResolvedValue({
+      id: 'r-1',
+      organisationId: 'org-1',
+      isDeleted: false,
+      title: 'Review 1',
+      scheduledAt: new Date('2026-06-01T10:00:00Z'),
+      apprentice: { firstName: 'Ada', lastName: 'Lovelace' },
+    });
+    recordRepo.findOne.mockResolvedValue({
+      reviewId: 'r-1',
+      organisationId: 'org-1',
+      payload,
+    });
+
+    const result = await service.getPayloadForPdf('org-1', 'r-1');
+
+    expect(result.apprenticeName).toBe('Ada Lovelace');
+    expect(result.payload).toEqual(payload);
+  });
 });

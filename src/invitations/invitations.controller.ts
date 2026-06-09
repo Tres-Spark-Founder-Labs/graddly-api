@@ -116,6 +116,7 @@ export class InvitationsController {
 
   @Get()
   @UseGuards(ActiveOrganisationGuard)
+  @ResponseMessage('Invitations retrieved successfully')
   @ApiHeader({
     name: 'X-Organisation-Id',
     description:
@@ -123,7 +124,6 @@ export class InvitationsController {
     required: false,
     schema: { format: 'uuid', type: 'string' },
   })
-  @ResponseMessage('Invitations retrieved successfully')
   @ApiOperation({ summary: 'List invitations for the active organisation' })
   @ApiOkResponse({
     description: 'Paginated invitations',
@@ -269,6 +269,7 @@ export class InvitationsController {
     schema: { format: 'uuid', type: 'string' },
   })
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ResponseMessage('Invitation revoked successfully')
   @ApiOperation({ summary: 'Revoke an invitation (owner or admin)' })
   @ApiNoContentResponse({ description: 'Invitation revoked' })
   @ApiNotFoundResponse({

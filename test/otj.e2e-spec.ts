@@ -1,30 +1,31 @@
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { App } from 'supertest/types';
 
-import { AppModule } from '../src/app.module.js';
 import { AuditAction } from '../src/audit/enums/audit-action.enum.js';
 import { ORGANISATION_ID_HEADER } from '../src/common/constants/organisation-headers.js';
-import { configureApp } from '../src/configure-app.js';
 import { OtjActivityCategory } from '../src/otj/enums/otj-activity-category.enum.js';
 import { OtjLogStatus } from '../src/otj/enums/otj-log-status.enum.js';
 
+import { createE2eApp } from './helpers/e2e-app.js';
 import { createVerifiedUser } from './helpers/e2e-http.js';
 import { buildOrgPayload } from './helpers/e2e-organisation.js';
-import { expectSuccessEnvelope } from './helpers/e2e-response-contracts.js';
+import {
+  expectPaginatedListEnvelope,
+  expectSuccessEnvelope,
+} from './helpers/e2e-response-contracts.js';
+import {
+  createEnrolment,
+  createOrgOwnerContext,
+  seedProgrammeGraph,
+} from './helpers/programme-graph-e2e.js';
+
+import type { App } from 'supertest/types';
 
 describe('OTJ log entries (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    configureApp(app);
-    await app.init();
+    app = await createE2eApp();
   });
 
   afterAll(async () => {
@@ -190,5 +191,84 @@ describe('OTJ log entries (e2e)', () => {
     expect(rows.some((row) => row.action === AuditAction.INSERT)).toBe(true);
     expect(rows.some((row) => row.action === AuditAction.UPDATE)).toBe(true);
     expect(rows.some((row) => row.action === AuditAction.DELETE)).toBe(true);
+  });
+
+  it('lists, retrieves, and bulk-rejects submitted OTJ entries', async () => {
+    const suffix = Date.now();
+    const { authHeaders } = await createOrgOwnerContext(app, 'OTJ List Org');
+    const { apprenticeId, standardId } = await seedProgrammeGraph(
+      app,
+      authHeaders,
+      { suffix },
+    );
+    const enrolmentId = await createEnrolment(
+      app,
+      authHeaders,
+      apprenticeId,
+      standardId,
+    );
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/enrolments/${enrolmentId}/activate`)
+      .set(authHeaders)
+      .expect(201);
+
+    const createRes = await request(app.getHttpServer())
+      .post('/api/v1/otj-log-entries')
+      .set(authHeaders)
+      .send({
+        enrolmentId,
+        apprenticeId,
+        activityName: 'Shadowing session',
+        category: OtjActivityCategory.JOB_SHADOWING,
+        loggedDate: '2026-02-10',
+        minutes: 90,
+      })
+      .expect(201);
+    expectSuccessEnvelope(createRes.body);
+    const otjId = (createRes.body as { data: { id: string } }).data.id;
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/otj-log-entries/${otjId}`)
+      .set(authHeaders)
+      .send({ status: OtjLogStatus.SUBMITTED })
+      .expect(200);
+
+    const listRes = await request(app.getHttpServer())
+      .get('/api/v1/otj-log-entries')
+      .query({ page: 1, perPage: 10, enrolmentId })
+      .set(authHeaders)
+      .expect(200);
+    expectPaginatedListEnvelope(listRes.body);
+    expect(
+      (listRes.body as { data: Array<{ id: string }> }).data.some(
+        (row) => row.id === otjId,
+      ),
+    ).toBe(true);
+
+    const getRes = await request(app.getHttpServer())
+      .get(`/api/v1/otj-log-entries/${otjId}`)
+      .set(authHeaders)
+      .expect(200);
+    expectSuccessEnvelope(getRes.body);
+    expect((getRes.body as { data: { id: string } }).data.id).toBe(otjId);
+
+    const rejectRes = await request(app.getHttpServer())
+      .post('/api/v1/otj-log-entries/bulk-reject')
+      .set(authHeaders)
+      .send({ ids: [otjId], reason: 'Insufficient detail' })
+      .expect(201);
+    expectSuccessEnvelope(rejectRes.body);
+    expect(
+      (rejectRes.body as { data: { succeeded: number } }).data.succeeded,
+    ).toBe(1);
+
+    const rejectedRes = await request(app.getHttpServer())
+      .get(`/api/v1/otj-log-entries/${otjId}`)
+      .set(authHeaders)
+      .expect(200);
+    expect((rejectedRes.body as { data: { status: string } }).data.status).toBe(
+      OtjLogStatus.REJECTED,
+    );
   });
 });

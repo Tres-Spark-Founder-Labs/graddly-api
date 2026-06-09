@@ -124,4 +124,49 @@ describe('ErasureService', () => {
     expect(userRepo.save).not.toHaveBeenCalled();
     expect(result.alreadyErased).toBe(true);
   });
+
+  it('routes erase request to user erasure', async () => {
+    const user = {
+      id: 'user-1',
+      firstName: 'Jane',
+      lastName: 'Doe',
+      email: 'jane@example.com',
+      phone: null,
+      dateOfBirth: null,
+      avatarUrl: null,
+      bio: null,
+      isActive: true,
+    };
+    userRepo.findOne.mockResolvedValue(user);
+    userRepo.save.mockImplementation((u: Record<string, unknown>) =>
+      Promise.resolve(u),
+    );
+
+    const result = await service.erase({
+      subjectType: ErasureSubjectType.USER,
+      subjectId: 'user-1',
+    });
+
+    expect(result.subjectType).toBe(ErasureSubjectType.USER);
+  });
+
+  it('anonymises apprentice record', async () => {
+    const apprentice = {
+      id: 'app-1',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      email: 'ada@example.com',
+      organisationId: 'org-1',
+    };
+    apprenticeRepo.findOne.mockResolvedValue(apprentice);
+    apprenticeRepo.save.mockImplementation((a: Record<string, unknown>) =>
+      Promise.resolve(a),
+    );
+    enrolmentRepo.find.mockResolvedValue([]);
+
+    const result = await service.eraseApprentice('app-1');
+
+    expect(apprentice.firstName).toBe(ERASED);
+    expect(result.subjectType).toBe(ErasureSubjectType.APPRENTICE);
+  });
 });

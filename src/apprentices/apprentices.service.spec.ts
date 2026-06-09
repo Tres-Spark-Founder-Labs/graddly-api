@@ -79,4 +79,33 @@ describe('ApprenticesService', () => {
       NotFoundException,
     );
   });
+
+  it('updates apprentice fields', async () => {
+    const apprentice = {
+      id: 'a-1',
+      organisationId: 'org-1',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      email: 'ada@example.com',
+      status: 'active',
+    } as Apprentice;
+    findOne.mockResolvedValue(apprentice);
+    save.mockImplementation((value: Apprentice) => Promise.resolve(value));
+
+    const result = await service.update(user, 'a-1', {
+      firstName: 'Augusta',
+    });
+
+    expect(result.firstName).toBe('Augusta');
+  });
+
+  it('soft-removes apprentice', async () => {
+    const apprentice = { id: 'a-1', organisationId: 'org-1' } as Apprentice;
+    findOne.mockResolvedValue(apprentice);
+    softRemove.mockResolvedValue(apprentice);
+
+    await service.remove(user, 'a-1');
+
+    expect(softRemove).toHaveBeenCalledWith(apprentice);
+  });
 });

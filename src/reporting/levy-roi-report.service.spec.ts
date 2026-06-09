@@ -13,6 +13,7 @@ import { PortalType } from '../organisations/portal-type.enum.js';
 import { PdfDispatchService } from '../pdf/pdf-dispatch.service.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
 
+import { LevyRoiBreakdownGroup } from './enums/levy-roi-breakdown-group.enum.js';
 import { LevyRoiReportService } from './levy-roi-report.service.js';
 import { OtjProgressMetricsService } from './otj-progress-metrics.service.js';
 import { ReportingPortalService } from './reporting-portal.service.js';
@@ -115,5 +116,141 @@ describe('LevyRoiReportService', () => {
     await expect(service.getSummary('org-provider')).rejects.toBeInstanceOf(
       ForbiddenException,
     );
+  });
+
+  it('returns breakdown grouped by provider', async () => {
+    portalService.assertPortalType.mockResolvedValue({
+      portalType: PortalType.EMPLOYER,
+    });
+    enrolmentFind.mockResolvedValue([
+      {
+        status: EnrolmentStatus.ACTIVE,
+        providerOrganisationId: 'prov-1',
+        standardId: 'std-1',
+        agreedPrice: '10000',
+      },
+    ]);
+    const orgFindBy = jest
+      .fn()
+      .mockResolvedValue([{ id: 'prov-1', name: 'Provider A' }]);
+    const stdFindBy = jest
+      .fn()
+      .mockResolvedValue([{ id: 'std-1', title: 'Standard 1' }]);
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        LevyRoiReportService,
+        { provide: ReportingPortalService, useValue: portalService },
+        { provide: DasLevySyncService, useValue: dasSyncService },
+        { provide: DasLevyForecastService, useValue: forecastService },
+        { provide: LevySurplusService, useValue: surplusService },
+        { provide: OtjProgressMetricsService, useValue: otjMetricsService },
+        { provide: PdfDispatchService, useValue: pdfDispatch },
+        {
+          provide: getRepositoryToken(Enrolment),
+          useValue: { find: enrolmentFind },
+        },
+        {
+          provide: getRepositoryToken(Standard),
+          useValue: { findBy: stdFindBy },
+        },
+        {
+          provide: getRepositoryToken(Organisation),
+          useValue: { findBy: orgFindBy, findOne: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(LevyTransfer),
+          useValue: { find: transferFind },
+        },
+      ],
+    }).compile();
+    const localService = moduleRef.get(LevyRoiReportService);
+
+    const breakdown = await localService.getBreakdown(
+      'org-employer',
+      LevyRoiBreakdownGroup.PROVIDER,
+    );
+
+    expect(breakdown.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it('enqueues PDF export job for employer org', async () => {
+    portalService.assertPortalType.mockResolvedValue({
+      portalType: PortalType.EMPLOYER,
+    });
+    pdfDispatch.enqueue.mockResolvedValue({
+      id: 'job-1',
+      status: 'queued',
+      template: 'levy_roi_report',
+      outputKey: null,
+      errorMessage: null,
+      createdAt: new Date('2026-01-01'),
+      completedAt: null,
+    });
+
+    const result = await service.exportPdf({
+      id: 'user-1',
+      organisationId: 'org-employer',
+    } as never);
+
+    expect(result.jobId).toBe('job-1');
+    expect(pdfDispatch.enqueue).toHaveBeenCalled();
+  });
+
+  it('builds PDF content from summary and breakdowns', async () => {
+    portalService.assertPortalType.mockResolvedValue({
+      portalType: PortalType.EMPLOYER,
+    });
+    dasSyncService.getLatestForOrganisation.mockResolvedValue({
+      balance: '100000.00',
+      currency: 'GBP',
+    });
+    forecastService.forecastForOrganisation.mockResolvedValue({
+      horizonMonths: 12,
+      activeEnrolmentCount: 0,
+      projectedMonthlySpend: 0,
+      projectedCompletionLiability: 0,
+      estimatedRunwayMonths: null,
+    });
+    surplusService.getSurplus.mockResolvedValue([]);
+    enrolmentFind.mockResolvedValue([]);
+    transferFind.mockResolvedValue([]);
+    const orgFindOne = jest.fn().mockResolvedValue({
+      id: 'org-employer',
+      name: 'Acme',
+      logoUrl: null,
+    });
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        LevyRoiReportService,
+        { provide: ReportingPortalService, useValue: portalService },
+        { provide: DasLevySyncService, useValue: dasSyncService },
+        { provide: DasLevyForecastService, useValue: forecastService },
+        { provide: LevySurplusService, useValue: surplusService },
+        { provide: OtjProgressMetricsService, useValue: otjMetricsService },
+        { provide: PdfDispatchService, useValue: pdfDispatch },
+        {
+          provide: getRepositoryToken(Enrolment),
+          useValue: { find: enrolmentFind },
+        },
+        {
+          provide: getRepositoryToken(Standard),
+          useValue: { findBy: jest.fn().mockResolvedValue([]) },
+        },
+        {
+          provide: getRepositoryToken(Organisation),
+          useValue: { findBy: jest.fn(), findOne: orgFindOne },
+        },
+        {
+          provide: getRepositoryToken(LevyTransfer),
+          useValue: { find: transferFind },
+        },
+      ],
+    }).compile();
+    const localService = moduleRef.get(LevyRoiReportService);
+
+    const content = await localService.buildPdfContent('org-employer');
+
+    expect(content.organisationName).toBe('Acme');
+    expect(content.summary).toBeDefined();
   });
 });

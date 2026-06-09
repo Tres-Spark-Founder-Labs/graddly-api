@@ -1,10 +1,7 @@
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { App } from 'supertest/types';
 
-import { AppModule } from './../src/app.module.js';
-import { configureApp } from './../src/configure-app.js';
+import { createE2eApp } from './helpers/e2e-app.js';
 import { createVerifiedUser, loginVerifiedUser } from './helpers/e2e-http.js';
 import { buildOrgPayload } from './helpers/e2e-organisation.js';
 import {
@@ -14,17 +11,13 @@ import {
 } from './helpers/e2e-response-contracts.js';
 import { findInvitationAcceptTokenForInvitationId } from './helpers/invitation-accept-redis.js';
 
+import type { App } from 'supertest/types';
+
 describe('InvitationsController (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    configureApp(app);
-    await app.init();
+    app = await createE2eApp();
   });
 
   afterAll(async () => {
@@ -123,6 +116,50 @@ describe('InvitationsController (e2e)', () => {
     expectPaginatedListEnvelope(listAfter.body);
     const rows = (listAfter.body as { data: { id: string }[] }).data;
     expect(rows.find((r) => r.id === invitationId)).toBeUndefined();
+  });
+
+  it('POST resend refreshes invitation accept token', async () => {
+    const suffix = Date.now();
+    const owner = await createVerifiedUser(app, {
+      email: `inv-resend-owner-${suffix}@example.com`,
+    });
+
+    await request(app.getHttpServer())
+      .post('/api/v1/organisations')
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send(buildOrgPayload('Resend Org'))
+      .expect(201);
+
+    const { accessToken: ownerToken } = await loginVerifiedUser(
+      app,
+      owner.email,
+      owner.password,
+    );
+
+    const createRes = await request(app.getHttpServer())
+      .post('/api/v1/invitations')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ email: `resend-invitee-${suffix}@example.com`, role: 'member' })
+      .expect(201);
+
+    const invitationId = (createRes.body as { data: { id: string } }).data.id;
+    const tokenBefore =
+      await findInvitationAcceptTokenForInvitationId(invitationId);
+    expect(tokenBefore).toBeTruthy();
+
+    const resendRes = await request(app.getHttpServer())
+      .post(`/api/v1/invitations/${invitationId}/resend`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(200);
+
+    expectSuccessEnvelope(resendRes.body);
+    expect((resendRes.body as { data: { id: string } }).data.id).toBe(
+      invitationId,
+    );
+
+    const tokenAfter =
+      await findInvitationAcceptTokenForInvitationId(invitationId);
+    expect(tokenAfter).toBeTruthy();
   });
 
   it('DELETE revoke clears accept token', async () => {

@@ -78,7 +78,15 @@ export class KsEvidenceItemsController {
   @ApiOperation({
     summary: 'Create presigned upload URL for file evidence',
   })
-  @ApiCreatedResponse({ type: PresignedUploadResponseDto })
+  @ApiCreatedResponse({
+    description: 'Presigned upload URL created',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(PresignedUploadResponseDto) },
+      },
+    },
+  })
   createUploadUrl(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateKsEvidenceUploadUrlDto,
@@ -91,7 +99,15 @@ export class KsEvidenceItemsController {
   @Post()
   @ResponseMessage('KSB evidence item created successfully')
   @ApiOperation({ summary: 'Create draft KSB evidence' })
-  @ApiCreatedResponse({ type: KsEvidenceItemResponseDto })
+  @ApiCreatedResponse({
+    description: 'KSB evidence item created',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(KsEvidenceItemResponseDto) },
+      },
+    },
+  })
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateKsEvidenceItemDto,
@@ -126,7 +142,15 @@ export class KsEvidenceItemsController {
   @Get(':id')
   @ResponseMessage('KSB evidence item retrieved successfully')
   @ApiOperation({ summary: 'Get KSB evidence item by id' })
-  @ApiOkResponse({ type: KsEvidenceItemResponseDto })
+  @ApiOkResponse({
+    description: 'KSB evidence item details',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(KsEvidenceItemResponseDto) },
+      },
+    },
+  })
   findOne(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -137,7 +161,15 @@ export class KsEvidenceItemsController {
   @Patch(':id')
   @ResponseMessage('KSB evidence item updated successfully')
   @ApiOperation({ summary: 'Update draft KSB evidence' })
-  @ApiOkResponse({ type: KsEvidenceItemResponseDto })
+  @ApiOkResponse({
+    description: 'Updated KSB evidence item',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(KsEvidenceItemResponseDto) },
+      },
+    },
+  })
   update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -151,7 +183,15 @@ export class KsEvidenceItemsController {
   @Post(':id/submit')
   @ResponseMessage('KSB evidence submitted successfully')
   @ApiOperation({ summary: 'Submit draft evidence for review' })
-  @ApiCreatedResponse({ type: KsEvidenceItemResponseDto })
+  @ApiCreatedResponse({
+    description: 'KSB evidence submitted',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(KsEvidenceItemResponseDto) },
+      },
+    },
+  })
   submit(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -166,7 +206,15 @@ export class KsEvidenceItemsController {
   @ApiOperation({
     summary: 'Mark submitted evidence as reviewed (tutor/admin)',
   })
-  @ApiCreatedResponse({ type: KsEvidenceItemResponseDto })
+  @ApiCreatedResponse({
+    description: 'KSB evidence marked as reviewed',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(KsEvidenceItemResponseDto) },
+      },
+    },
+  })
   review(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -179,7 +227,15 @@ export class KsEvidenceItemsController {
   @Post(':id/accept')
   @ResponseMessage('KSB evidence accepted successfully')
   @ApiOperation({ summary: 'Accept reviewed evidence (tutor/admin)' })
-  @ApiCreatedResponse({ type: KsEvidenceItemResponseDto })
+  @ApiCreatedResponse({
+    description: 'KSB evidence accepted',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(KsEvidenceItemResponseDto) },
+      },
+    },
+  })
   accept(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -194,7 +250,15 @@ export class KsEvidenceItemsController {
   @ApiOperation({
     summary: 'Return evidence to draft with reason (tutor/admin)',
   })
-  @ApiCreatedResponse({ type: KsEvidenceItemResponseDto })
+  @ApiCreatedResponse({
+    description: 'KSB evidence returned to draft',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(KsEvidenceItemResponseDto) },
+      },
+    },
+  })
   returnToDraft(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,

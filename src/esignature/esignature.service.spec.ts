@@ -133,6 +133,23 @@ describe('EsignatureService', () => {
     expect(result.signedPdfKey).toContain('signed-rec-1.pdf');
   });
 
+  it('returns signature record for signer', async () => {
+    recordFindOne.mockResolvedValue({
+      id: 'rec-1',
+      organisationId: 'org-1',
+      signerUserId: 'user-1',
+      signatureImageKey: 'orgs/org-1/signature/obj/sig.png',
+      signedAt: new Date(),
+      status: SignatureRecordStatus.SIGNED,
+      signedPdfKey: 'orgs/org-1/export/rec-1/signed.pdf',
+      pdfGenerationJobId: 'job-1',
+    });
+
+    const result = await service.findOne(user, 'rec-1');
+
+    expect(result.id).toBe('rec-1');
+  });
+
   it('createRecord rejects incomplete pdf jobs', async () => {
     pdfJobFindOne.mockResolvedValue({
       id: 'job-1',

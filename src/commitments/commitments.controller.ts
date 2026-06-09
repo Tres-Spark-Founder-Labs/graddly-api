@@ -80,7 +80,15 @@ export class CommitmentsController {
   @Post()
   @ResponseMessage('Commitment statement created successfully')
   @ApiOperation({ summary: 'Create commitment statement group and version 1' })
-  @ApiCreatedResponse({ type: CommitmentStatementResponseDto })
+  @ApiCreatedResponse({
+    description: 'Commitment statement created',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(CommitmentStatementResponseDto) },
+      },
+    },
+  })
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateCommitmentStatementDto,
@@ -117,7 +125,15 @@ export class CommitmentsController {
   @ApiOperation({
     summary: 'Create a new version when current is signed or cancelled',
   })
-  @ApiCreatedResponse({ type: CommitmentStatementResponseDto })
+  @ApiCreatedResponse({
+    description: 'Commitment statement version created',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(CommitmentStatementResponseDto) },
+      },
+    },
+  })
   createVersion(
     @CurrentUser() user: AuthenticatedUser,
     @Param('groupId', ParseUUIDPipe) groupId: string,
@@ -131,7 +147,15 @@ export class CommitmentsController {
   @Get(':id')
   @ResponseMessage('Commitment statement retrieved successfully')
   @ApiOperation({ summary: 'Get a commitment statement version by id' })
-  @ApiOkResponse({ type: CommitmentStatementResponseDto })
+  @ApiOkResponse({
+    description: 'Commitment statement details',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(CommitmentStatementResponseDto) },
+      },
+    },
+  })
   findOne(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -142,7 +166,15 @@ export class CommitmentsController {
   @Patch(':id')
   @ResponseMessage('Commitment statement updated successfully')
   @ApiOperation({ summary: 'Update draft commitment statement content' })
-  @ApiOkResponse({ type: CommitmentStatementResponseDto })
+  @ApiOkResponse({
+    description: 'Updated commitment statement',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(CommitmentStatementResponseDto) },
+      },
+    },
+  })
   update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -158,7 +190,15 @@ export class CommitmentsController {
   @ApiOperation({
     summary: 'Publish draft statement (submitted + snapshot PDF enqueued)',
   })
-  @ApiCreatedResponse({ type: CommitmentStatementResponseDto })
+  @ApiCreatedResponse({
+    description: 'Commitment statement published',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(CommitmentStatementResponseDto) },
+      },
+    },
+  })
   publish(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -171,7 +211,15 @@ export class CommitmentsController {
   @Post(':id/cancel')
   @ResponseMessage('Commitment statement cancelled successfully')
   @ApiOperation({ summary: 'Cancel commitment statement from allowed states' })
-  @ApiCreatedResponse({ type: CommitmentStatementResponseDto })
+  @ApiCreatedResponse({
+    description: 'Commitment statement cancelled',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(CommitmentStatementResponseDto) },
+      },
+    },
+  })
   cancel(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -187,7 +235,15 @@ export class CommitmentsController {
     summary:
       'Sign commitment as assigned party (apprentice → tutor → employer manager)',
   })
-  @ApiCreatedResponse({ type: SignCommitmentResponseDto })
+  @ApiCreatedResponse({
+    description: 'Commitment statement signed',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(SignCommitmentResponseDto) },
+      },
+    },
+  })
   sign(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,

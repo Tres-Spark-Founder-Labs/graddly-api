@@ -288,6 +288,21 @@ describe('OrganisationsService', () => {
     });
   });
 
+  describe('findAll', () => {
+    it('returns organisations ordered by createdAt desc', async () => {
+      const orgs = [
+        { id: 'org-2', name: 'B', slug: 'b' },
+        { id: 'org-1', name: 'A', slug: 'a' },
+      ] as Organisation[];
+      repository.find.mockResolvedValueOnce(orgs);
+
+      await expect(service.findAll()).resolves.toEqual(orgs);
+      expect(repository.find).toHaveBeenCalledWith({
+        order: { createdAt: 'DESC' },
+      });
+    });
+  });
+
   describe('remove', () => {
     it('soft-removes organisation', async () => {
       const org = { id: 'org-1', name: 'A', slug: 'a' } as Organisation;

@@ -1,34 +1,30 @@
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { App } from 'supertest/types';
 
-import { AppModule } from '../src/app.module.js';
 import { AuditAction } from '../src/audit/enums/audit-action.enum.js';
 import { CommitmentStatementStatus } from '../src/commitments/enums/commitment-statement-status.enum.js';
 import { ORGANISATION_ID_HEADER } from '../src/common/constants/organisation-headers.js';
-import { configureApp } from '../src/configure-app.js';
 import { PdfJobTemplate } from '../src/pdf/enums/pdf-job-template.enum.js';
 import { TripartiteParty } from '../src/signing/tripartite-party.enum.js';
 import { StorageObjectCategory } from '../src/storage/enums/storage-object-category.enum.js';
 import { noopStorageObjects } from '../src/storage/providers/noop-storage.store.js';
 
+import { createE2eApp } from './helpers/e2e-app.js';
 import { createVerifiedUser } from './helpers/e2e-http.js';
 import { buildOrgPayload } from './helpers/e2e-organisation.js';
-import { expectSuccessEnvelope } from './helpers/e2e-response-contracts.js';
+import {
+  expectPaginatedListEnvelope,
+  expectSuccessEnvelope,
+} from './helpers/e2e-response-contracts.js';
 import { processPdfJobInApp } from './helpers/process-pdf-job.js';
+
+import type { App } from 'supertest/types';
 
 describe('Commitments (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    configureApp(app);
-    await app.init();
+    app = await createE2eApp();
   });
 
   afterAll(async () => {
@@ -113,6 +109,71 @@ describe('Commitments (e2e)', () => {
     providerCommitments: 'Deliver training and reviews',
     weeklyHours: 37.5,
   };
+
+  it('lists, updates draft, and cancels commitment statements', async () => {
+    const suffix = Date.now();
+    const { owner, orgId, enrolmentId, apprenticeId } =
+      await seedOrgContext(suffix);
+
+    const createRes = await request(app.getHttpServer())
+      .post('/api/v1/commitment-statements')
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .set(ORGANISATION_ID_HEADER, orgId)
+      .send({
+        enrolmentId,
+        apprenticeId,
+        content: sampleContent,
+        apprenticeUserId: owner.userId,
+        tutorUserId: owner.userId,
+        employerManagerUserId: owner.userId,
+      })
+      .expect(201);
+    expectSuccessEnvelope(createRes.body);
+    const statementId = (createRes.body as { data: { id: string } }).data.id;
+
+    const listRes = await request(app.getHttpServer())
+      .get('/api/v1/commitment-statements')
+      .query({ page: 1, perPage: 10, enrolmentId })
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .set(ORGANISATION_ID_HEADER, orgId)
+      .expect(200);
+    expectPaginatedListEnvelope(listRes.body);
+    expect(
+      (listRes.body as { data: Array<{ id: string }> }).data.some(
+        (row) => row.id === statementId,
+      ),
+    ).toBe(true);
+
+    const updateRes = await request(app.getHttpServer())
+      .patch(`/api/v1/commitment-statements/${statementId}`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .set(ORGANISATION_ID_HEADER, orgId)
+      .send({
+        content: {
+          ...sampleContent,
+          trainingPlanSummary: 'Updated apprenticeship plan',
+        },
+      })
+      .expect(200);
+    expectSuccessEnvelope(updateRes.body);
+    expect(
+      (
+        updateRes.body as {
+          data: { content: { trainingPlanSummary: string } };
+        }
+      ).data.content.trainingPlanSummary,
+    ).toBe('Updated apprenticeship plan');
+
+    const cancelRes = await request(app.getHttpServer())
+      .post(`/api/v1/commitment-statements/${statementId}/cancel`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .set(ORGANISATION_ID_HEADER, orgId)
+      .expect(201);
+    expectSuccessEnvelope(cancelRes.body);
+    expect((cancelRes.body as { data: { status: string } }).data.status).toBe(
+      CommitmentStatementStatus.CANCELLED,
+    );
+  });
 
   it('lifecycle: publish, sign chain, version supersede, audit export', async () => {
     const suffix = Date.now();

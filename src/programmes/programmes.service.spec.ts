@@ -71,4 +71,29 @@ describe('ProgrammesService', () => {
       NotFoundException,
     );
   });
+
+  it('updates programme fields', async () => {
+    const programme = {
+      id: 'p-1',
+      organisationId: 'org-1',
+      code: 'PROG-1',
+      title: 'Old',
+    } as Programme;
+    findOne.mockResolvedValue(programme);
+    save.mockImplementation((value: Programme) => Promise.resolve(value));
+
+    const result = await service.update(user, 'p-1', { title: 'New' });
+
+    expect(result.title).toBe('New');
+  });
+
+  it('soft-removes programme', async () => {
+    const programme = { id: 'p-1', organisationId: 'org-1' } as Programme;
+    findOne.mockResolvedValue(programme);
+    softRemove.mockResolvedValue(programme);
+
+    await service.remove(user, 'p-1');
+
+    expect(softRemove).toHaveBeenCalledWith(programme);
+  });
 });

@@ -13,6 +13,7 @@ describe('StandardsService', () => {
   const standardCreate = jest.fn();
   const standardSave = jest.fn();
   const standardFindAndCount = jest.fn();
+  const standardSoftRemove = jest.fn();
   const programmeFindOne = jest.fn();
 
   beforeEach(async () => {
@@ -26,7 +27,7 @@ describe('StandardsService', () => {
             create: standardCreate,
             save: standardSave,
             findAndCount: standardFindAndCount,
-            softRemove: jest.fn(),
+            softRemove: standardSoftRemove,
           },
         },
         {
@@ -91,5 +92,40 @@ describe('StandardsService', () => {
     const result = await service.findAll(user, { page: 1, perPage: 5 });
     expect(result.items).toHaveLength(1);
     expect(result.meta.perPage).toBe(5);
+  });
+
+  it('returns standard when found', async () => {
+    const standard = { id: 'std-1', organisationId: 'org-1' } as Standard;
+    standardFindOne.mockResolvedValue(standard);
+
+    await expect(service.findOne(user, 'std-1')).resolves.toEqual(standard);
+  });
+
+  it('updates standard fields', async () => {
+    const standard = {
+      id: 'std-1',
+      organisationId: 'org-1',
+      programmeId: 'prog-1',
+      code: 'STD-1',
+      title: 'Old',
+    } as Standard;
+    standardFindOne.mockResolvedValue(standard);
+    standardSave.mockImplementation((value: Standard) =>
+      Promise.resolve(value),
+    );
+
+    const result = await service.update(user, 'std-1', { title: 'New' });
+
+    expect(result.title).toBe('New');
+  });
+
+  it('soft-removes standard', async () => {
+    const standard = { id: 'std-1', organisationId: 'org-1' } as Standard;
+    standardFindOne.mockResolvedValue(standard);
+    standardSoftRemove.mockResolvedValue(standard);
+
+    await service.remove(user, 'std-1');
+
+    expect(standardSoftRemove).toHaveBeenCalledWith(standard);
   });
 });

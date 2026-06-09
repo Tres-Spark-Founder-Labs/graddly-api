@@ -15,10 +15,14 @@ describe('StorageService', () => {
 
   const createUploadUrlMock = jest.fn();
   const createDownloadUrlMock = jest.fn();
+  const putObjectMock = jest.fn();
+  const getObjectBufferMock = jest.fn();
 
   const storage: IStorageProvider = {
     createUploadUrl: createUploadUrlMock,
     createDownloadUrl: createDownloadUrlMock,
+    putObject: putObjectMock,
+    getObjectBuffer: getObjectBufferMock,
   };
 
   const config = {
@@ -93,5 +97,30 @@ describe('StorageService', () => {
         key: 'orgs/99999999-9999-9999-9999-999999999999/general/obj/file.pdf',
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('puts object buffer for keys in the same org', async () => {
+    const orgId = '11111111-1111-1111-1111-111111111111';
+    const key = `orgs/${orgId}/export/obj/file.pdf`;
+    putObjectMock.mockResolvedValue(undefined);
+
+    await service.putObject(orgId, key, Buffer.from('pdf'), 'application/pdf');
+
+    expect(putObjectMock).toHaveBeenCalledWith({
+      key,
+      body: Buffer.from('pdf'),
+      contentType: 'application/pdf',
+    });
+  });
+
+  it('reads object buffer for keys in the same org', async () => {
+    const orgId = '11111111-1111-1111-1111-111111111111';
+    const key = `orgs/${orgId}/general/obj/file.pdf`;
+    getObjectBufferMock.mockResolvedValue(Buffer.from('bytes'));
+
+    const buffer = await service.getObjectBuffer(orgId, key);
+
+    expect(buffer).toEqual(Buffer.from('bytes'));
+    expect(getObjectBufferMock).toHaveBeenCalledWith(key);
   });
 });

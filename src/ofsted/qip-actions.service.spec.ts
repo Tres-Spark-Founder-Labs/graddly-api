@@ -87,4 +87,87 @@ describe('QipActionsService', () => {
     });
     expect(eifScoreCache.invalidate).toHaveBeenCalledWith('org-1');
   });
+
+  it('returns paginated QIP actions', async () => {
+    const getManyAndCount = jest.fn().mockResolvedValue([
+      [
+        {
+          id: 'qip-1',
+          organisationId: 'org-1',
+          title: 'Action',
+          description: null,
+          assignedOwnerUserId: 'user-1',
+          targetCompletionDate: '2026-12-31',
+          eifCriterionSlug: 'safeguarding',
+          evidenceNotes: null,
+          evidenceAttachmentKeys: null,
+          status: QipActionStatus.IN_PROGRESS,
+        },
+      ],
+      1,
+    ]);
+    repo.createQueryBuilder.mockReturnValue({
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount,
+    });
+
+    const result = await service.findAll(user, { page: 1, perPage: 20 });
+
+    expect(result.items).toHaveLength(1);
+  });
+
+  it('returns summary counts by status', async () => {
+    repo.find.mockResolvedValue([
+      {
+        status: QipActionStatus.IN_PROGRESS,
+        targetCompletionDate: '2026-12-31',
+      },
+      {
+        status: QipActionStatus.COMPLETED,
+        targetCompletionDate: '2026-12-31',
+      },
+    ]);
+
+    const summary = await service.getSummary(user);
+
+    expect(summary.total).toBe(2);
+    expect(summary.completed).toBe(1);
+  });
+
+  it('updates QIP action', async () => {
+    repo.findOne.mockResolvedValue({
+      id: 'qip-1',
+      organisationId: 'org-1',
+      title: 'Old',
+      description: null,
+      assignedOwnerUserId: 'user-1',
+      targetCompletionDate: '2026-12-31',
+      eifCriterionSlug: 'safeguarding',
+      evidenceNotes: null,
+      evidenceAttachmentKeys: null,
+      status: QipActionStatus.IN_PROGRESS,
+    });
+    repo.save.mockImplementation((v: unknown) => Promise.resolve(v));
+
+    const result = await service.update(user, 'qip-1', { title: 'New' });
+
+    expect(result.title).toBe('New');
+    expect(eifScoreCache.invalidate).toHaveBeenCalledWith('org-1');
+  });
+
+  it('soft-removes QIP action', async () => {
+    const row = { id: 'qip-1', organisationId: 'org-1' };
+    repo.findOne.mockResolvedValue(row);
+    repo.softRemove.mockResolvedValue(row);
+
+    await service.remove(user, 'qip-1');
+
+    expect(repo.softRemove).toHaveBeenCalledWith(row);
+    expect(eifScoreCache.invalidate).toHaveBeenCalledWith('org-1');
+  });
 });

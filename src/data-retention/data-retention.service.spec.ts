@@ -11,11 +11,15 @@ import { Notification } from '../notifications/entities/notification.entity.js';
 import { DataRetentionService } from './data-retention.service.js';
 
 describe('DataRetentionService', () => {
-  const auditRepo = { createQueryBuilder: jest.fn() };
-  const notificationRepo = { createQueryBuilder: jest.fn() };
-  const messageThreadRepo = { createQueryBuilder: jest.fn() };
-  const messageRepo = { createQueryBuilder: jest.fn() };
-  const invitationRepo = { createQueryBuilder: jest.fn() };
+  const repoWithMetadata = (tableName: string) => ({
+    metadata: { tableName },
+    createQueryBuilder: jest.fn(),
+  });
+  const auditRepo = repoWithMetadata('audit_log_entries');
+  const notificationRepo = repoWithMetadata('notifications');
+  const messageThreadRepo = repoWithMetadata('message_threads');
+  const messageRepo = repoWithMetadata('messages');
+  const invitationRepo = repoWithMetadata('invitations');
 
   const configGet = jest.fn();
 
@@ -29,7 +33,14 @@ describe('DataRetentionService', () => {
       limit: jest.fn().mockReturnThis(),
       getRawMany: jest.fn().mockResolvedValue([]),
     };
-    repo.createQueryBuilder.mockReturnValue(selectQb);
+    const deleteQb = {
+      delete: jest.fn().mockReturnThis(),
+      whereInIds: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 0 }),
+    };
+    repo.createQueryBuilder.mockImplementation((alias?: string) =>
+      alias ? selectQb : deleteQb,
+    );
     return selectQb;
   }
 
@@ -86,5 +97,42 @@ describe('DataRetentionService', () => {
     const deleted = await service.purgeExpiredAuditLogs();
     expect(deleted).toBe(0);
     expect(auditRepo.createQueryBuilder).toHaveBeenCalled();
+  });
+
+  it('reports whether retention cron is enabled', () => {
+    expect(service.isEnabled()).toBe(false);
+    configGet.mockImplementation((key: string) => {
+      if (key === 'app.cron.retentionEnabled') return true;
+      return undefined;
+    });
+    expect(service.isEnabled()).toBe(true);
+  });
+
+  it('computes day-based cutoff', () => {
+    const cutoff = service.daysAgo(90);
+    const expected = new Date();
+    expected.setUTCDate(expected.getUTCDate() - 90);
+    expect(cutoff.getUTCDate()).toBe(expected.getUTCDate());
+  });
+
+  it('purges soft-deleted records in batches', async () => {
+    for (const repo of [
+      notificationRepo,
+      messageRepo,
+      messageThreadRepo,
+      invitationRepo,
+    ]) {
+      mockBatchDelete(repo);
+    }
+    const deleted = await service.purgeSoftDeletedRecords(90);
+    expect(deleted).toBe(0);
+    expect(invitationRepo.createQueryBuilder).toHaveBeenCalled();
+  });
+
+  it('purges old read notifications in batches', async () => {
+    mockBatchDelete(notificationRepo);
+    const deleted = await service.purgeOldReadNotifications(365);
+    expect(deleted).toBe(0);
+    expect(notificationRepo.createQueryBuilder).toHaveBeenCalled();
   });
 });

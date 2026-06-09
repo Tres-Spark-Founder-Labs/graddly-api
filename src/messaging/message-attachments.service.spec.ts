@@ -80,6 +80,12 @@ describe('MessageAttachmentsService', () => {
     ).not.toThrow();
   });
 
+  it('rejects disallowed attachment content types', () => {
+    expect(() =>
+      service.assertAttachmentMetadata('application/x-msdownload', 100),
+    ).toThrow(BadRequestException);
+  });
+
   it('rejects storage keys outside organisation', () => {
     keyBuilder.belongsToOrganisation.mockReturnValue(false);
     expect(() =>

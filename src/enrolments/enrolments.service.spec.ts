@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
@@ -17,6 +17,8 @@ describe('EnrolmentsService', () => {
 
   const enrolmentFindOne = jest.fn();
   const enrolmentSave = jest.fn();
+  const enrolmentCreate = jest.fn();
+  const enrolmentFindAndCount = jest.fn();
   const apprenticeFindOne = jest.fn();
   const standardFindOne = jest.fn();
   const organisationFindOne = jest.fn();
@@ -30,6 +32,8 @@ describe('EnrolmentsService', () => {
           useValue: {
             findOne: enrolmentFindOne,
             save: enrolmentSave,
+            create: enrolmentCreate,
+            findAndCount: enrolmentFindAndCount,
           },
         },
         {
@@ -138,6 +142,64 @@ describe('EnrolmentsService', () => {
     });
 
     expect(result.employerOrganisationId).toBe('emp-1');
+  });
+
+  it('creates draft enrolment', async () => {
+    apprenticeFindOne.mockResolvedValue({ id: 'app-1' });
+    standardFindOne.mockResolvedValue({ id: 'std-1' });
+    enrolmentFindOne.mockResolvedValue(null);
+    enrolmentCreate.mockImplementation((v: unknown) => v);
+    enrolmentSave.mockImplementation((v: Enrolment) => Promise.resolve(v));
+
+    const result = await service.create(user, {
+      apprenticeId: 'app-1',
+      standardId: 'std-1',
+    });
+
+    expect(result.status).toBe(EnrolmentStatus.DRAFT);
+  });
+
+  it('returns paginated enrolments', async () => {
+    enrolmentFindAndCount.mockResolvedValue([[{ id: 'enr-1' }], 1]);
+
+    const result = await service.findAll(user, { page: 1, perPage: 10 });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.meta.total).toBe(1);
+  });
+
+  it('throws not found when enrolment missing', async () => {
+    enrolmentFindOne.mockResolvedValue(null);
+    await expect(service.findOne(user, 'missing')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('syncs participants when fields are unset', async () => {
+    const enrolment = {
+      id: 'enr-1',
+      apprenticeUserId: null,
+      tutorUserId: null,
+      employerManagerUserId: null,
+      isDeleted: false,
+    } as Enrolment;
+    enrolmentFindOne.mockResolvedValue(enrolment);
+    enrolmentSave.mockImplementation((v: Enrolment) => Promise.resolve(v));
+
+    const result = await service.syncParticipantsIfUnset('enr-1', {
+      apprenticeUserId: 'u-app',
+      tutorUserId: 'u-tutor',
+      employerManagerUserId: 'u-mgr',
+    });
+
+    expect(result?.apprenticeUserId).toBe('u-app');
+  });
+
+  it('finds enrolment by organisation id', async () => {
+    enrolmentFindOne.mockResolvedValue({ id: 'enr-1' });
+    await expect(
+      service.findByIdForOrganisation('org-1', 'enr-1'),
+    ).resolves.toEqual({ id: 'enr-1' });
   });
 
   it('cancels active enrolment', async () => {

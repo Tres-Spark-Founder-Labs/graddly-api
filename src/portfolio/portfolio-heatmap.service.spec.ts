@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { EnrolmentKsbCoverage } from './entities/enrolment-ksb-coverage.entity.js';
+import { KsbCoverageAssessment } from './enums/ksb-coverage-assessment.enum.js';
 import { KsbHeatmapStrength } from './enums/ksb-heatmap-strength.enum.js';
 import { KsbKind } from './enums/ksb-kind.enum.js';
 import { KsbDefinitionsService } from './ksb-definitions.service.js';
@@ -96,5 +97,27 @@ describe('PortfolioHeatmapService', () => {
     const result = await service.getHeatmap(user, 'enr-1');
     expect(result.cells[0].evidenceCount).toBe(2);
     expect(result.cells[0].strength).toBe(KsbHeatmapStrength.ADEQUATE);
+  });
+
+  it('upserts coverage for a KSB definition', async () => {
+    const adminUser = { ...user, roles: ['owner'] };
+    ksbDefinitionsService.findEntitiesForStandard.mockResolvedValue([
+      { id: 'ksb-1' },
+    ]);
+    coverageRepo.findOne.mockResolvedValue(null);
+    coverageRepo.save.mockImplementation((v: unknown) =>
+      Promise.resolve({
+        ...(v as object),
+        assessedAt: new Date('2026-01-01T00:00:00.000Z'),
+      }),
+    );
+    heatmapCache.invalidate.mockResolvedValue(undefined);
+
+    const result = await service.upsertCoverage(adminUser, 'enr-1', 'ksb-1', {
+      assessment: KsbCoverageAssessment.SUFFICIENT,
+    });
+
+    expect(result.ksbDefinitionId).toBe('ksb-1');
+    expect(heatmapCache.invalidate).toHaveBeenCalledWith('org-1', 'enr-1');
   });
 });

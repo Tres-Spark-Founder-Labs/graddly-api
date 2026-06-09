@@ -28,6 +28,7 @@ describe('MessagesService', () => {
   const enrolmentRepo = { findOne: jest.fn() };
   const threadsService = {
     getThreadForMessaging: jest.fn(),
+    ensureThreadsForEnrolment: jest.fn(),
   };
   const accessService = {
     assertCanRead: jest.fn(),
@@ -130,5 +131,17 @@ describe('MessagesService', () => {
 
     expect(attachmentsService.assertAttachmentStorageKey).toHaveBeenCalled();
     expect(attachmentRepo.save).toHaveBeenCalled();
+  });
+
+  it('provisions threads for enrolment', async () => {
+    enrolmentRepo.findOne.mockResolvedValue({
+      id: 'e-1',
+      organisationId: 'org-1',
+      isDeleted: false,
+    });
+
+    await service.provisionThreadsForEnrolment('e-1');
+
+    expect(threadsService.ensureThreadsForEnrolment).toHaveBeenCalled();
   });
 });

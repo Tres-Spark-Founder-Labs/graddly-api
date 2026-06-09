@@ -173,6 +173,50 @@ describe('IlrSubmissionService', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('lists submissions for learner record', async () => {
+    submissionRepo.find.mockResolvedValue([
+      {
+        id: 'sub-1',
+        organisationId: 'org-1',
+        ilrLearnerRecordId: validatedRecord.id,
+        status: IlrSubmissionStatus.SUBMITTED,
+        attempt: 1,
+        esfaReference: 'ESFA-1',
+        receipt: {},
+        lastError: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+
+    const rows = await service.listForRecord(
+      owner as never,
+      validatedRecord.id,
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe('sub-1');
+  });
+
+  it('returns submission by id', async () => {
+    submissionRepo.findOne.mockResolvedValue({
+      id: 'sub-1',
+      organisationId: 'org-1',
+      ilrLearnerRecordId: validatedRecord.id,
+      status: IlrSubmissionStatus.SUBMITTED,
+      attempt: 1,
+      esfaReference: 'ESFA-1',
+      receipt: {},
+      lastError: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await service.findOne(owner as never, 'sub-1');
+
+    expect(result.id).toBe('sub-1');
+  });
+
   it('records failure and rethrows when ESFA client fails', async () => {
     esfaClient.submit.mockRejectedValue(
       new InternalServerErrorException('submit failed'),

@@ -114,6 +114,69 @@ describe('MessageThreadsService', () => {
     expect(threads[0].archivedAt).toBeInstanceOf(Date);
   });
 
+  it('lists accessible threads for user', async () => {
+    const getMany = jest.fn().mockResolvedValue([
+      {
+        id: 't-1',
+        organisationId: 'org-1',
+        enrolmentId: 'e-1',
+        apprenticeId: 'a-1',
+        apprenticeUserId: 'u-app',
+        counterpartyUserId: 'u-tutor',
+        counterpartyParty: MessageThreadParty.TUTOR,
+        archivedAt: null,
+        createdAt: new Date('2026-01-01'),
+        updatedAt: new Date('2026-01-02'),
+      },
+    ]);
+    threadRepo.createQueryBuilder.mockReturnValue({
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getMany,
+    });
+    readRepo.findOne.mockResolvedValue(null);
+    messageRepo.createQueryBuilder.mockReturnValue({
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getCount: jest.fn().mockResolvedValue(0),
+    });
+
+    const result = await service.list(user, { enrolmentId: 'e-1' });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('t-1');
+  });
+
+  it('marks thread as read for participant', async () => {
+    threadRepo.findOne.mockResolvedValue({
+      id: 't-1',
+      organisationId: 'org-1',
+      apprenticeUserId: 'u-app',
+      counterpartyUserId: 'u-tutor',
+      isDeleted: false,
+    });
+    readRepo.findOne.mockResolvedValue(null);
+    readRepo.save.mockResolvedValue(undefined);
+
+    await service.markRead(user, 't-1');
+
+    expect(readRepo.save).toHaveBeenCalled();
+  });
+
+  it('returns thread entity for messaging', async () => {
+    const thread = {
+      id: 't-1',
+      organisationId: 'org-1',
+      isDeleted: false,
+    };
+    threadRepo.findOne.mockResolvedValue(thread);
+
+    await expect(
+      service.getThreadForMessaging('org-1', 't-1'),
+    ).resolves.toEqual(thread);
+  });
+
   it('throws when thread not found', async () => {
     threadRepo.findOne.mockResolvedValue(null);
     await expect(service.findOne(user, 'missing')).rejects.toBeInstanceOf(

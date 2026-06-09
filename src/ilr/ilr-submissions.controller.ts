@@ -14,6 +14,7 @@ import {
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
+  ApiNotFoundResponse,
   getSchemaPath,
 } from '@nestjs/swagger';
 
@@ -60,6 +61,10 @@ export class IlrSubmissionsController {
         data: { $ref: getSchemaPath(IlrSubmissionResponseDto) },
       },
     },
+  })
+  @ApiNotFoundResponse({
+    description: 'ILR submission not found',
+    type: ErrorResponseDto,
   })
   findOne(
     @CurrentUser() user: AuthenticatedUser,

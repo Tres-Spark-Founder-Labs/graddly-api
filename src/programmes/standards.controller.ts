@@ -221,6 +221,7 @@ export class StandardsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ResponseMessage('Standard deleted successfully')
   @ApiOperation({ summary: 'Soft-delete standard by id' })
   @ApiNoContentResponse({ description: 'Standard deleted' })
   @ApiNotFoundResponse({

@@ -187,6 +187,7 @@ export class ApprenticesController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ResponseMessage('Apprentice deleted successfully')
   @ApiOperation({ summary: 'Soft-delete apprentice in active organisation' })
   @ApiNoContentResponse({ description: 'Apprentice deleted' })
   @ApiNotFoundResponse({

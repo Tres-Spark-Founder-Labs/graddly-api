@@ -1,35 +1,28 @@
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { App } from 'supertest/types';
 
-import { AppModule } from '../src/app.module.js';
 import { AuditAction } from '../src/audit/enums/audit-action.enum.js';
 import { ORGANISATION_ID_HEADER } from '../src/common/constants/organisation-headers.js';
 import {
   setCurrentOrganisationId,
   setCurrentUserId,
 } from '../src/common/context/correlation-id-context.js';
-import { configureApp } from '../src/configure-app.js';
 import { DasHttpClient } from '../src/das/das-http.client.js';
 import { DasLevySyncService } from '../src/das/das-levy-sync.service.js';
 import { setLastKnownUserIdForGuc } from '../src/database/apply-tenant-gucs.js';
 
+import { createE2eApp } from './helpers/e2e-app.js';
 import { createVerifiedUser } from './helpers/e2e-http.js';
 import { buildOrgPayload } from './helpers/e2e-organisation.js';
 import { expectSuccessEnvelope } from './helpers/e2e-response-contracts.js';
+
+import type { App } from 'supertest/types';
 
 describe('DASController (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    configureApp(app);
-    await app.init();
+    app = await createE2eApp();
   });
 
   afterAll(async () => {
@@ -108,5 +101,23 @@ describe('DASController (e2e)', () => {
     ).data;
     expect(rows.some((row) => row.action === AuditAction.INSERT)).toBe(true);
     expect(rows.some((row) => row.action === AuditAction.UPDATE)).toBe(true);
+
+    const forecastRes = await request(app.getHttpServer())
+      .get('/api/v1/das/levy-forecast')
+      .query({ horizonMonths: 12 })
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .set(ORGANISATION_ID_HEADER, organisationId)
+      .expect(200);
+    expectSuccessEnvelope(forecastRes.body);
+    expect(forecastRes.body.data).toEqual(
+      expect.objectContaining({
+        organisationId,
+        horizonMonths: 12,
+        activeEnrolmentCount: expect.any(Number),
+        projectedMonthlySpend: expect.any(Number),
+        projectedCompletionLiability: expect.any(Number),
+        latestLevyBalance: 321.5,
+      }),
+    );
   });
 });

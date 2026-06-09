@@ -132,4 +132,29 @@ describe('CommitmentsCoSignService', () => {
       ),
     ).rejects.toBeInstanceOf(ConflictException);
   });
+
+  it('initializes signature slots when snapshot PDF is ready', async () => {
+    const statement = {
+      id: 'stmt-1',
+      organisationId: 'org-1',
+      status: CommitmentStatementStatus.SUBMITTED,
+      snapshotPdfJobId: 'pdf-1',
+      apprenticeUserId: 'u-app',
+      tutorUserId: 'u-tutor',
+      employerManagerUserId: 'u-mgr',
+      version: 1,
+    };
+    pdfJobRepo.findOne.mockResolvedValue({
+      status: PdfJobStatus.COMPLETED,
+      outputKey: 'pdf-key',
+    });
+    signatureRepo.count.mockResolvedValue(0);
+    signatureRepo.save.mockResolvedValue([]);
+    statementRepo.save.mockImplementation((v: unknown) => Promise.resolve(v));
+
+    await service.initializeForSigning(statement as never);
+
+    expect(signatureRepo.save).toHaveBeenCalled();
+    expect(statementRepo.save).toHaveBeenCalled();
+  });
 });

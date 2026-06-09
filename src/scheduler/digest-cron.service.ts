@@ -57,7 +57,7 @@ export class DigestCronService implements OnModuleInit, OnModuleDestroy {
     this.schedulerRegistry.deleteCronJob(DIGEST_CRON_NAME);
   }
 
-  private async handleDigestCron(): Promise<void> {
+  async handleDigestCron(): Promise<void> {
     await this.cronLock.runExclusive(DIGEST_CRON_NAME, () => {
       this.logger.log(
         'Digest cron tick (skeleton): weekly OTJ digest enqueue deferred until Phase M',

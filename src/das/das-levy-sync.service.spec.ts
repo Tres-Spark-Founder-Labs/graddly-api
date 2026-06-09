@@ -61,6 +61,24 @@ describe('DasLevySyncService', () => {
     expect(result.balance).toBe('99.20');
   });
 
+  it('returns latest levy balance for organisation', async () => {
+    levyFindOne.mockResolvedValue({
+      organisationId: 'org-1',
+      ukprn: '12345678',
+      accountId: 'acc-1',
+      balance: '50.00',
+      currency: 'GBP',
+      lastSyncStatus: DasSyncStatus.SUCCESS,
+      lastErrorMessage: null,
+      lastSyncedAt: new Date('2026-01-01'),
+    });
+
+    const result = await service.getLatestForOrganisation('org-1');
+
+    expect(result.balance).toBe('50.00');
+    expect(result.organisationId).toBe('org-1');
+  });
+
   it('throws not found when organisation missing', async () => {
     orgFindOne.mockResolvedValue(null);
     await expect(service.syncOrganisation('org-x')).rejects.toBeInstanceOf(

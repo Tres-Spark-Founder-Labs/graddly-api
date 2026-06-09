@@ -92,7 +92,15 @@ export class ReviewsController {
   @Post()
   @ResponseMessage('Review scheduled successfully')
   @ApiOperation({ summary: 'Schedule a review' })
-  @ApiCreatedResponse({ type: ReviewResponseDto })
+  @ApiCreatedResponse({
+    description: 'Review scheduled',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(ReviewResponseDto) },
+      },
+    },
+  })
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateReviewDto,
@@ -105,7 +113,15 @@ export class ReviewsController {
   @Post('bulk-schedule')
   @ResponseMessage('Bulk review scheduling completed')
   @ApiOperation({ summary: 'Bulk schedule reviews (max 20)' })
-  @ApiCreatedResponse({ type: BulkScheduleReviewsResponseDto })
+  @ApiCreatedResponse({
+    description: 'Bulk scheduling result',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(BulkScheduleReviewsResponseDto) },
+      },
+    },
+  })
   bulkSchedule(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: BulkScheduleReviewsDto,
@@ -169,7 +185,15 @@ export class ReviewsController {
   @Get(':id')
   @ResponseMessage('Review retrieved successfully')
   @ApiOperation({ summary: 'Get a review by id' })
-  @ApiOkResponse({ type: ReviewResponseDto })
+  @ApiOkResponse({
+    description: 'Review details',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(ReviewResponseDto) },
+      },
+    },
+  })
   findOne(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -180,7 +204,15 @@ export class ReviewsController {
   @Patch(':id')
   @ResponseMessage('Review updated successfully')
   @ApiOperation({ summary: 'Update or reschedule a review' })
-  @ApiOkResponse({ type: ReviewResponseDto })
+  @ApiOkResponse({
+    description: 'Updated review',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(ReviewResponseDto) },
+      },
+    },
+  })
   update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -194,7 +226,15 @@ export class ReviewsController {
   @Put(':id/record')
   @ResponseMessage('Review record saved successfully')
   @ApiOperation({ summary: 'Create or update review record payload' })
-  @ApiOkResponse({ type: ReviewRecordResponseDto })
+  @ApiOkResponse({
+    description: 'Review record saved',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(ReviewRecordResponseDto) },
+      },
+    },
+  })
   upsertRecord(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -208,7 +248,15 @@ export class ReviewsController {
   @Get(':id/record')
   @ResponseMessage('Review record retrieved successfully')
   @ApiOperation({ summary: 'Get review record payload' })
-  @ApiOkResponse({ type: ReviewRecordResponseDto })
+  @ApiOkResponse({
+    description: 'Review record details',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(ReviewRecordResponseDto) },
+      },
+    },
+  })
   getRecord(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -219,7 +267,15 @@ export class ReviewsController {
   @Post(':id/snapshot-pdf')
   @ResponseMessage('Review snapshot PDF job requested')
   @ApiOperation({ summary: 'Enqueue review snapshot PDF generation' })
-  @ApiCreatedResponse({ type: PdfJobResponseDto })
+  @ApiCreatedResponse({
+    description: 'Queued PDF generation job',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(PdfJobResponseDto) },
+      },
+    },
+  })
   requestSnapshot(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -235,7 +291,15 @@ export class ReviewsController {
     summary:
       'Sign review as assigned party (apprentice → tutor → employer manager)',
   })
-  @ApiCreatedResponse({ type: SignReviewResponseDto })
+  @ApiCreatedResponse({
+    description: 'Review signed',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(SignReviewResponseDto) },
+      },
+    },
+  })
   sign(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,

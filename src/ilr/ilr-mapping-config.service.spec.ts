@@ -109,6 +109,57 @@ describe('IlrMappingConfigService', () => {
     );
   });
 
+  it('lists all mapping configs', async () => {
+    repo.find.mockResolvedValue([
+      {
+        id: 'cfg-1',
+        academicYear: '2025-26',
+        version: 1,
+        status: IlrMappingConfigStatus.PUBLISHED,
+        config: minimalMappingConfig,
+        publishedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+
+    const result = await service.findAll();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].academicYear).toBe('2025-26');
+  });
+
+  it('returns active published entity', async () => {
+    const entity = {
+      id: 'cfg-1',
+      academicYear: '2025-26',
+      version: 1,
+      status: IlrMappingConfigStatus.PUBLISHED,
+      config: minimalMappingConfig,
+    };
+    repo.findOne.mockResolvedValue(entity);
+
+    await expect(service.getActivePublishedEntity('2025-26')).resolves.toEqual(
+      entity,
+    );
+  });
+
+  it('creates draft config with next version', async () => {
+    repo.findOne.mockResolvedValue({
+      id: 'cfg-1',
+      academicYear: '2025-26',
+      version: 1,
+    });
+
+    const result = await service.createDraft(adminUser as never, {
+      academicYear: '2025-26',
+      config: minimalMappingConfig,
+    });
+
+    expect(result.version).toBe(2);
+    expect(result.status).toBe(IlrMappingConfigStatus.DRAFT);
+  });
+
   it('rejects publish when config is not draft', async () => {
     repo.findOne.mockResolvedValue({
       id: 'cfg-1',

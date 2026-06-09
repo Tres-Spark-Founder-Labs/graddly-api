@@ -171,6 +171,34 @@ describe('OtjLogEntriesService', () => {
     expect(updated.status).toBe(OtjLogStatus.SUBMITTED);
   });
 
+  it('soft-removes entry', async () => {
+    repo.findOne.mockResolvedValue({
+      id: 'id-1',
+      organisationId: 'org-1',
+      isDeleted: false,
+    });
+    repo.softRemove.mockResolvedValue(undefined);
+
+    await service.remove(user, 'id-1');
+
+    expect(repo.softRemove).toHaveBeenCalled();
+  });
+
+  it('bulk rejects submitted entries', async () => {
+    repo.findOne.mockResolvedValue({
+      id: 'id-1',
+      organisationId: 'org-1',
+      status: OtjLogStatus.SUBMITTED,
+    });
+    repo.save.mockImplementation((v: unknown) => Promise.resolve(v));
+    notificationsService.createForUser.mockResolvedValue(undefined);
+    emailDispatchService.enqueue.mockResolvedValue(undefined);
+
+    const out = await service.bulkReject(user, ['id-1'], 'Incomplete evidence');
+
+    expect(out.succeeded).toBe(1);
+  });
+
   it('bulk approves submitted entries', async () => {
     repo.findOne.mockResolvedValue({
       id: 'id-1',

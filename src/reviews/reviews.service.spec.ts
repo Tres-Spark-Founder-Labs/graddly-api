@@ -127,4 +127,72 @@ describe('ReviewsService', () => {
     expect(updated.isOverdue).toBe(false);
     expect(updated.overdueSince).toBeNull();
   });
+
+  it('returns paginated reviews', async () => {
+    const qb = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([
+        [
+          {
+            id: 'r-1',
+            organisationId: 'org-1',
+            enrolmentId: 'e-1',
+            apprenticeId: 'a-1',
+            scheduledAt: new Date('2026-06-01T10:00:00Z'),
+            status: ReviewStatus.SCHEDULED,
+            isOverdue: false,
+            overdueSince: null,
+            title: null,
+            reviewType: null,
+            apprenticeUserId: 'u-app',
+            tutorUserId: 'u-tutor',
+            employerManagerUserId: 'u-emp',
+          },
+        ],
+        1,
+      ]),
+    };
+    reviewRepo.createQueryBuilder.mockReturnValue(qb);
+
+    const result = await service.findAll(user, { page: 1, perPage: 10 });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.meta.total).toBe(1);
+  });
+
+  it('finds review entity by id', async () => {
+    const entity = {
+      id: 'r-1',
+      organisationId: 'org-1',
+      isDeleted: false,
+    } as Review;
+    reviewRepo.findOne.mockResolvedValue(entity);
+
+    await expect(service.findEntity(user, 'r-1')).resolves.toEqual(entity);
+  });
+
+  it('maps review entity to response DTO', () => {
+    const response = service.toResponse({
+      id: 'r-1',
+      organisationId: 'org-1',
+      enrolmentId: 'e-1',
+      apprenticeId: 'a-1',
+      scheduledAt: new Date('2026-06-01T10:00:00Z'),
+      status: ReviewStatus.SCHEDULED,
+      isOverdue: false,
+      overdueSince: null,
+      title: 'Progress review',
+      reviewType: null,
+      apprenticeUserId: 'u-app',
+      tutorUserId: 'u-tutor',
+      employerManagerUserId: 'u-emp',
+    } as Review);
+
+    expect(response.id).toBe('r-1');
+    expect(response.title).toBe('Progress review');
+  });
 });

@@ -83,5 +83,15 @@ describe('OidcConfigurationService', () => {
       uiLocales: 'en',
       vtr: undefined,
     });
+    expect(service.getRedirectUri()).toBe(
+      'http://localhost:3000/api/v1/auth/oidc/callback',
+    );
+    expect(service.getIssuer()).toBe('https://oidc.integration.account.gov.uk');
+  });
+
+  it('onModuleInit delegates to initialize', async () => {
+    await createModule({ enabled: false });
+    await expect(service.onModuleInit()).resolves.toBeUndefined();
+    expect(discoveryMock).not.toHaveBeenCalled();
   });
 });

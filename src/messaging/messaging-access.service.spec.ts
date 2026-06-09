@@ -49,6 +49,11 @@ describe('MessagingAccessService', () => {
     );
   });
 
+  it('identifies thread participants by user id', () => {
+    expect(service.isParticipant(thread, 'u-app')).toBe(true);
+    expect(service.isParticipant(thread, 'u-stranger')).toBe(false);
+  });
+
   it('allows counterparty to write', () => {
     const tutor = { id: 'u-tutor', roles: ['member'] } as AuthenticatedUser;
     expect(() => service.assertCanWrite(thread, tutor)).not.toThrow();

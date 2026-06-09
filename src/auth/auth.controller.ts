@@ -13,6 +13,7 @@ import {
   ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiExtraModels,
   ApiForbiddenResponse,
   ApiHeader,
   ApiNoContentResponse,
@@ -22,6 +23,7 @@ import {
   ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { validate as validateUuid } from 'uuid';
@@ -30,10 +32,6 @@ import {
   ORGANISATION_ID_HEADER,
   PORTAL_TYPE_HEADER,
 } from '../common/constants/organisation-headers.js';
-import {
-  ApiAuthResponseDto,
-  ApiMeResponseDto,
-} from '../common/dto/api-response.dto.js';
 import {
   ErrorResponseDto,
   TooManyRequestsResponseDto,
@@ -44,11 +42,13 @@ import { parsePortalType } from '../common/utils/parse-portal-type.util.js';
 import { OrganisationListItemDto } from '../organisations/dto/organisation-list-item.dto.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
 import { UpdateProfileDto } from '../users/dto/update-profile.dto.js';
+import { MeResponseDto } from '../users/dto/user-response.dto.js';
 import { UsersService } from '../users/users.service.js';
 
 import { AuthService } from './auth.service.js';
 import { CurrentUser } from './decorators/current-user.decorator.js';
 import { ActiveOrganisationMeDto } from './dto/active-organisation-context.dto.js';
+import { AuthResponseDto } from './dto/auth-response.dto.js';
 import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RefreshTokenDto } from './dto/refresh-token.dto.js';
@@ -68,6 +68,12 @@ type MeResult = Omit<
 };
 
 @ApiTags('Auth')
+@ApiExtraModels(
+  AuthResponseDto,
+  MeResponseDto,
+  ActiveOrganisationMeDto,
+  OrganisationListItemDto,
+)
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -95,6 +101,12 @@ export class AuthController {
   @ApiCreatedResponse({
     description:
       'User registered successfully; verification email sent if applicable',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { type: 'object', nullable: true },
+      },
+    },
   })
   @ApiUnprocessableEntityResponse({
     description: 'Validation failed',
@@ -124,7 +136,15 @@ export class AuthController {
     description:
       'Authenticates a user with their email and password. Returns a new token pair. Fails if the credentials are invalid or the account is deactivated. Rate limited to 5 requests per minute.',
   })
-  @ApiOkResponse({ description: 'Login successful', type: ApiAuthResponseDto })
+  @ApiOkResponse({
+    description: 'Login successful',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(AuthResponseDto) },
+      },
+    },
+  })
   @ApiUnprocessableEntityResponse({
     description: 'Validation failed',
     type: ValidationErrorResponseDto,
@@ -194,7 +214,12 @@ export class AuthController {
   })
   @ApiOkResponse({
     description: 'Password updated and tokens issued',
-    type: ApiAuthResponseDto,
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(AuthResponseDto) },
+      },
+    },
   })
   @ApiUnprocessableEntityResponse({
     description: 'Validation failed',
@@ -223,7 +248,12 @@ export class AuthController {
   })
   @ApiOkResponse({
     description: 'Email verified and tokens issued',
-    type: ApiAuthResponseDto,
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(AuthResponseDto) },
+      },
+    },
   })
   @ApiUnprocessableEntityResponse({
     description: 'Validation failed',
@@ -292,7 +322,12 @@ export class AuthController {
   })
   @ApiOkResponse({
     description: 'Tokens refreshed successfully',
-    type: ApiAuthResponseDto,
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(AuthResponseDto) },
+      },
+    },
   })
   @ApiUnauthorizedResponse({
     description: 'Invalid or expired refresh token, or account deactivated',
@@ -310,6 +345,7 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @ResponseMessage('Logged out successfully')
   @ApiOperation({
     summary: 'Log out (invalidate refresh token)',
     description:
@@ -365,7 +401,12 @@ export class AuthController {
   })
   @ApiOkResponse({
     description: 'User profile with active organisation and organisations list',
-    type: ApiMeResponseDto,
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(MeResponseDto) },
+      },
+    },
   })
   @ApiForbiddenResponse({
     description:
@@ -418,7 +459,12 @@ export class AuthController {
   })
   @ApiOkResponse({
     description: 'Updated user profile',
-    type: ApiMeResponseDto,
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(MeResponseDto) },
+      },
+    },
   })
   @ApiUnprocessableEntityResponse({
     description: 'Validation failed',

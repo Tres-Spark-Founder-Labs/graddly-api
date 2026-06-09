@@ -187,6 +187,7 @@ export class ProgrammesController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ResponseMessage('Programme deleted successfully')
   @ApiOperation({ summary: 'Soft-delete programme by id' })
   @ApiNoContentResponse({ description: 'Programme deleted' })
   @ApiNotFoundResponse({

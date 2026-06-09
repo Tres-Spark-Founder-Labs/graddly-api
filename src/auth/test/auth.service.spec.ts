@@ -87,8 +87,22 @@ const mockEmailDispatch = {
   enqueue: jest.fn(),
 };
 
+const mockMembershipQueryBuilder = {
+  innerJoin: jest.fn().mockReturnThis(),
+  select: jest.fn().mockReturnThis(),
+  addSelect: jest.fn().mockReturnThis(),
+  where: jest.fn().mockReturnThis(),
+  andWhere: jest.fn().mockReturnThis(),
+  orderBy: jest.fn().mockReturnThis(),
+  addOrderBy: jest.fn().mockReturnThis(),
+  limit: jest.fn().mockReturnThis(),
+  getRawOne: jest.fn(),
+  getRawMany: jest.fn(),
+};
+
 const mockMembershipRepo = {
   find: jest.fn(),
+  createQueryBuilder: jest.fn(() => mockMembershipQueryBuilder),
 };
 
 describe('AuthService', () => {
@@ -406,6 +420,90 @@ describe('AuthService', () => {
       await authService.resendVerification('unknown@example.com');
 
       expect(mockEmailDispatch.enqueue).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('issueTokensForUser', () => {
+    it('returns access and refresh tokens for an existing user', async () => {
+      mockUsersService.findById.mockResolvedValue({
+        ...mockUser,
+        isEmailVerified: true,
+      });
+      mockMembershipRepo.find.mockResolvedValue([]);
+
+      const result = await authService.issueTokensForUser({
+        ...mockUser,
+        isEmailVerified: true,
+      });
+
+      expect(result).toHaveProperty('accessToken');
+      expect(result).toHaveProperty('refreshToken');
+      expect(mockJwtService.sign).toHaveBeenCalled();
+    });
+  });
+
+  describe('resolveActiveOrganisationForUser', () => {
+    it('returns null when user has no active membership', async () => {
+      mockMembershipQueryBuilder.getRawOne.mockResolvedValue(null);
+
+      const result = await authService.resolveActiveOrganisationForUser(
+        mockUser.id,
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it('returns active organisation when membership exists', async () => {
+      mockMembershipQueryBuilder.getRawOne.mockResolvedValue({
+        mRole: OrganisationRole.OWNER,
+        mStatus: 'active',
+        oId: 'org-1',
+        oName: 'Acme',
+        oSlug: 'acme',
+        oType: null,
+        oPortalType: null,
+        oUkprn: null,
+        oAddress: null,
+        oCity: null,
+        oPostcode: null,
+        oCountry: null,
+        oOrgEmail: null,
+        oOrgPhone: null,
+        oWebsite: null,
+        oLogoUrl: null,
+      });
+
+      const result = await authService.resolveActiveOrganisationForUser(
+        mockUser.id,
+      );
+
+      expect(result?.organisation.id).toBe('org-1');
+      expect(result?.roles).toEqual([OrganisationRole.OWNER]);
+    });
+
+    it('throws when requested organisation is not a membership', async () => {
+      mockMembershipQueryBuilder.getRawOne.mockResolvedValue(null);
+
+      await expect(
+        authService.resolveActiveOrganisationForUser(
+          mockUser.id,
+          'org-unknown',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('resolveOrganisationsForUser', () => {
+    it('returns lightweight org list ordered by role priority', async () => {
+      mockMembershipQueryBuilder.getRawMany.mockResolvedValue([
+        { oId: 'org-1', oName: 'Acme', oPortalType: null, oSlug: 'acme' },
+      ]);
+
+      const result = await authService.resolveOrganisationsForUser(mockUser.id);
+
+      expect(result).toEqual([
+        { id: 'org-1', name: 'Acme', portalType: null, slug: 'acme' },
+      ]);
     });
   });
 

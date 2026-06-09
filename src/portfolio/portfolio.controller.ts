@@ -17,6 +17,7 @@ import {
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
@@ -59,7 +60,15 @@ export class PortfolioController {
   @Get('ksb-heatmap')
   @ResponseMessage('KSB heatmap retrieved successfully')
   @ApiOperation({ summary: 'Get KSB coverage heatmap for an enrolment' })
-  @ApiOkResponse({ type: KsbHeatmapResponseDto })
+  @ApiOkResponse({
+    description: 'KSB coverage heatmap',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(KsbHeatmapResponseDto) },
+      },
+    },
+  })
   getHeatmap(
     @CurrentUser() user: AuthenticatedUser,
     @Query('enrolmentId', ParseUUIDPipe) enrolmentId: string,
@@ -70,7 +79,15 @@ export class PortfolioController {
   @Put('enrolments/:enrolmentId/ksb-coverage/:ksbDefinitionId')
   @ResponseMessage('KSB coverage assessment saved successfully')
   @ApiOperation({ summary: 'Set tutor coverage assessment for a KSB cell' })
-  @ApiOkResponse({ type: KsbCoverageResponseDto })
+  @ApiOkResponse({
+    description: 'KSB coverage assessment saved',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(KsbCoverageResponseDto) },
+      },
+    },
+  })
   upsertCoverage(
     @CurrentUser() user: AuthenticatedUser,
     @Param('enrolmentId', ParseUUIDPipe) enrolmentId: string,

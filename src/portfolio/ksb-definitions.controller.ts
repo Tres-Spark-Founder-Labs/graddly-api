@@ -65,7 +65,15 @@ export class KsbDefinitionsController {
   @Post('standards/:standardId/ksb-definitions')
   @ResponseMessage('KSB definition created successfully')
   @ApiOperation({ summary: 'Create a KSB definition on a standard' })
-  @ApiCreatedResponse({ type: KsbDefinitionResponseDto })
+  @ApiCreatedResponse({
+    description: 'KSB definition created',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(KsbDefinitionResponseDto) },
+      },
+    },
+  })
   createForStandard(
     @CurrentUser() user: AuthenticatedUser,
     @Param('standardId', ParseUUIDPipe) standardId: string,
@@ -100,7 +108,15 @@ export class KsbDefinitionsController {
   @Patch('ksb-definitions/:id')
   @ResponseMessage('KSB definition updated successfully')
   @ApiOperation({ summary: 'Update a KSB definition' })
-  @ApiOkResponse({ type: KsbDefinitionResponseDto })
+  @ApiOkResponse({
+    description: 'Updated KSB definition',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(KsbDefinitionResponseDto) },
+      },
+    },
+  })
   update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,

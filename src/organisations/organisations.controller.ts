@@ -23,6 +23,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
@@ -66,7 +67,7 @@ export class OrganisationsController {
     schema: {
       properties: {
         message: { type: 'string' },
-        data: { $ref: '#/components/schemas/OrganisationResponseDto' },
+        data: { $ref: getSchemaPath(OrganisationResponseDto) },
       },
     },
   })
@@ -97,7 +98,7 @@ export class OrganisationsController {
         message: { type: 'string' },
         data: {
           type: 'array',
-          items: { $ref: '#/components/schemas/OrganisationResponseDto' },
+          items: { $ref: getSchemaPath(OrganisationResponseDto) },
         },
       },
     },
@@ -114,7 +115,7 @@ export class OrganisationsController {
     schema: {
       properties: {
         message: { type: 'string' },
-        data: { $ref: '#/components/schemas/OrganisationResponseDto' },
+        data: { $ref: getSchemaPath(OrganisationResponseDto) },
       },
     },
   })
@@ -134,7 +135,7 @@ export class OrganisationsController {
     schema: {
       properties: {
         message: { type: 'string' },
-        data: { $ref: '#/components/schemas/OrganisationResponseDto' },
+        data: { $ref: getSchemaPath(OrganisationResponseDto) },
       },
     },
   })
@@ -159,6 +160,7 @@ export class OrganisationsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ResponseMessage('Organisation deleted successfully')
   @ApiOperation({ summary: 'Soft-delete organisation' })
   @ApiNoContentResponse({ description: 'Organisation deleted' })
   @ApiNotFoundResponse({

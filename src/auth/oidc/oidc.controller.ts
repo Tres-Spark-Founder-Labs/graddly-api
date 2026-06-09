@@ -8,6 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiExtraModels,
   ApiForbiddenResponse,
   ApiFoundResponse,
   ApiOkResponse,
@@ -15,14 +16,15 @@ import {
   ApiTags,
   ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 
-import { ApiAuthResponseDto } from '../../common/dto/api-response.dto.js';
 import {
   ErrorResponseDto,
   TooManyRequestsResponseDto,
 } from '../../common/dto/error-response.dto.js';
+import { AuthResponseDto } from '../dto/auth-response.dto.js';
 
 import { OidcAuthGuard } from './guards/oidc-auth.guard.js';
 import { IOidcAuthProfile } from './interfaces/oidc-auth-profile.interface.js';
@@ -31,6 +33,7 @@ import { OidcAuthService } from './oidc-auth.service.js';
 import type { Request, Response } from 'express';
 
 @ApiTags('Auth')
+@ApiExtraModels(AuthResponseDto)
 @Controller('auth/oidc')
 export class OidcController {
   constructor(private readonly oidcAuthService: OidcAuthService) {}
@@ -61,7 +64,12 @@ export class OidcController {
   })
   @ApiOkResponse({
     description: 'Logged in successfully (JSON when no success redirect URI)',
-    type: ApiAuthResponseDto,
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(AuthResponseDto) },
+      },
+    },
   })
   @ApiFoundResponse({
     description: 'Redirect to frontend with tokens in URL fragment',

@@ -238,6 +238,7 @@ export class QipActionsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ResponseMessage('QIP action deleted successfully')
   @ApiOperation({ summary: 'Soft-delete a QIP action' })
   @ApiNoContentResponse({ description: 'QIP action deleted' })
   @ApiNotFoundResponse({

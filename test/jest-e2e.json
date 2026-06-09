@@ -13,7 +13,7 @@
     "^openid-client$": "<rootDir>/mocks/openid-client.ts",
     "^openid-client/passport$": "<rootDir>/mocks/openid-client-passport.ts"
   },
-  "setupFiles": ["<rootDir>/load-env.ts", "<rootDir>/import-instrument.ts"],
+  "setupFiles": ["<rootDir>/load-env.ts"],
   "globalSetup": "<rootDir>/global-setup.ts",
   "globalTeardown": "<rootDir>/global-teardown.ts"
 }

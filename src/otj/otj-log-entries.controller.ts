@@ -294,6 +294,7 @@ export class OtjLogEntriesController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ResponseMessage('OTJ log entry deleted successfully')
   @ApiOperation({ summary: 'Soft-delete an OTJ log entry' })
   @ApiNoContentResponse({ description: 'OTJ log entry deleted' })
   @ApiNotFoundResponse({

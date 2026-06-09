@@ -1,33 +1,26 @@
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { App } from 'supertest/types';
 
-import { AppModule } from '../src/app.module.js';
 import { AuditAction } from '../src/audit/enums/audit-action.enum.js';
 import { ORGANISATION_ID_HEADER } from '../src/common/constants/organisation-headers.js';
-import { configureApp } from '../src/configure-app.js';
 import { KsEvidenceStatus } from '../src/portfolio/enums/ks-evidence-status.enum.js';
 import { KsbCoverageAssessment } from '../src/portfolio/enums/ksb-coverage-assessment.enum.js';
 import { KsbHeatmapStrength } from '../src/portfolio/enums/ksb-heatmap-strength.enum.js';
 import { KsbKind } from '../src/portfolio/enums/ksb-kind.enum.js';
 import { noopStorageObjects } from '../src/storage/providers/noop-storage.store.js';
 
+import { createE2eApp } from './helpers/e2e-app.js';
 import { createVerifiedUser } from './helpers/e2e-http.js';
 import { buildOrgPayload } from './helpers/e2e-organisation.js';
 import { expectSuccessEnvelope } from './helpers/e2e-response-contracts.js';
+
+import type { App } from 'supertest/types';
 
 describe('Portfolio (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    configureApp(app);
-    await app.init();
+    app = await createE2eApp();
   });
 
   afterAll(async () => {
@@ -118,8 +111,121 @@ describe('Portfolio (e2e)', () => {
       .set(ORGANISATION_ID_HEADER, orgId)
       .expect(201);
 
-    return { owner, orgId, enrolmentId, apprenticeId, ksb1Id, ksb2Id };
+    return {
+      owner,
+      orgId,
+      enrolmentId,
+      apprenticeId,
+      standardId,
+      ksb1Id,
+      ksb2Id,
+    };
   }
+
+  it('manages KSB definitions and evidence CRUD routes', async () => {
+    const suffix = Date.now() + 100;
+    const { owner, orgId, enrolmentId, apprenticeId, standardId, ksb1Id } =
+      await seedOrgContext(suffix);
+
+    const listDefsRes = await request(app.getHttpServer())
+      .get(`/api/v1/standards/${standardId}/ksb-definitions`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .set(ORGANISATION_ID_HEADER, orgId)
+      .expect(200);
+    expectSuccessEnvelope(listDefsRes.body);
+    expect((listDefsRes.body as { data: unknown[] }).data.length).toBe(2);
+
+    const patchDefRes = await request(app.getHttpServer())
+      .patch(`/api/v1/ksb-definitions/${ksb1Id}`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .set(ORGANISATION_ID_HEADER, orgId)
+      .send({ title: 'Updated knowledge item' })
+      .expect(200);
+    expectSuccessEnvelope(patchDefRes.body);
+    expect((patchDefRes.body as { data: { title: string } }).data.title).toBe(
+      'Updated knowledge item',
+    );
+
+    const createEvidenceRes = await request(app.getHttpServer())
+      .post('/api/v1/ksb-evidence-items')
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .set(ORGANISATION_ID_HEADER, orgId)
+      .send({
+        enrolmentId,
+        apprenticeId,
+        type: 'text',
+        title: 'Draft reflection',
+        body: 'Initial draft body',
+        ksbDefinitionIds: [ksb1Id],
+      })
+      .expect(201);
+    expectSuccessEnvelope(createEvidenceRes.body);
+    const evidenceId = (createEvidenceRes.body as { data: { id: string } }).data
+      .id;
+
+    const getEvidenceRes = await request(app.getHttpServer())
+      .get(`/api/v1/ksb-evidence-items/${evidenceId}`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .set(ORGANISATION_ID_HEADER, orgId)
+      .expect(200);
+    expectSuccessEnvelope(getEvidenceRes.body);
+    expect((getEvidenceRes.body as { data: { id: string } }).data.id).toBe(
+      evidenceId,
+    );
+
+    const patchEvidenceRes = await request(app.getHttpServer())
+      .patch(`/api/v1/ksb-evidence-items/${evidenceId}`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .set(ORGANISATION_ID_HEADER, orgId)
+      .send({ title: 'Updated draft reflection' })
+      .expect(200);
+    expectSuccessEnvelope(patchEvidenceRes.body);
+    expect(
+      (patchEvidenceRes.body as { data: { title: string } }).data.title,
+    ).toBe('Updated draft reflection');
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/ksb-evidence-items/${evidenceId}/submit`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .set(ORGANISATION_ID_HEADER, orgId)
+      .expect(201);
+
+    const returnRes = await request(app.getHttpServer())
+      .post(`/api/v1/ksb-evidence-items/${evidenceId}/return`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .set(ORGANISATION_ID_HEADER, orgId)
+      .send({ reason: 'Please expand the reflection' })
+      .expect(201);
+    expectSuccessEnvelope(returnRes.body);
+    expect((returnRes.body as { data: { status: string } }).data.status).toBe(
+      KsEvidenceStatus.DRAFT,
+    );
+
+    await request(app.getHttpServer())
+      .delete(`/api/v1/ksb-evidence-items/${evidenceId}`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .set(ORGANISATION_ID_HEADER, orgId)
+      .expect(204);
+
+    const disposableDefRes = await request(app.getHttpServer())
+      .post(`/api/v1/standards/${standardId}/ksb-definitions`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .set(ORGANISATION_ID_HEADER, orgId)
+      .send({
+        code: 'B1',
+        kind: KsbKind.BEHAVIOUR,
+        title: 'Behaviour disposable',
+      })
+      .expect(201);
+    const disposableDefId = (disposableDefRes.body as { data: { id: string } })
+      .data.id;
+
+    await request(app.getHttpServer())
+      .delete(`/api/v1/ksb-definitions/${disposableDefId}`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .set(ORGANISATION_ID_HEADER, orgId)
+      .expect(204);
+  });
 
   it('evidence workflow, heatmap, and audit export', async () => {
     const suffix = Date.now();

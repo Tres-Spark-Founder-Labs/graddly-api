@@ -57,6 +57,53 @@ describe('WithdrawalPushService', () => {
     );
   });
 
+  it('queues push from apprentice withdrawal', async () => {
+    repo.create.mockImplementation((input: unknown) => input);
+    repo.save.mockResolvedValue({
+      id: 'push-2',
+      organisationId: 'org-1',
+      apprenticeId: 'app-1',
+      status: WithdrawalPushStatus.QUEUED,
+    });
+
+    await service.queueFromApprenticeWithdrawal({
+      organisationId: 'org-1',
+      apprenticeId: 'app-1',
+      requestedByUserId: 'usr-1',
+    });
+
+    expect(dispatch.enqueue).toHaveBeenCalled();
+  });
+
+  it('lists failed pushes', async () => {
+    repo.findAndCount.mockResolvedValue([
+      [{ id: 'push-1', status: WithdrawalPushStatus.FAILED }],
+      1,
+    ]);
+
+    const result = await service.listFailed(
+      { id: 'u1', organisationId: 'org-1' } as never,
+      { page: 1, perPage: 20 },
+    );
+
+    expect(result.items).toHaveLength(1);
+  });
+
+  it('returns push by id', async () => {
+    repo.findOne.mockResolvedValue({
+      id: 'push-1',
+      organisationId: 'org-1',
+      status: WithdrawalPushStatus.FAILED,
+    });
+
+    const result = await service.getOne(
+      { id: 'u1', organisationId: 'org-1' } as never,
+      'push-1',
+    );
+
+    expect(result.id).toBe('push-1');
+  });
+
   it('throws when retry target is missing', async () => {
     repo.findOne.mockResolvedValue(null);
     await expect(

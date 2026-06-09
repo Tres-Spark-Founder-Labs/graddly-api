@@ -5,6 +5,7 @@ import {
   ApiForbiddenResponse,
   ApiHeader,
   ApiOkResponse,
+  ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
   getSchemaPath,
@@ -49,7 +50,15 @@ export class EifScoresController {
 
   @Get('eif-criteria')
   @ResponseMessage('EIF criteria retrieved successfully')
+  @ApiOperation({
+    summary: 'List published EIF criterion definitions',
+    description:
+      'Returns the versioned criteria catalogue (slug + display label) used by EIF scores ' +
+      'and QIP actions. Slugs are stable identifiers; scoring weights are configured server-side.',
+  })
   @ApiOkResponse({
+    description:
+      'Seven EIF criteria for the active provider organisation context',
     schema: {
       properties: {
         message: { type: 'string' },
@@ -69,7 +78,17 @@ export class EifScoresController {
 
   @Get('eif-scores')
   @ResponseMessage('EIF readiness scores retrieved successfully')
+  @ApiOperation({
+    summary: 'Get org-level EIF readiness scores',
+    description:
+      'Aggregates live domain signals into seven criterion percentages (0–100), overall %, RAG ' +
+      '(red < 60, amber 60–79, green ≥ 80), and alertBanner when any criterion is below 75%. ' +
+      'Results are cached in Redis for up to EIF_SCORE_CACHE_TTL_SECONDS (default 1 hour); ' +
+      'the cached flag indicates a cache hit. Cache is invalidated when underlying OTJ, review, ' +
+      'commitment, ILR, or portfolio data changes.',
+  })
   @ApiOkResponse({
+    description: 'EIF readiness envelope for the active organisation',
     schema: {
       properties: {
         message: { type: 'string' },

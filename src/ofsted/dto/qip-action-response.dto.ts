@@ -15,13 +15,19 @@ export class QipActionResponseDto {
   @ApiProperty({ nullable: true })
   description!: string | null;
 
-  @ApiProperty({ format: 'uuid' })
+  @ApiProperty({
+    format: 'uuid',
+    description: 'Staff owner user id.',
+  })
   assignedOwnerUserId!: string;
 
   @ApiProperty({ format: 'date' })
   targetCompletionDate!: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Linked EIF criterion slug.',
+    example: 'safeguarding',
+  })
   eifCriterionSlug!: string;
 
   @ApiProperty({ nullable: true })
@@ -33,6 +39,9 @@ export class QipActionResponseDto {
   @ApiProperty({ enum: QipActionStatus })
   status!: QipActionStatus;
 
-  @ApiProperty()
+  @ApiProperty({
+    description:
+      'Derived on read: true when targetCompletionDate is before today and status is not completed.',
+  })
   isOverdue!: boolean;
 }

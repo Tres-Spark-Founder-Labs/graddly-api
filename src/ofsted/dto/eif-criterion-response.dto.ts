@@ -1,9 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class EifCriterionDefinitionDto {
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Stable criterion identifier used in scores and QIP actions.',
+    example: 'curriculum_intent',
+  })
   slug!: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Human-readable label for hub UI.',
+    example: 'Curriculum intent',
+  })
   label!: string;
 }

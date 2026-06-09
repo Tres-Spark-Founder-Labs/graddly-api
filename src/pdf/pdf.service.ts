@@ -4,6 +4,7 @@ import { PDF_RENDERER } from './pdf.constants.js';
 
 import type {
   ICommitmentSnapshotContent,
+  ILevyRoiReportContent,
   ILevyTransferAgreementContent,
   IPdfRenderer,
   IReviewSnapshotContent,
@@ -32,6 +33,10 @@ export class PdfService {
     content: ILevyTransferAgreementContent,
   ): Promise<Buffer> {
     return this.renderer.renderLevyTransferAgreement(content);
+  }
+
+  renderLevyRoiReport(content: ILevyRoiReportContent): Promise<Buffer> {
+    return this.renderer.renderLevyRoiReport(content);
   }
 
   embedSignature(

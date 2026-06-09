@@ -21,6 +21,7 @@ import { PdfJobStatus } from '../../pdf/enums/pdf-job-status.enum.js';
 import { PdfJobTemplate } from '../../pdf/enums/pdf-job-template.enum.js';
 import { PDF_JOB_GENERATE } from '../../pdf/pdf-job.constants.js';
 import { PdfService } from '../../pdf/pdf.service.js';
+import { LevyRoiReportService } from '../../reporting/levy-roi-report.service.js';
 import { ReviewRecord } from '../../reviews/entities/review-record.entity.js';
 import { ReviewSignature } from '../../reviews/entities/review-signature.entity.js';
 import { Review } from '../../reviews/entities/review.entity.js';
@@ -50,6 +51,7 @@ export class PdfGenerationProcessor extends WorkerHost {
     private readonly pdfService: PdfService,
     private readonly storage: StorageService,
     private readonly keyBuilder: StorageKeyBuilder,
+    private readonly levyRoiReportService: LevyRoiReportService,
     @InjectRepository(PdfGenerationJob)
     private readonly jobRepo: Repository<PdfGenerationJob>,
     @InjectRepository(Review)
@@ -129,6 +131,11 @@ export class PdfGenerationProcessor extends WorkerHost {
           await this.buildLevyTransferAgreementContent(transferId);
         buffer = await this.pdfService.renderLevyTransferAgreement(content);
         filename = `levy-transfer-agreement-${transferId}.pdf`;
+      } else if (template === PdfJobTemplate.LEVY_ROI_REPORT) {
+        const content =
+          await this.levyRoiReportService.buildPdfContent(organisationId);
+        buffer = await this.pdfService.renderLevyRoiReport(content);
+        filename = `levy-roi-report-${organisationId}.pdf`;
       } else {
         buffer = await this.pdfService.renderHelloPdf();
         filename = `hello-${jobId}.pdf`;

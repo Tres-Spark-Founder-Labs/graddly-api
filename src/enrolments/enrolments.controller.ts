@@ -42,6 +42,7 @@ import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CreateEnrolmentDto } from './dto/create-enrolment.dto.js';
 import { EnrolmentResponseDto } from './dto/enrolment-response.dto.js';
+import { UpdateEnrolmentOrganisationLinksDto } from './dto/update-enrolment-organisation-links.dto.js';
 import { UpdateEnrolmentParticipantsDto } from './dto/update-enrolment-participants.dto.js';
 import { EnrolmentsService } from './enrolments.service.js';
 
@@ -51,6 +52,7 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
 @ApiExtraModels(
   EnrolmentResponseDto,
   PaginationMetaDto,
+  UpdateEnrolmentOrganisationLinksDto,
   UpdateEnrolmentParticipantsDto,
 )
 @Controller({ path: 'enrolments', version: '1' })
@@ -190,6 +192,42 @@ export class EnrolmentsController {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
     return this.enrolmentsService.updateParticipants(user, id, dto);
+  }
+
+  @Patch(':id/organisation-links')
+  @ResponseMessage('Enrolment organisation links updated successfully')
+  @ApiOperation({
+    summary: 'Set linked employer and provider organisation IDs',
+    description:
+      'Links an enrolment to counterpart organisations for cross-portal reporting ' +
+      '(RPT-001 levy ROI breakdown and RPT-002 employer directory). ' +
+      'See docs/reporting.md for semantics.',
+  })
+  @ApiOkResponse({
+    description: 'Updated enrolment with organisation link IDs',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(EnrolmentResponseDto) },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Enrolment or linked organisation not found',
+    type: ErrorResponseDto,
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'Validation failed',
+    type: ValidationErrorResponseDto,
+  })
+  updateOrganisationLinks(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateEnrolmentOrganisationLinksDto,
+  ) {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.enrolmentsService.updateOrganisationLinks(user, id, dto);
   }
 
   @Post(':id/activate')

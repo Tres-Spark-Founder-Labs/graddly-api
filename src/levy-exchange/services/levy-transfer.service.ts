@@ -421,7 +421,7 @@ export class LevyTransferService {
       party: s.party,
       signOrder: s.signOrder,
       signerUserId: s.userId,
-      status: s.signedAt ? 'signed' : 'pending',
+      status: s.signedAt ? ('signed' as const) : ('pending' as const),
       signatureRecordId: s.signatureRecordId,
       sourcePdfKey: null as string | null,
     }));

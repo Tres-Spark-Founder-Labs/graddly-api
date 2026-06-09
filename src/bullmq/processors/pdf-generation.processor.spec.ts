@@ -12,6 +12,7 @@ import { PdfJobStatus } from '../../pdf/enums/pdf-job-status.enum.js';
 import { PdfJobTemplate } from '../../pdf/enums/pdf-job-template.enum.js';
 import { PDF_JOB_GENERATE } from '../../pdf/pdf-job.constants.js';
 import { PdfService } from '../../pdf/pdf.service.js';
+import { LevyRoiReportService } from '../../reporting/levy-roi-report.service.js';
 import { ReviewRecord } from '../../reviews/entities/review-record.entity.js';
 import { ReviewSignature } from '../../reviews/entities/review-signature.entity.js';
 import { Review } from '../../reviews/entities/review.entity.js';
@@ -92,6 +93,10 @@ describe('PdfGenerationProcessor', () => {
         {
           provide: getRepositoryToken(Organisation),
           useValue: { findOne: jest.fn() },
+        },
+        {
+          provide: LevyRoiReportService,
+          useValue: { buildPdfContent: jest.fn() },
         },
       ],
     }).compile();

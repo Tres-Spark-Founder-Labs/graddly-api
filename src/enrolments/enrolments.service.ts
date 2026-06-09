@@ -14,10 +14,12 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { MessageThreadsService } from '../messaging/message-threads.service.js';
+import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
 import { WithdrawalPushService } from '../withdrawal-push/withdrawal-push.service.js';
 
 import { CreateEnrolmentDto } from './dto/create-enrolment.dto.js';
+import { UpdateEnrolmentOrganisationLinksDto } from './dto/update-enrolment-organisation-links.dto.js';
 import { UpdateEnrolmentParticipantsDto } from './dto/update-enrolment-participants.dto.js';
 import { Enrolment } from './entities/enrolment.entity.js';
 import { EnrolmentStatus } from './enums/enrolment-status.enum.js';
@@ -33,6 +35,8 @@ export class EnrolmentsService {
     private readonly apprenticeRepo: Repository<Apprentice>,
     @InjectRepository(Standard)
     private readonly standardRepo: Repository<Standard>,
+    @InjectRepository(Organisation)
+    private readonly organisationRepo: Repository<Organisation>,
     private readonly withdrawalPushService: WithdrawalPushService,
     @Inject(forwardRef(() => MessageThreadsService))
     private readonly messageThreadsService: MessageThreadsService,
@@ -139,6 +143,29 @@ export class EnrolmentsService {
     if (dto.employerManagerUserId !== undefined) {
       enrolment.employerManagerUserId = dto.employerManagerUserId;
     }
+    return this.enrolmentRepo.save(enrolment);
+  }
+
+  async updateOrganisationLinks(
+    user: AuthenticatedUser,
+    id: string,
+    dto: UpdateEnrolmentOrganisationLinksDto,
+  ): Promise<Enrolment> {
+    const enrolment = await this.findOne(user, id);
+
+    if (dto.employerOrganisationId !== undefined) {
+      if (dto.employerOrganisationId) {
+        await this.assertOrganisationExists(dto.employerOrganisationId);
+      }
+      enrolment.employerOrganisationId = dto.employerOrganisationId;
+    }
+    if (dto.providerOrganisationId !== undefined) {
+      if (dto.providerOrganisationId) {
+        await this.assertOrganisationExists(dto.providerOrganisationId);
+      }
+      enrolment.providerOrganisationId = dto.providerOrganisationId;
+    }
+
     return this.enrolmentRepo.save(enrolment);
   }
 
@@ -257,6 +284,17 @@ export class EnrolmentsService {
     }
     if (!standard) {
       throw new NotFoundException('Standard not found');
+    }
+  }
+
+  private async assertOrganisationExists(
+    organisationId: string,
+  ): Promise<void> {
+    const organisation = await this.organisationRepo.findOne({
+      where: { id: organisationId, isDeleted: false },
+    });
+    if (!organisation) {
+      throw new NotFoundException('Organisation not found');
     }
   }
 }

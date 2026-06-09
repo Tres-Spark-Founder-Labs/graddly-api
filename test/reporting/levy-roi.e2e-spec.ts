@@ -1,0 +1,100 @@
+import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
+
+import { PdfJobStatus } from '../../src/pdf/enums/pdf-job-status.enum.js';
+import { PdfJobTemplate } from '../../src/pdf/enums/pdf-job-template.enum.js';
+import { noopStorageObjects } from '../../src/storage/providers/noop-storage.store.js';
+import { createE2eApp } from '../helpers/e2e-app.js';
+import { expectSuccessEnvelope } from '../helpers/e2e-response-contracts.js';
+import {
+  expectLevyRoiBreakdownEntryResource,
+  expectLevyRoiReportResource,
+} from '../helpers/reporting-contracts.js';
+import {
+  createEmployerReportingContext,
+  createProviderDirectoryContext,
+  processPdfJobInApp,
+} from '../helpers/reporting-e2e.js';
+
+import type { App } from 'supertest/types';
+
+describe('LevyRoiReportController (e2e)', () => {
+  let app: INestApplication<App>;
+
+  beforeAll(async () => {
+    app = await createE2eApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    noopStorageObjects.clear();
+  });
+
+  it('GET /reporting/levy-roi returns summary for employer org', async () => {
+    const ctx = await createEmployerReportingContext(app, 'summary');
+
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/reporting/levy-roi')
+      .set(ctx.authHeaders)
+      .expect(200);
+
+    expectSuccessEnvelope(res.body);
+    expectLevyRoiReportResource(res.body.data);
+    expect(res.body.data.organisationId).toBe(ctx.employerOrgId);
+    expect(res.body.data.activeApprenticeCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it('GET /reporting/levy-roi/breakdown returns provider rows', async () => {
+    const ctx = await createEmployerReportingContext(app, 'breakdown');
+
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/reporting/levy-roi/breakdown')
+      .query({ groupBy: 'provider' })
+      .set(ctx.authHeaders)
+      .expect(200);
+
+    expectSuccessEnvelope(res.body);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+    expectLevyRoiBreakdownEntryResource(res.body.data[0]);
+  });
+
+  it('POST /reporting/levy-roi/export queues and completes PDF job', async () => {
+    const ctx = await createEmployerReportingContext(app, 'export');
+
+    const exportRes = await request(app.getHttpServer())
+      .post('/api/v1/reporting/levy-roi/export')
+      .set(ctx.authHeaders)
+      .expect(201);
+
+    expectSuccessEnvelope(exportRes.body);
+    const jobId = (exportRes.body as { data: { jobId: string } }).data.jobId;
+
+    await processPdfJobInApp(app, {
+      jobId,
+      organisationId: ctx.employerOrgId,
+      userId: ctx.owner.userId,
+      template: PdfJobTemplate.LEVY_ROI_REPORT,
+    });
+
+    const jobRes = await request(app.getHttpServer())
+      .get(`/api/v1/pdf/jobs/${jobId}`)
+      .set(ctx.authHeaders)
+      .expect(200);
+
+    expect(jobRes.body.data.status).toBe(PdfJobStatus.COMPLETED);
+    expect(jobRes.body.data.outputKey).toBeTruthy();
+  });
+
+  it('returns 403 when active org is a provider portal', async () => {
+    const ctx = await createProviderDirectoryContext(app, 'forbidden-roi');
+
+    await request(app.getHttpServer())
+      .get('/api/v1/reporting/levy-roi')
+      .set(ctx.authHeaders)
+      .expect(403);
+  });
+});

@@ -3,6 +3,7 @@ import PDFDocument from 'pdfkit';
 
 import type {
   ICommitmentSnapshotContent,
+  ILevyRoiReportContent,
   ILevyTransferAgreementContent,
   IPdfRenderer,
   IReviewSnapshotContent,
@@ -131,6 +132,81 @@ export class PdfKitPdfRenderer implements IPdfRenderer {
           doc.fontSize(11).text(content.wellbeingNotes);
         }
       }
+    });
+  }
+
+  renderLevyRoiReport(content: ILevyRoiReportContent): Promise<Buffer> {
+    return renderToBuffer((doc) => {
+      doc.fontSize(22).text('Levy ROI Report', { align: 'center' });
+      doc.moveDown();
+      doc.fontSize(14).text(content.organisationName, { align: 'center' });
+      doc.moveDown();
+      doc.fontSize(12).text(`Generated: ${content.generatedAt.slice(0, 10)}`);
+
+      doc.moveDown().fontSize(16).text('Summary');
+      const summary = content.summary;
+      doc.fontSize(11);
+      doc.text(`Total levy spend (proxy): GBP ${summary.totalLevySpendToDate}`);
+      doc.text(
+        `Available balance: ${summary.availableBalance ?? 'n/a'} ${summary.currency ?? ''}`.trim(),
+      );
+      if (summary.utilisationPercent !== null) {
+        doc.text(`Utilisation: ${summary.utilisationPercent}%`);
+      }
+      doc.text(`Active apprentices: ${summary.activeApprenticeCount}`);
+      doc.text(`Completions: ${summary.completionCount}`);
+      if (summary.averageCostPerCompletion !== null) {
+        doc.text(
+          `Average cost per completion: GBP ${summary.averageCostPerCompletion}`,
+        );
+      }
+      doc.text(`EPA pass rate: ${summary.epaPassRate ?? 'n/a'}`);
+      doc.text(
+        `Estimated productivity uplift: GBP ${summary.estimatedProductivityUplift}`,
+      );
+
+      doc.moveDown().fontSize(16).text('Monthly contributions');
+      if (summary.monthlyContributions.length === 0) {
+        doc.fontSize(11).text('Contribution history not yet available.');
+      } else {
+        for (const row of summary.monthlyContributions) {
+          doc.fontSize(11).text(`${row.month}: GBP ${row.amount}`);
+        }
+      }
+
+      const renderBreakdownTable = (
+        title: string,
+        rows: ILevyRoiReportContent['breakdownByProvider'],
+      ) => {
+        doc.moveDown().fontSize(16).text(title);
+        if (rows.length === 0) {
+          doc.fontSize(11).text('No data.');
+          return;
+        }
+        for (const row of rows) {
+          doc
+            .fontSize(11)
+            .text(
+              `${row.label}: active ${row.activeApprenticeCount}, completed ${row.completionCount}, avg cost ${row.averageCostPerCompletion ?? 'n/a'}`,
+            );
+        }
+      };
+
+      renderBreakdownTable(
+        'Breakdown by provider',
+        content.breakdownByProvider,
+      );
+      renderBreakdownTable(
+        'Breakdown by standard',
+        content.breakdownByStandard,
+      );
+
+      doc
+        .moveDown()
+        .fontSize(9)
+        .text('Graddly — board-ready levy report export', {
+          align: 'center',
+        });
     });
   }
 

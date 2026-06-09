@@ -62,4 +62,18 @@ export class EnrolmentResponseDto {
     description: 'Employer line manager platform user ID',
   })
   employerManagerUserId!: string | null;
+
+  @ApiProperty({
+    format: 'uuid',
+    nullable: true,
+    description: 'Linked employer organisation for cross-portal reporting',
+  })
+  employerOrganisationId!: string | null;
+
+  @ApiProperty({
+    format: 'uuid',
+    nullable: true,
+    description: 'Linked provider organisation for cross-portal reporting',
+  })
+  providerOrganisationId!: string | null;
 }

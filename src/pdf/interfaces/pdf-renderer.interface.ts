@@ -40,6 +40,37 @@ export interface IReviewSnapshotContent {
   wellbeingNotes?: string;
 }
 
+export interface ILevyRoiReportContent {
+  organisationName: string;
+  logoUrl: string | null;
+  summary: {
+    totalLevySpendToDate: number;
+    availableBalance: number | null;
+    currency: string | null;
+    utilisationPercent: number | null;
+    activeApprenticeCount: number;
+    completionCount: number;
+    averageCostPerCompletion: number | null;
+    epaPassRate: number | null;
+    estimatedProductivityUplift: number;
+    monthlyContributions: Array<{ month: string; amount: number }>;
+  };
+  breakdownByProvider: Array<{
+    label: string;
+    activeApprenticeCount: number;
+    completionCount: number;
+    averageCostPerCompletion: number | null;
+  }>;
+  breakdownByStandard: Array<{
+    label: string;
+    code?: string;
+    activeApprenticeCount: number;
+    completionCount: number;
+    averageCostPerCompletion: number | null;
+  }>;
+  generatedAt: string;
+}
+
 export interface IPdfRenderer {
   renderHelloPdf(): Promise<Buffer>;
   renderReviewSnapshot(content: IReviewSnapshotContent): Promise<Buffer>;
@@ -49,6 +80,7 @@ export interface IPdfRenderer {
   renderLevyTransferAgreement(
     content: ILevyTransferAgreementContent,
   ): Promise<Buffer>;
+  renderLevyRoiReport(content: ILevyRoiReportContent): Promise<Buffer>;
   embedSignature(
     unsignedPdf: Buffer,
     signaturePng: Buffer,

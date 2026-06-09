@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { Apprentice } from '../apprentices/entities/apprentice.entity.js';
 import { MessageThreadsService } from '../messaging/message-threads.service.js';
+import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
 import { WithdrawalPushService } from '../withdrawal-push/withdrawal-push.service.js';
 
@@ -18,6 +19,7 @@ describe('EnrolmentsService', () => {
   const enrolmentSave = jest.fn();
   const apprenticeFindOne = jest.fn();
   const standardFindOne = jest.fn();
+  const organisationFindOne = jest.fn();
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -37,6 +39,10 @@ describe('EnrolmentsService', () => {
         {
           provide: getRepositoryToken(Standard),
           useValue: { findOne: standardFindOne },
+        },
+        {
+          provide: getRepositoryToken(Organisation),
+          useValue: { findOne: organisationFindOne },
         },
         {
           provide: WithdrawalPushService,
@@ -110,6 +116,28 @@ describe('EnrolmentsService', () => {
     expect(result.apprenticeUserId).toBe('u-app');
     expect(result.tutorUserId).toBe('u-tutor');
     expect(result.employerManagerUserId).toBe('u-mgr');
+  });
+
+  it('updates organisation link IDs', async () => {
+    const enrolment = {
+      id: 'enr-1',
+      organisationId: 'org-1',
+      status: EnrolmentStatus.ACTIVE,
+      employerOrganisationId: null,
+      providerOrganisationId: null,
+    } as Enrolment;
+
+    enrolmentFindOne.mockResolvedValue(enrolment);
+    organisationFindOne.mockResolvedValue({ id: 'emp-1', isDeleted: false });
+    enrolmentSave.mockImplementation((value: Enrolment) =>
+      Promise.resolve(value),
+    );
+
+    const result = await service.updateOrganisationLinks(user, 'enr-1', {
+      employerOrganisationId: 'emp-1',
+    });
+
+    expect(result.employerOrganisationId).toBe('emp-1');
   });
 
   it('cancels active enrolment', async () => {

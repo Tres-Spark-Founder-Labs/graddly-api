@@ -79,4 +79,18 @@ export class Enrolment extends BaseEntity {
 
   @Column({ type: 'uuid', nullable: true })
   employerManagerUserId!: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  employerOrganisationId!: string | null;
+
+  @ManyToOne(() => Organisation, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'employerOrganisationId' })
+  employerOrganisation!: Organisation | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  providerOrganisationId!: string | null;
+
+  @ManyToOne(() => Organisation, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'providerOrganisationId' })
+  providerOrganisation!: Organisation | null;
 }

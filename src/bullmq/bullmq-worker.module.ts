@@ -11,6 +11,7 @@ import { OfstedModule } from '../ofsted/ofsted.module.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { PdfGenerationJob } from '../pdf/entities/pdf-generation-job.entity.js';
 import { PdfModule } from '../pdf/pdf.module.js';
+import { ReportingModule } from '../reporting/reporting.module.js';
 import { ReviewRecord } from '../reviews/entities/review-record.entity.js';
 import { ReviewSignature } from '../reviews/entities/review-signature.entity.js';
 import { Review } from '../reviews/entities/review.entity.js';
@@ -35,6 +36,7 @@ import { SystemPingProcessor } from './processors/system-ping.processor.js';
     StorageModule,
     WithdrawalPushModule,
     OfstedModule,
+    ReportingModule,
     TypeOrmModule.forFeature([
       EvidencePackJob,
       PdfGenerationJob,

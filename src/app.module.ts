@@ -46,6 +46,7 @@ import { PdfModule } from './pdf/pdf.module.js';
 import { PortfolioModule } from './portfolio/portfolio.module.js';
 import { ProgrammesModule } from './programmes/programmes.module.js';
 import { RedisModule } from './redis/redis.module.js';
+import { ReportingModule } from './reporting/reporting.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
 import { StorageModule } from './storage/storage.module.js';
 import { UsersModule } from './users/users.module.js';
@@ -100,6 +101,7 @@ import { WithdrawalPushModule } from './withdrawal-push/withdrawal-push.module.j
     ApprenticesModule,
     EnrolmentsModule,
     MessagingModule,
+    ReportingModule,
     WithdrawalPushModule,
     PdfModule,
     EsignatureModule,

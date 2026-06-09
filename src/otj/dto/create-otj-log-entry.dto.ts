@@ -32,7 +32,18 @@ export class CreateOtjLogEntryDto {
   @IsString()
   note?: string;
 
-  @ApiPropertyOptional({ type: 'object', additionalProperties: true })
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: true,
+    description:
+      'Optional evidence metadata. When files are included, use storage keys from the upload flow: ' +
+      'orgs/{organisationId}/learners/{apprenticeId}/evidence/…',
+    example: {
+      files: [
+        'orgs/660e8400-e29b-41d4-a716-446655440000/learners/660e8400-e29b-41d4-a716-446655440001/evidence/uuid/photo.jpg',
+      ],
+    },
+  })
   @IsOptional()
   @IsObject()
   evidence?: Record<string, unknown>;

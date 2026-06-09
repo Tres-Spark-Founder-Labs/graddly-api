@@ -1,11 +1,13 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
+import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
+import { StorageKeyBuilder } from '../storage/storage-key.builder.js';
 
 import { OtjLogEntry } from './entities/otj-log-entry.entity.js';
 import { OtjLogStatus } from './enums/otj-log-status.enum.js';
@@ -23,6 +25,8 @@ describe('OtjLogEntriesService', () => {
   const emailDispatchService = { enqueue: jest.fn() };
   const configService = { get: jest.fn() };
   const eifScoreCache = { invalidate: jest.fn() };
+  const enrolmentRepo = { findOne: jest.fn() };
+  const keyBuilder = { belongsToOrganisation: jest.fn().mockReturnValue(true) };
 
   let service: OtjLogEntriesService;
 
@@ -35,11 +39,19 @@ describe('OtjLogEntriesService', () => {
         { provide: EmailDispatchService, useValue: emailDispatchService },
         { provide: ConfigService, useValue: configService },
         { provide: EifScoreCacheService, useValue: eifScoreCache },
+        { provide: getRepositoryToken(Enrolment), useValue: enrolmentRepo },
+        { provide: StorageKeyBuilder, useValue: keyBuilder },
       ],
     }).compile();
 
     service = moduleRef.get(OtjLogEntriesService);
     jest.clearAllMocks();
+    enrolmentRepo.findOne.mockResolvedValue({
+      id: 'e-1',
+      organisationId: 'org-1',
+      apprenticeId: 'a-1',
+    });
+    keyBuilder.belongsToOrganisation.mockReturnValue(true);
   });
 
   const user = {
@@ -59,6 +71,34 @@ describe('OtjLogEntriesService', () => {
       minutes: 60,
     });
     expect(created.status).toBe(OtjLogStatus.DRAFT);
+  });
+
+  it('rejects create when enrolment is missing', async () => {
+    enrolmentRepo.findOne.mockResolvedValue(null);
+    await expect(
+      service.create(user, {
+        enrolmentId: 'e-1',
+        apprenticeId: 'a-1',
+        loggedDate: '2026-01-01',
+        minutes: 60,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects evidence keys that do not match apprentice path', async () => {
+    await expect(
+      service.create(user, {
+        enrolmentId: 'e-1',
+        apprenticeId: 'a-1',
+        loggedDate: '2026-01-01',
+        minutes: 60,
+        evidence: {
+          files: ['orgs/org-1/learners/wrong-apprentice/evidence/x/file.jpg'],
+        },
+      }),
+    ).rejects.toThrow(
+      'Storage key must be an evidence object for this apprentice',
+    );
   });
 
   it('throws not found on missing item', async () => {

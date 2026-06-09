@@ -12,9 +12,12 @@ import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
+import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
+import { StorageObjectCategory } from '../storage/enums/storage-object-category.enum.js';
+import { StorageKeyBuilder } from '../storage/storage-key.builder.js';
 
 import { BulkOtjActionResponseDto } from './dto/bulk-otj-action-response.dto.js';
 import { CreateOtjLogEntryDto } from './dto/create-otj-log-entry.dto.js';
@@ -31,18 +34,29 @@ export class OtjLogEntriesService {
   constructor(
     @InjectRepository(OtjLogEntry)
     private readonly repo: Repository<OtjLogEntry>,
+    @InjectRepository(Enrolment)
+    private readonly enrolmentRepo: Repository<Enrolment>,
     private readonly notificationsService: NotificationsService,
     private readonly emailDispatchService: EmailDispatchService,
     private readonly config: ConfigService,
     private readonly eifScoreCache: EifScoreCacheService,
+    private readonly keyBuilder: StorageKeyBuilder,
   ) {}
 
   async create(
     user: AuthenticatedUser,
     dto: CreateOtjLogEntryDto,
   ): Promise<OtjLogEntryResponseDto> {
+    const organisationId = user.organisationId!;
+    await this.assertEnrolmentMatch(
+      organisationId,
+      dto.enrolmentId,
+      dto.apprenticeId,
+    );
+    this.assertEvidence(organisationId, dto.apprenticeId, dto.evidence);
+
     const entity = this.repo.create({
-      organisationId: user.organisationId!,
+      organisationId,
       enrolmentId: dto.enrolmentId,
       apprenticeId: dto.apprenticeId,
       loggedDate: dto.loggedDate,
@@ -111,6 +125,20 @@ export class OtjLogEntriesService {
       where: { id, organisationId: user.organisationId!, isDeleted: false },
     });
     if (!row) throw new NotFoundException('OTJ log entry not found');
+
+    const organisationId = user.organisationId!;
+    const enrolmentId = dto.enrolmentId ?? row.enrolmentId;
+    const apprenticeId = dto.apprenticeId ?? row.apprenticeId;
+    if (dto.enrolmentId !== undefined || dto.apprenticeId !== undefined) {
+      await this.assertEnrolmentMatch(
+        organisationId,
+        enrolmentId,
+        apprenticeId,
+      );
+    }
+    if (dto.evidence !== undefined) {
+      this.assertEvidence(organisationId, apprenticeId, dto.evidence);
+    }
 
     if (dto.status !== undefined) {
       this.applyStatusTransition(row, dto.status);
@@ -268,6 +296,55 @@ export class OtjLogEntriesService {
     throw new BadRequestException(
       `Cannot transition OTJ log entry from ${row.status} to ${target}`,
     );
+  }
+
+  private async assertEnrolmentMatch(
+    organisationId: string,
+    enrolmentId: string,
+    apprenticeId: string,
+  ): Promise<void> {
+    const enrolment = await this.enrolmentRepo.findOne({
+      where: { id: enrolmentId, organisationId, isDeleted: false },
+    });
+    if (!enrolment) {
+      throw new BadRequestException('Enrolment not found in organisation');
+    }
+    if (enrolment.apprenticeId !== apprenticeId) {
+      throw new BadRequestException('Apprentice does not match enrolment');
+    }
+  }
+
+  private assertEvidence(
+    organisationId: string,
+    apprenticeId: string,
+    evidence: Record<string, unknown> | null | undefined,
+  ): void {
+    if (!evidence) return;
+
+    const files = evidence.files;
+    if (files === undefined) return;
+    if (!Array.isArray(files)) {
+      throw new BadRequestException(
+        'evidence.files must be an array of storage keys',
+      );
+    }
+
+    const expectedPrefix = `orgs/${organisationId}/learners/${apprenticeId}/${StorageObjectCategory.EVIDENCE}/`;
+    for (const key of files) {
+      if (typeof key !== 'string') {
+        throw new BadRequestException(
+          'evidence.files must contain storage key strings',
+        );
+      }
+      if (!this.keyBuilder.belongsToOrganisation(key, organisationId)) {
+        throw new BadRequestException(`Invalid storage key: ${key}`);
+      }
+      if (!key.startsWith(expectedPrefix)) {
+        throw new BadRequestException(
+          'Storage key must be an evidence object for this apprentice',
+        );
+      }
+    }
   }
 
   private toResponse(entity: OtjLogEntry): OtjLogEntryResponseDto {

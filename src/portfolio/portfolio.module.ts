@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
+import { OfstedModule } from '../ofsted/ofsted.module.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
 import { RedisModule } from '../redis/redis.module.js';
 import { StorageModule } from '../storage/storage.module.js';
@@ -27,6 +28,7 @@ import { PortfolioController } from './portfolio.controller.js';
   imports: [
     AuthModule,
     NotificationsModule,
+    OfstedModule,
     StorageModule,
     RedisModule,
     TypeOrmModule.forFeature([

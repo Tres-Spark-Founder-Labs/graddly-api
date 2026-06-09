@@ -209,6 +209,13 @@ export const envSchema = z
       .max(86_400)
       .default(0),
 
+    EIF_SCORE_CACHE_TTL_SECONDS: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(86_400)
+      .default(3600),
+
     WITHDRAWAL_PUSH_ENDPOINT_URL: z.string().url().optional().default(''),
 
     ILR_ESFA_PROVIDER: z.enum(['noop', 'http']).default('noop'),

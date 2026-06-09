@@ -5,6 +5,7 @@ import { AuthModule } from '../auth/auth.module.js';
 import { EmailModule } from '../email/email.module.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
+import { OfstedModule } from '../ofsted/ofsted.module.js';
 import { PdfGenerationJob } from '../pdf/entities/pdf-generation-job.entity.js';
 import { PdfModule } from '../pdf/pdf.module.js';
 import { SigningModule } from '../signing/signing.module.js';
@@ -28,6 +29,7 @@ import { ReviewsService } from './reviews.service.js';
     EmailModule,
     SigningModule,
     NotificationsModule,
+    OfstedModule,
     PdfModule,
     TypeOrmModule.forFeature([
       Review,

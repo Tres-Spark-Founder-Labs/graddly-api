@@ -7,6 +7,7 @@ import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { IlrLearnerRecord } from '../ilr/entities/ilr-learner-record.entity.js';
 import { IlrSubmission } from '../ilr/entities/ilr-submission.entity.js';
 import { Invitation } from '../invitations/entities/invitation.entity.js';
+import { QipAction } from '../ofsted/entities/qip-action.entity.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
@@ -31,6 +32,7 @@ export type OrganisationScopedEntity =
   | Enrolment
   | DasLevyBalance
   | OtjLogEntry
+  | QipAction
   | Review
   | ReviewRecord
   | ReviewSignature
@@ -77,6 +79,7 @@ export function resolveAuditOrganisationId(
     entityType === 'enrolments' ||
     entityType === 'das_levy_balances' ||
     entityType === 'otj_log_entries' ||
+    entityType === 'qip_actions' ||
     entityType === 'reviews' ||
     entityType === 'review_records' ||
     entityType === 'review_signatures' ||
@@ -113,6 +116,7 @@ export function isAuditedEntity(entity: unknown): boolean {
     ctor === Enrolment ||
     ctor === DasLevyBalance ||
     ctor === OtjLogEntry ||
+    ctor === QipAction ||
     ctor === Review ||
     ctor === ReviewRecord ||
     ctor === ReviewSignature ||

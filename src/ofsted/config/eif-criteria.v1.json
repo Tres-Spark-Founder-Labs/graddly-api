@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "criteria": [
+    {
+      "slug": "curriculum_intent",
+      "label": "Curriculum intent",
+      "metric": "programme_docs"
+    },
+    {
+      "slug": "curriculum_implementation",
+      "label": "Curriculum implementation",
+      "metric": "portfolio"
+    },
+    {
+      "slug": "curriculum_impact",
+      "label": "Curriculum impact",
+      "metric": "ilr"
+    },
+    {
+      "slug": "behaviour_attitudes",
+      "label": "Behaviour and attitudes",
+      "metric": "otj"
+    },
+    {
+      "slug": "personal_development",
+      "label": "Personal development",
+      "metric": "reviews"
+    },
+    {
+      "slug": "leadership_management",
+      "label": "Leadership and management",
+      "metric": "commitments"
+    },
+    {
+      "slug": "safeguarding",
+      "label": "Safeguarding",
+      "metric": "safeguarding_stub"
+    }
+  ]
+}

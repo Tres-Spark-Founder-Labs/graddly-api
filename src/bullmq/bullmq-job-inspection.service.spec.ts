@@ -8,6 +8,7 @@ import {
   QUEUE_DAS_SYNC_DLQ,
   QUEUE_DIGEST,
   QUEUE_EMAIL,
+  QUEUE_EVIDENCE_PACK,
   QUEUE_PDF,
   QUEUE_SYSTEM,
   QUEUE_WITHDRAWAL_PUSH,
@@ -95,6 +96,10 @@ describe('BullmqJobInspectionService', () => {
           provide: getQueueToken(QUEUE_WITHDRAWAL_PUSH),
           useValue: createQueueMock().queue,
         },
+        {
+          provide: getQueueToken(QUEUE_EVIDENCE_PACK),
+          useValue: createQueueMock().queue,
+        },
         { provide: getQueueToken(QUEUE_SYSTEM), useValue: systemQueue },
       ],
     }).compile();
@@ -106,7 +111,7 @@ describe('BullmqJobInspectionService', () => {
     it('returns summaries for all registered queues', async () => {
       const summaries = await service.listQueues();
 
-      expect(summaries).toHaveLength(7);
+      expect(summaries).toHaveLength(8);
       expect(summaries.find((q) => q.name === QUEUE_EMAIL)?.counts.failed).toBe(
         3,
       );

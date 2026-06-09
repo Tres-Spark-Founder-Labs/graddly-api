@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
+import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 
 import { OtjLogEntry } from './entities/otj-log-entry.entity.js';
 import { OtjLogStatus } from './enums/otj-log-status.enum.js';
@@ -21,6 +22,7 @@ describe('OtjLogEntriesService', () => {
   const notificationsService = { createForUser: jest.fn() };
   const emailDispatchService = { enqueue: jest.fn() };
   const configService = { get: jest.fn() };
+  const eifScoreCache = { invalidate: jest.fn() };
 
   let service: OtjLogEntriesService;
 
@@ -32,6 +34,7 @@ describe('OtjLogEntriesService', () => {
         { provide: NotificationsService, useValue: notificationsService },
         { provide: EmailDispatchService, useValue: emailDispatchService },
         { provide: ConfigService, useValue: configService },
+        { provide: EifScoreCacheService, useValue: eifScoreCache },
       ],
     }).compile();
 

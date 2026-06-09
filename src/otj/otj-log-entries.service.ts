@@ -14,6 +14,7 @@ import { EmailTemplate } from '../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
+import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 
 import { BulkOtjActionResponseDto } from './dto/bulk-otj-action-response.dto.js';
 import { CreateOtjLogEntryDto } from './dto/create-otj-log-entry.dto.js';
@@ -33,6 +34,7 @@ export class OtjLogEntriesService {
     private readonly notificationsService: NotificationsService,
     private readonly emailDispatchService: EmailDispatchService,
     private readonly config: ConfigService,
+    private readonly eifScoreCache: EifScoreCacheService,
   ) {}
 
   async create(
@@ -234,6 +236,14 @@ export class OtjLogEntriesService {
           notificationQueued,
         });
       }
+    }
+
+    if (
+      results.some((r) => r.ok) &&
+      user.organisationId &&
+      (target === OtjLogStatus.APPROVED || target === OtjLogStatus.REJECTED)
+    ) {
+      await this.eifScoreCache.invalidate(user.organisationId);
     }
 
     return {

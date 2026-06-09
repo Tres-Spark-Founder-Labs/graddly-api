@@ -144,6 +144,9 @@ export default registerAs('app', () => {
     portfolio: {
       heatmapCacheTtlSeconds: e.PORTFOLIO_HEATMAP_CACHE_TTL_SECONDS,
     },
+    ofsted: {
+      eifScoreCacheTtlSeconds: e.EIF_SCORE_CACHE_TTL_SECONDS,
+    },
     ilr: {
       configWriteEnabled: e.ILR_CONFIG_WRITE_ENABLED,
       esfa: {

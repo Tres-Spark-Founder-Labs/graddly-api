@@ -368,7 +368,8 @@ export class AuthController {
     type: ApiMeResponseDto,
   })
   @ApiForbiddenResponse({
-    description: 'X-Organisation-Id refers to an organisation the user is not a member of',
+    description:
+      'X-Organisation-Id refers to an organisation the user is not a member of',
     type: ErrorResponseDto,
   })
   @ApiUnauthorizedResponse({
@@ -424,7 +425,8 @@ export class AuthController {
     type: ValidationErrorResponseDto,
   })
   @ApiForbiddenResponse({
-    description: 'X-Organisation-Id refers to an organisation the user is not a member of',
+    description:
+      'X-Organisation-Id refers to an organisation the user is not a member of',
     type: ErrorResponseDto,
   })
   @ApiUnauthorizedResponse({

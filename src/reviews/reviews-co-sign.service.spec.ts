@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { NotificationsService } from '../notifications/notifications.service.js';
+import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 import { PdfGenerationJob } from '../pdf/entities/pdf-generation-job.entity.js';
 import { SequentialCoSignOrchestrator } from '../signing/sequential-co-sign.orchestrator.js';
 
@@ -24,6 +25,7 @@ describe('ReviewsCoSignService', () => {
   const pdfJobRepo = { findOne: jest.fn() };
   const coSignOrchestrator = { executeSign: jest.fn() };
   const notificationsService = { createForUser: jest.fn() };
+  const eifScoreCache = { invalidate: jest.fn() };
 
   let service: ReviewsCoSignService;
 
@@ -45,6 +47,7 @@ describe('ReviewsCoSignService', () => {
           useValue: coSignOrchestrator,
         },
         { provide: NotificationsService, useValue: notificationsService },
+        { provide: EifScoreCacheService, useValue: eifScoreCache },
       ],
     }).compile();
 

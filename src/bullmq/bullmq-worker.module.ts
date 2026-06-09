@@ -5,6 +5,8 @@ import { CommitmentSignature } from '../commitments/entities/commitment-signatur
 import { CommitmentStatement } from '../commitments/entities/commitment-statement.entity.js';
 import { DasModule } from '../das/das.module.js';
 import { EmailModule } from '../email/email.module.js';
+import { EvidencePackJob } from '../ofsted/entities/evidence-pack-job.entity.js';
+import { OfstedModule } from '../ofsted/ofsted.module.js';
 import { PdfGenerationJob } from '../pdf/entities/pdf-generation-job.entity.js';
 import { PdfModule } from '../pdf/pdf.module.js';
 import { ReviewRecord } from '../reviews/entities/review-record.entity.js';
@@ -18,6 +20,7 @@ import { BullmqModule } from './bullmq.module.js';
 import { DasSyncProcessor } from './processors/das-sync.processor.js';
 import { DigestProcessor } from './processors/digest.processor.js';
 import { EmailSendProcessor } from './processors/email-send.processor.js';
+import { EvidencePackProcessor } from './processors/evidence-pack.processor.js';
 import { PdfGenerationProcessor } from './processors/pdf-generation.processor.js';
 import { SystemPingProcessor } from './processors/system-ping.processor.js';
 
@@ -29,7 +32,9 @@ import { SystemPingProcessor } from './processors/system-ping.processor.js';
     PdfModule,
     StorageModule,
     WithdrawalPushModule,
+    OfstedModule,
     TypeOrmModule.forFeature([
+      EvidencePackJob,
       PdfGenerationJob,
       Review,
       ReviewRecord,
@@ -44,6 +49,7 @@ import { SystemPingProcessor } from './processors/system-ping.processor.js';
     EmailSendProcessor,
     DigestProcessor,
     PdfGenerationProcessor,
+    EvidencePackProcessor,
     WithdrawalPushProcessor,
   ],
 })

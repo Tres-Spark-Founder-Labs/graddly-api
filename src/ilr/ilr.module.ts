@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
+import { OfstedModule } from '../ofsted/ofsted.module.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 
 import { IlrLearnerRecord } from './entities/ilr-learner-record.entity.js';
@@ -32,6 +33,7 @@ import type { IIlrEsfaClient } from './interfaces/ilr-esfa.client.interface.js';
   imports: [
     AuthModule,
     NotificationsModule,
+    OfstedModule,
     TypeOrmModule.forFeature([
       IlrMappingConfig,
       IlrLearnerRecord,

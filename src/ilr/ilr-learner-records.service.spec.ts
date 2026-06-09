@@ -2,6 +2,8 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 /* eslint-disable @typescript-eslint/naming-convention -- ILR manual override keys */
+import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
+
 import { IlrLearnerRecord } from './entities/ilr-learner-record.entity.js';
 import { IlrLearnerRecordStatus } from './enums/ilr-learner-record-status.enum.js';
 import { IlrEnrolmentContext } from './ilr-enrolment.context.js';
@@ -60,6 +62,10 @@ describe('IlrLearnerRecordsService', () => {
               .fn()
               .mockResolvedValue(buildEnrolmentGraphFixture()),
           },
+        },
+        {
+          provide: EifScoreCacheService,
+          useValue: { invalidate: jest.fn() },
         },
       ],
     }).compile();

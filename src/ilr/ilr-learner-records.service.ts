@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
+import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 
 import { BuildIlrLearnerRecordDto } from './dto/build-ilr-learner-record.dto.js';
 import { IlrLearnerRecordResponseDto } from './dto/ilr-learner-record-response.dto.js';
@@ -33,6 +34,7 @@ export class IlrLearnerRecordsService {
     private readonly rowBuilder: IlrRowBuilderService,
     private readonly validationEngine: IlrValidationEngine,
     private readonly statusService: IlrLearnerRecordStatusService,
+    private readonly eifScoreCache: EifScoreCacheService,
   ) {}
 
   async build(
@@ -197,7 +199,9 @@ export class IlrLearnerRecordsService {
     record.lastValidatedAt = new Date();
     record.validationSummary = report.summary;
 
-    return this.toResponse(await this.repo.save(record));
+    const saved = await this.repo.save(record);
+    await this.eifScoreCache.invalidate(user.organisationId!);
+    return this.toResponse(saved);
   }
 
   async getValidationReport(

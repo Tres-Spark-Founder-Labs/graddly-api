@@ -41,6 +41,10 @@ cp .env.example .env
 
 Configure Postgres and Redis, then follow **[Database setup](docs/database-setup.md)** (migrations as migrator, `yarn db:provision-role` for the app user, then run the API).
 
+Product requirements (PRD) are maintained as markdown in **[docs/prd/](docs/prd/README.md)**.
+
+Ofsted / EIF APIs: **[docs/ofsted.md](docs/ofsted.md)**.
+
 ```bash
 yarn db:setup    # migration:run + db:provision-role
 yarn start:dev

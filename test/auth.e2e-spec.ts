@@ -676,9 +676,9 @@ describe('AuthController (e2e)', () => {
         .expect(200);
 
       expect(res.body.data.activeOrganisation).toBeNull();
-      const orgIds = (
-        res.body.data.organisations as Array<{ id: string }>
-      ).map((o) => o.id);
+      const orgIds = (res.body.data.organisations as Array<{ id: string }>).map(
+        (o) => o.id,
+      );
       expect(orgIds).toEqual(
         expect.arrayContaining([providerOrgId, employerOrgId]),
       );
@@ -688,7 +688,7 @@ describe('AuthController (e2e)', () => {
       await request(app.getHttpServer())
         .get('/api/v1/auth/me')
         .set('Authorization', `Bearer ${portalToken}`)
-        .set('X-Organisation-Id', '11111111-1111-1111-1111-111111111111')
+        .set('X-Organisation-Id', '00000000-0000-4000-8000-000000000099')
         .expect(403);
     });
 

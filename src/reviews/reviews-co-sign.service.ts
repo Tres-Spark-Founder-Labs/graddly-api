@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
+import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 import { PdfGenerationJob } from '../pdf/entities/pdf-generation-job.entity.js';
 import { PdfJobStatus } from '../pdf/enums/pdf-job-status.enum.js';
 import { SequentialCoSignOrchestrator } from '../signing/sequential-co-sign.orchestrator.js';
@@ -37,6 +38,7 @@ export class ReviewsCoSignService {
     private readonly pdfJobRepo: Repository<PdfGenerationJob>,
     private readonly coSignOrchestrator: SequentialCoSignOrchestrator,
     private readonly notificationsService: NotificationsService,
+    private readonly eifScoreCache: EifScoreCacheService,
   ) {}
 
   async sign(
@@ -108,6 +110,7 @@ export class ReviewsCoSignService {
       refreshed.status = ReviewStatus.COMPLETED;
       refreshed.finalSignedPdfKey = result.signedPdfKey;
       await this.reviewRepo.save(refreshed);
+      await this.eifScoreCache.invalidate(refreshed.organisationId);
       await this.notifyCompletion(refreshed);
     }
 

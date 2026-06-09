@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
+import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 
 import { BulkScheduleReviewsResponseDto } from './dto/bulk-schedule-reviews-response.dto.js';
 import { CreateReviewDto } from './dto/create-review.dto.js';
@@ -28,6 +29,7 @@ export class ReviewsService {
     private readonly repo: Repository<Review>,
     @InjectRepository(Enrolment)
     private readonly enrolmentRepo: Repository<Enrolment>,
+    private readonly eifScoreCache: EifScoreCacheService,
   ) {}
 
   async create(
@@ -185,7 +187,11 @@ export class ReviewsService {
       row.status = dto.status;
     }
 
-    return this.toResponse(await this.repo.save(row));
+    const saved = await this.repo.save(row);
+    if (saved.status === ReviewStatus.COMPLETED) {
+      await this.eifScoreCache.invalidate(user.organisationId!);
+    }
+    return this.toResponse(saved);
   }
 
   async findEntity(user: AuthenticatedUser, id: string): Promise<Review> {

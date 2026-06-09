@@ -19,6 +19,9 @@ export const QUEUE_DAS_SYNC_DLQ = 'das-sync-dlq';
 /** Queue for outbound withdrawal completion pushes. */
 export const QUEUE_WITHDRAWAL_PUSH = 'withdrawal-push';
 
+/** Queue for async Ofsted evidence pack ZIP jobs (Phase R). */
+export const QUEUE_EVIDENCE_PACK = 'evidence-pack';
+
 /** Internal queue for smoke / health jobs. */
 export const QUEUE_SYSTEM = 'system';
 
@@ -29,6 +32,7 @@ export const BULLMQ_QUEUES = [
   QUEUE_DAS_SYNC,
   QUEUE_DAS_SYNC_DLQ,
   QUEUE_WITHDRAWAL_PUSH,
+  QUEUE_EVIDENCE_PACK,
   QUEUE_SYSTEM,
 ] as const;
 

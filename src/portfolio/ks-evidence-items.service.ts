@@ -11,6 +11,7 @@ import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
+import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 import { OrganisationRole } from '../organisations/organisation-role.enum.js';
 import { StorageObjectCategory } from '../storage/enums/storage-object-category.enum.js';
 import { StorageService } from '../storage/storage.service.js';
@@ -48,6 +49,7 @@ export class KsEvidenceItemsService {
     private readonly statusService: KsEvidenceStatusService,
     private readonly notificationsService: NotificationsService,
     private readonly heatmapCache: PortfolioHeatmapCacheService,
+    private readonly eifScoreCache: EifScoreCacheService,
   ) {}
 
   async createUploadUrl(
@@ -284,6 +286,7 @@ export class KsEvidenceItemsService {
     row.acceptedByUserId = user.id;
     await this.itemRepo.save(row);
     await this.heatmapCache.invalidate(row.organisationId, row.enrolmentId);
+    await this.eifScoreCache.invalidate(row.organisationId);
     await this.notificationsService.createForUser({
       userId: row.submittedByUserId ?? user.id,
       organisationId: row.organisationId,

@@ -37,6 +37,7 @@ import { IlrModule } from './ilr/ilr.module.js';
 import { InvitationsModule } from './invitations/invitations.module.js';
 import { winstonConfigFactory } from './logger/winston.config.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
+import { OfstedModule } from './ofsted/ofsted.module.js';
 import { OrganisationsModule } from './organisations/organisations.module.js';
 import { OtjModule } from './otj/otj.module.js';
 import { PdfModule } from './pdf/pdf.module.js';
@@ -85,6 +86,7 @@ import { WithdrawalPushModule } from './withdrawal-push/withdrawal-push.module.j
     InvitationsModule,
     NotificationsModule,
     OtjModule,
+    OfstedModule,
     ReviewsModule,
     CommitmentsModule,
     PortfolioModule,

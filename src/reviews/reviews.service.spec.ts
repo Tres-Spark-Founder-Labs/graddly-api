@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
+import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 
 import { Review } from './entities/review.entity.js';
 import { ReviewStatus } from './enums/review-status.enum.js';
@@ -17,6 +18,7 @@ describe('ReviewsService', () => {
     createQueryBuilder: jest.fn(),
   };
   const enrolmentRepo = { findOne: jest.fn() };
+  const eifScoreCache = { invalidate: jest.fn() };
 
   let service: ReviewsService;
 
@@ -26,6 +28,7 @@ describe('ReviewsService', () => {
         ReviewsService,
         { provide: getRepositoryToken(Review), useValue: reviewRepo },
         { provide: getRepositoryToken(Enrolment), useValue: enrolmentRepo },
+        { provide: EifScoreCacheService, useValue: eifScoreCache },
       ],
     }).compile();
 

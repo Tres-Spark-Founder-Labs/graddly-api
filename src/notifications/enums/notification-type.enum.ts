@@ -11,4 +11,5 @@ export enum NotificationType {
   ILR_SUBMISSION_FAILED = 'ilr_submission_failed',
   LEVY_EXPIRY_90 = 'levy_expiry_90',
   LEVY_EXPIRY_30 = 'levy_expiry_30',
+  MESSAGE = 'message',
 }

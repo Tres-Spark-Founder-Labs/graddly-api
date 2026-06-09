@@ -41,4 +41,25 @@ export class EnrolmentResponseDto {
 
   @ApiProperty({ nullable: true })
   completionPaymentPercent!: number | null;
+
+  @ApiProperty({
+    format: 'uuid',
+    nullable: true,
+    description: 'Platform user ID linked to the apprentice',
+  })
+  apprenticeUserId!: string | null;
+
+  @ApiProperty({
+    format: 'uuid',
+    nullable: true,
+    description: 'Assigned tutor platform user ID',
+  })
+  tutorUserId!: string | null;
+
+  @ApiProperty({
+    format: 'uuid',
+    nullable: true,
+    description: 'Employer line manager platform user ID',
+  })
+  employerManagerUserId!: string | null;
 }

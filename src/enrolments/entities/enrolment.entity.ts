@@ -70,4 +70,13 @@ export class Enrolment extends BaseEntity {
 
   @Column({ type: 'numeric', precision: 5, scale: 2, nullable: true })
   completionPaymentPercent!: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  apprenticeUserId!: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  tutorUserId!: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  employerManagerUserId!: string | null;
 }

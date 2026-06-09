@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,10 +13,12 @@ import { Apprentice } from '../apprentices/entities/apprentice.entity.js';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
+import { MessageThreadsService } from '../messaging/message-threads.service.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
 import { WithdrawalPushService } from '../withdrawal-push/withdrawal-push.service.js';
 
 import { CreateEnrolmentDto } from './dto/create-enrolment.dto.js';
+import { UpdateEnrolmentParticipantsDto } from './dto/update-enrolment-participants.dto.js';
 import { Enrolment } from './entities/enrolment.entity.js';
 import { EnrolmentStatus } from './enums/enrolment-status.enum.js';
 
@@ -30,6 +34,8 @@ export class EnrolmentsService {
     @InjectRepository(Standard)
     private readonly standardRepo: Repository<Standard>,
     private readonly withdrawalPushService: WithdrawalPushService,
+    @Inject(forwardRef(() => MessageThreadsService))
+    private readonly messageThreadsService: MessageThreadsService,
   ) {}
 
   async create(
@@ -118,6 +124,69 @@ export class EnrolmentsService {
     return enrolment;
   }
 
+  async updateParticipants(
+    user: AuthenticatedUser,
+    id: string,
+    dto: UpdateEnrolmentParticipantsDto,
+  ): Promise<Enrolment> {
+    const enrolment = await this.findOne(user, id);
+    if (dto.apprenticeUserId !== undefined) {
+      enrolment.apprenticeUserId = dto.apprenticeUserId;
+    }
+    if (dto.tutorUserId !== undefined) {
+      enrolment.tutorUserId = dto.tutorUserId;
+    }
+    if (dto.employerManagerUserId !== undefined) {
+      enrolment.employerManagerUserId = dto.employerManagerUserId;
+    }
+    return this.enrolmentRepo.save(enrolment);
+  }
+
+  /** Sync tripartite user IDs from a signed commitment when enrolment fields are unset. */
+  async syncParticipantsIfUnset(
+    enrolmentId: string,
+    participants: {
+      apprenticeUserId: string;
+      tutorUserId: string;
+      employerManagerUserId: string;
+    },
+  ): Promise<Enrolment | null> {
+    const enrolment = await this.enrolmentRepo.findOne({
+      where: { id: enrolmentId, isDeleted: false },
+    });
+    if (!enrolment) {
+      return null;
+    }
+
+    let changed = false;
+    if (!enrolment.apprenticeUserId) {
+      enrolment.apprenticeUserId = participants.apprenticeUserId;
+      changed = true;
+    }
+    if (!enrolment.tutorUserId) {
+      enrolment.tutorUserId = participants.tutorUserId;
+      changed = true;
+    }
+    if (!enrolment.employerManagerUserId) {
+      enrolment.employerManagerUserId = participants.employerManagerUserId;
+      changed = true;
+    }
+
+    if (!changed) {
+      return enrolment;
+    }
+    return this.enrolmentRepo.save(enrolment);
+  }
+
+  async findByIdForOrganisation(
+    organisationId: string,
+    id: string,
+  ): Promise<Enrolment | null> {
+    return this.enrolmentRepo.findOne({
+      where: { id, organisationId, isDeleted: false },
+    });
+  }
+
   async activate(user: AuthenticatedUser, id: string): Promise<Enrolment> {
     const enrolment = await this.findOne(user, id);
     if (enrolment.status === EnrolmentStatus.ACTIVE) {
@@ -141,7 +210,9 @@ export class EnrolmentsService {
     }
     enrolment.status = EnrolmentStatus.COMPLETED;
     enrolment.completedAt = new Date();
-    return this.enrolmentRepo.save(enrolment);
+    const saved = await this.enrolmentRepo.save(enrolment);
+    await this.messageThreadsService.archiveForEnrolment(saved.id);
+    return saved;
   }
 
   async cancel(user: AuthenticatedUser, id: string): Promise<Enrolment> {

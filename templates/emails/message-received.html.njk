@@ -1,0 +1,10 @@
+{% extends "layouts/base.html.njk" %}
+
+{% block title %}New message{% endblock %}
+
+{% block content %}
+<p>Hi {{ firstName }},</p>
+<p>You have received a new message:</p>
+<p><em>{{ messagePreview }}</em></p>
+<p>Please sign in to {{ appName }} to read and reply.</p>
+{% endblock %}

@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+import { EnrolmentsService } from '../enrolments/enrolments.service.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
@@ -21,6 +22,7 @@ import { CommitmentStatementStatusService } from './commitment-statement-status.
 import { SignCommitmentResponseDto } from './dto/sign-commitment-response.dto.js';
 import { SignCommitmentDto } from './dto/sign-commitment.dto.js';
 import { CommitmentSignature } from './entities/commitment-signature.entity.js';
+import { CommitmentStatementGroup } from './entities/commitment-statement-group.entity.js';
 import { CommitmentStatement } from './entities/commitment-statement.entity.js';
 import { CommitmentSignatureStatus } from './enums/commitment-signature-status.enum.js';
 import { CommitmentStatementStatus } from './enums/commitment-statement-status.enum.js';
@@ -32,6 +34,8 @@ export class CommitmentsCoSignService {
   constructor(
     @InjectRepository(CommitmentStatement)
     private readonly statementRepo: Repository<CommitmentStatement>,
+    @InjectRepository(CommitmentStatementGroup)
+    private readonly groupRepo: Repository<CommitmentStatementGroup>,
     @InjectRepository(CommitmentSignature)
     private readonly signatureRepo: Repository<CommitmentSignature>,
     @InjectRepository(PdfGenerationJob)
@@ -40,6 +44,7 @@ export class CommitmentsCoSignService {
     private readonly statusService: CommitmentStatementStatusService,
     private readonly notificationsService: NotificationsService,
     private readonly eifScoreCache: EifScoreCacheService,
+    private readonly enrolmentsService: EnrolmentsService,
   ) {}
 
   async sign(
@@ -198,6 +203,17 @@ export class CommitmentsCoSignService {
   private async notifyCompletion(
     statement: CommitmentStatement,
   ): Promise<void> {
+    const group = await this.groupRepo.findOne({
+      where: { id: statement.groupId },
+    });
+    if (group) {
+      await this.enrolmentsService.syncParticipantsIfUnset(group.enrolmentId, {
+        apprenticeUserId: statement.apprenticeUserId,
+        tutorUserId: statement.tutorUserId,
+        employerManagerUserId: statement.employerManagerUserId,
+      });
+    }
+
     const userIds = [
       statement.apprenticeUserId,
       statement.tutorUserId,

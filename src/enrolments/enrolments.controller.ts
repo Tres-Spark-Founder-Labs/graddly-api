@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -41,12 +42,17 @@ import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CreateEnrolmentDto } from './dto/create-enrolment.dto.js';
 import { EnrolmentResponseDto } from './dto/enrolment-response.dto.js';
+import { UpdateEnrolmentParticipantsDto } from './dto/update-enrolment-participants.dto.js';
 import { EnrolmentsService } from './enrolments.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 
 @ApiTags('Enrolments')
-@ApiExtraModels(EnrolmentResponseDto, PaginationMetaDto)
+@ApiExtraModels(
+  EnrolmentResponseDto,
+  PaginationMetaDto,
+  UpdateEnrolmentParticipantsDto,
+)
 @Controller({ path: 'enrolments', version: '1' })
 @UseGuards(JwtAuthGuard, ActiveOrganisationGuard)
 @ApiBearerAuth()
@@ -148,6 +154,42 @@ export class EnrolmentsController {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
     return this.enrolmentsService.findOne(user, id);
+  }
+
+  @Patch(':id/participants')
+  @ResponseMessage('Enrolment participants updated successfully')
+  @ApiOperation({
+    summary:
+      'Set apprentice, tutor, and line manager user IDs for an enrolment',
+    description:
+      'Assigns platform user IDs used for direct messaging threads. ' +
+      'IDs may also be populated automatically when a commitment statement is fully signed.',
+  })
+  @ApiOkResponse({
+    description: 'Updated enrolment with participant user IDs',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(EnrolmentResponseDto) },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Enrolment not found',
+    type: ErrorResponseDto,
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'Validation failed',
+    type: ValidationErrorResponseDto,
+  })
+  updateParticipants(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateEnrolmentParticipantsDto,
+  ) {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.enrolmentsService.updateParticipants(user, id, dto);
   }
 
   @Post(':id/activate')

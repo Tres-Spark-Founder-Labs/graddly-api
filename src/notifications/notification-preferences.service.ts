@@ -14,6 +14,7 @@ const DEFAULT_TYPES = [
   NotificationType.REVIEW,
   NotificationType.COMMITMENT,
   NotificationType.PORTFOLIO,
+  NotificationType.MESSAGE,
 ] as const;
 
 const DEFAULT_CHANNELS = [

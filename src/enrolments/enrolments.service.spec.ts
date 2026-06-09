@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { Apprentice } from '../apprentices/entities/apprentice.entity.js';
+import { MessageThreadsService } from '../messaging/message-threads.service.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
 import { WithdrawalPushService } from '../withdrawal-push/withdrawal-push.service.js';
 
@@ -43,6 +44,10 @@ describe('EnrolmentsService', () => {
             queueFromEnrolment: jest.fn(),
           },
         },
+        {
+          provide: MessageThreadsService,
+          useValue: { archiveForEnrolment: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -79,6 +84,32 @@ describe('EnrolmentsService', () => {
     await expect(service.complete(user, 'enr-1')).rejects.toBeInstanceOf(
       BadRequestException,
     );
+  });
+
+  it('updates participant user IDs', async () => {
+    const enrolment = {
+      id: 'enr-1',
+      organisationId: 'org-1',
+      status: EnrolmentStatus.ACTIVE,
+      apprenticeUserId: null,
+      tutorUserId: null,
+      employerManagerUserId: null,
+    } as Enrolment;
+
+    enrolmentFindOne.mockResolvedValue(enrolment);
+    enrolmentSave.mockImplementation((value: Enrolment) =>
+      Promise.resolve(value),
+    );
+
+    const result = await service.updateParticipants(user, 'enr-1', {
+      apprenticeUserId: 'u-app',
+      tutorUserId: 'u-tutor',
+      employerManagerUserId: 'u-mgr',
+    });
+
+    expect(result.apprenticeUserId).toBe('u-app');
+    expect(result.tutorUserId).toBe('u-tutor');
+    expect(result.employerManagerUserId).toBe('u-mgr');
   });
 
   it('cancels active enrolment', async () => {

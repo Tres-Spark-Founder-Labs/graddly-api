@@ -19,6 +19,9 @@ import { LevyTransferPreference } from '../levy-exchange/entities/levy-transfer-
 import { LevyTransferSignature } from '../levy-exchange/entities/levy-transfer-signature.entity.js';
 import { LevyTransfer } from '../levy-exchange/entities/levy-transfer.entity.js';
 import { LevyWaitingPoolEntry } from '../levy-exchange/entities/levy-waiting-pool-entry.entity.js';
+import { MessageAttachment } from '../messaging/entities/message-attachment.entity.js';
+import { MessageThread } from '../messaging/entities/message-thread.entity.js';
+import { Message } from '../messaging/entities/message.entity.js';
 import { QipAction } from '../ofsted/entities/qip-action.entity.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
@@ -55,6 +58,9 @@ export type OrganisationScopedEntity =
   | LevyTransfer
   | LevyTransferDocument
   | LevyTransferSignature
+  | MessageThread
+  | Message
+  | MessageAttachment
   | OtjLogEntry
   | QipAction
   | Review
@@ -123,6 +129,9 @@ export function resolveAuditOrganisationId(
     entityType === 'levy_waiting_pool_entries' ||
     entityType === 'levy_transfer_documents' ||
     entityType === 'levy_transfer_signatures' ||
+    entityType === 'message_threads' ||
+    entityType === 'messages' ||
+    entityType === 'message_attachments' ||
     entityType === 'otj_log_entries' ||
     entityType === 'qip_actions' ||
     entityType === 'reviews' ||
@@ -172,6 +181,9 @@ export function isAuditedEntity(entity: unknown): boolean {
     ctor === LevyTransfer ||
     ctor === LevyTransferDocument ||
     ctor === LevyTransferSignature ||
+    ctor === MessageThread ||
+    ctor === Message ||
+    ctor === MessageAttachment ||
     ctor === OtjLogEntry ||
     ctor === QipAction ||
     ctor === Review ||

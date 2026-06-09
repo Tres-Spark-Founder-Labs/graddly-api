@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AuthModule } from '../auth/auth.module.js';
+import { EnrolmentsModule } from '../enrolments/enrolments.module.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { OfstedModule } from '../ofsted/ofsted.module.js';
@@ -20,6 +21,7 @@ import { CommitmentStatement } from './entities/commitment-statement.entity.js';
 @Module({
   imports: [
     AuthModule,
+    EnrolmentsModule,
     SigningModule,
     NotificationsModule,
     OfstedModule,

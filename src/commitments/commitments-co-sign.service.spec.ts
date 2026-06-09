@@ -2,6 +2,7 @@ import { ConflictException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { EnrolmentsService } from '../enrolments/enrolments.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 import { PdfGenerationJob } from '../pdf/entities/pdf-generation-job.entity.js';
@@ -12,12 +13,14 @@ import { TripartiteParty } from '../signing/tripartite-party.enum.js';
 import { CommitmentStatementStatusService } from './commitment-statement-status.service.js';
 import { CommitmentsCoSignService } from './commitments-co-sign.service.js';
 import { CommitmentSignature } from './entities/commitment-signature.entity.js';
+import { CommitmentStatementGroup } from './entities/commitment-statement-group.entity.js';
 import { CommitmentStatement } from './entities/commitment-statement.entity.js';
 import { CommitmentSignatureStatus } from './enums/commitment-signature-status.enum.js';
 import { CommitmentStatementStatus } from './enums/commitment-statement-status.enum.js';
 
 describe('CommitmentsCoSignService', () => {
   const statementRepo = { findOne: jest.fn(), save: jest.fn() };
+  const groupRepo = { findOne: jest.fn() };
   const signatureRepo = {
     find: jest.fn(),
     count: jest.fn(),
@@ -28,6 +31,7 @@ describe('CommitmentsCoSignService', () => {
   const coSignOrchestrator = { executeSign: jest.fn() };
   const notificationsService = { createForUser: jest.fn() };
   const eifScoreCache = { invalidate: jest.fn() };
+  const enrolmentsService = { syncParticipantsIfUnset: jest.fn() };
 
   let service: CommitmentsCoSignService;
 
@@ -41,6 +45,10 @@ describe('CommitmentsCoSignService', () => {
           useValue: statementRepo,
         },
         {
+          provide: getRepositoryToken(CommitmentStatementGroup),
+          useValue: groupRepo,
+        },
+        {
           provide: getRepositoryToken(CommitmentSignature),
           useValue: signatureRepo,
         },
@@ -48,6 +56,7 @@ describe('CommitmentsCoSignService', () => {
         { provide: SequentialCoSignOrchestrator, useValue: coSignOrchestrator },
         { provide: NotificationsService, useValue: notificationsService },
         { provide: EifScoreCacheService, useValue: eifScoreCache },
+        { provide: EnrolmentsService, useValue: enrolmentsService },
       ],
     }).compile();
 

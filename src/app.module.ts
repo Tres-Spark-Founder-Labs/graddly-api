@@ -37,6 +37,7 @@ import { IlrModule } from './ilr/ilr.module.js';
 import { InvitationsModule } from './invitations/invitations.module.js';
 import { LevyExchangeModule } from './levy-exchange/levy-exchange.module.js';
 import { winstonConfigFactory } from './logger/winston.config.js';
+import { MessagingModule } from './messaging/messaging.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { OfstedModule } from './ofsted/ofsted.module.js';
 import { OrganisationsModule } from './organisations/organisations.module.js';
@@ -98,6 +99,7 @@ import { WithdrawalPushModule } from './withdrawal-push/withdrawal-push.module.j
     ProgrammesModule,
     ApprenticesModule,
     EnrolmentsModule,
+    MessagingModule,
     WithdrawalPushModule,
     PdfModule,
     EsignatureModule,

@@ -10,6 +10,7 @@ import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 import { StorageKeyBuilder } from '../storage/storage-key.builder.js';
 
 import { OtjLogEntry } from './entities/otj-log-entry.entity.js';
+import { OtjActivityCategory } from './enums/otj-activity-category.enum.js';
 import { OtjLogStatus } from './enums/otj-log-status.enum.js';
 import { OtjLogEntriesService } from './otj-log-entries.service.js';
 
@@ -61,37 +62,33 @@ describe('OtjLogEntriesService', () => {
     organisationId: 'org-1',
   } as const;
 
+  const createDto = {
+    enrolmentId: 'e-1',
+    apprenticeId: 'a-1',
+    activityName: 'Workshop day',
+    category: OtjActivityCategory.TAUGHT_LEARNING,
+    loggedDate: '2026-01-01',
+    minutes: 60,
+  } as const;
+
   it('creates OTJ entry in draft status', async () => {
     repo.create.mockImplementation((v: unknown) => v);
     repo.save.mockImplementation((v: unknown) => Promise.resolve(v));
-    const created = await service.create(user, {
-      enrolmentId: 'e-1',
-      apprenticeId: 'a-1',
-      loggedDate: '2026-01-01',
-      minutes: 60,
-    });
+    const created = await service.create(user, createDto);
     expect(created.status).toBe(OtjLogStatus.DRAFT);
   });
 
   it('rejects create when enrolment is missing', async () => {
     enrolmentRepo.findOne.mockResolvedValue(null);
-    await expect(
-      service.create(user, {
-        enrolmentId: 'e-1',
-        apprenticeId: 'a-1',
-        loggedDate: '2026-01-01',
-        minutes: 60,
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.create(user, createDto)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it('rejects evidence keys that do not match apprentice path', async () => {
     await expect(
       service.create(user, {
-        enrolmentId: 'e-1',
-        apprenticeId: 'a-1',
-        loggedDate: '2026-01-01',
-        minutes: 60,
+        ...createDto,
         evidence: {
           files: ['orgs/org-1/learners/wrong-apprentice/evidence/x/file.jpg'],
         },
@@ -99,6 +96,46 @@ describe('OtjLogEntriesService', () => {
     ).rejects.toThrow(
       'Storage key must be an evidence object for this apprentice',
     );
+  });
+
+  it('filters list by category', async () => {
+    const andWhere = jest.fn().mockReturnThis();
+    const qb = {
+      where: jest.fn().mockReturnThis(),
+      andWhere,
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([
+        [
+          {
+            id: 'id-1',
+            organisationId: 'org-1',
+            enrolmentId: 'e-1',
+            apprenticeId: 'a-1',
+            loggedDate: '2026-01-01',
+            activityName: 'Workshop',
+            category: OtjActivityCategory.TAUGHT_LEARNING,
+            minutes: 60,
+            note: null,
+            evidence: null,
+            status: OtjLogStatus.DRAFT,
+            paceFlag: null,
+            rejectionReason: null,
+          },
+        ],
+        1,
+      ]),
+    };
+    repo.createQueryBuilder.mockReturnValue(qb);
+
+    await service.findAll(user, {
+      category: OtjActivityCategory.TAUGHT_LEARNING,
+    });
+
+    expect(andWhere).toHaveBeenCalledWith('otj.category = :category', {
+      category: OtjActivityCategory.TAUGHT_LEARNING,
+    });
   });
 
   it('throws not found on missing item', async () => {

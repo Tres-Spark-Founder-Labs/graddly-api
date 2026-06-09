@@ -7,6 +7,7 @@ import { AppModule } from '../src/app.module.js';
 import { AuditAction } from '../src/audit/enums/audit-action.enum.js';
 import { ORGANISATION_ID_HEADER } from '../src/common/constants/organisation-headers.js';
 import { configureApp } from '../src/configure-app.js';
+import { OtjActivityCategory } from '../src/otj/enums/otj-activity-category.enum.js';
 import { OtjLogStatus } from '../src/otj/enums/otj-log-status.enum.js';
 
 import { createVerifiedUser } from './helpers/e2e-http.js';
@@ -95,6 +96,20 @@ describe('OTJ log entries (e2e)', () => {
       .set(ORGANISATION_ID_HEADER, orgId)
       .expect(201);
 
+    const categoriesRes = await request(app.getHttpServer())
+      .get('/api/v1/otj-log-entries/categories')
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .set(ORGANISATION_ID_HEADER, orgId)
+      .expect(200);
+    expectSuccessEnvelope(categoriesRes.body);
+    const categories = (
+      categoriesRes.body as {
+        data: Array<{ slug: string; label: string }>;
+      }
+    ).data;
+    expect(categories.length).toBe(6);
+    expect(categories.some((c) => c.slug === 'taught_learning')).toBe(true);
+
     const createRes = await request(app.getHttpServer())
       .post('/api/v1/otj-log-entries')
       .set('Authorization', `Bearer ${owner.accessToken}`)
@@ -102,9 +117,11 @@ describe('OTJ log entries (e2e)', () => {
       .send({
         enrolmentId,
         apprenticeId,
+        activityName: 'Workshop day',
+        category: OtjActivityCategory.TAUGHT_LEARNING,
         loggedDate: '2026-01-15',
         minutes: 120,
-        note: 'Workshop day',
+        note: 'Optional extra detail',
       })
       .expect(201);
     expectSuccessEnvelope(createRes.body);
@@ -112,6 +129,12 @@ describe('OTJ log entries (e2e)', () => {
     expect((createRes.body as { data: { status: string } }).data.status).toBe(
       OtjLogStatus.DRAFT,
     );
+    expect(
+      (createRes.body as { data: { activityName: string } }).data.activityName,
+    ).toBe('Workshop day');
+    expect(
+      (createRes.body as { data: { category: string } }).data.category,
+    ).toBe(OtjActivityCategory.TAUGHT_LEARNING);
 
     const submitRes = await request(app.getHttpServer())
       .patch(`/api/v1/otj-log-entries/${otjId}`)

@@ -13,15 +13,19 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiCreatedResponse,
   ApiExtraModels,
   ApiForbiddenResponse,
   ApiHeader,
   ApiNoContentResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
+  ApiUnprocessableEntityResponse,
   getSchemaPath,
 } from '@nestjs/swagger';
 
@@ -30,7 +34,10 @@ import { ActiveOrganisationGuard } from '../auth/guards/active-organisation.guar
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers.js';
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
-import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
+import {
+  ErrorResponseDto,
+  ValidationErrorResponseDto,
+} from '../common/dto/error-response.dto.js';
 import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
@@ -40,8 +47,10 @@ import { BulkOtjActionResponseDto } from './dto/bulk-otj-action-response.dto.js'
 import { BulkOtjActionDto } from './dto/bulk-otj-action.dto.js';
 import { CreateOtjLogEntryDto } from './dto/create-otj-log-entry.dto.js';
 import { ListOtjLogEntriesQueryDto } from './dto/list-otj-log-entries-query.dto.js';
+import { OtjActivityCategoryDefinitionDto } from './dto/otj-activity-category-response.dto.js';
 import { OtjLogEntryResponseDto } from './dto/otj-log-entry-response.dto.js';
 import { UpdateOtjLogEntryDto } from './dto/update-otj-log-entry.dto.js';
+import { loadOtjActivityCategoriesConfig } from './otj-activity-categories.config.js';
 import { OtjLogEntriesService } from './otj-log-entries.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
@@ -49,8 +58,11 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
 @ApiTags('OTJ Log Entries')
 @ApiExtraModels(
   OtjLogEntryResponseDto,
+  OtjActivityCategoryDefinitionDto,
   PaginationMetaDto,
   BulkOtjActionResponseDto,
+  CreateOtjLogEntryDto,
+  UpdateOtjLogEntryDto,
 )
 @Controller({ path: 'otj-log-entries', version: '1' })
 @UseGuards(JwtAuthGuard, ActiveOrganisationGuard)
@@ -71,8 +83,62 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
 export class OtjLogEntriesController {
   constructor(private readonly service: OtjLogEntriesService) {}
 
+  @Get('categories')
+  @ResponseMessage('OTJ activity categories retrieved successfully')
+  @ApiOperation({
+    summary: 'List OTJ activity category definitions',
+    description:
+      'Returns the versioned catalogue of OTJ activity types (slug + display label) for the ' +
+      'apprentice log form dropdown. These values are **not** programmes or courses — use ' +
+      'enrolmentId on create to identify which course the session counts toward.',
+  })
+  @ApiOkResponse({
+    description: 'Six PRD activity categories for the OTJ log form',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(OtjActivityCategoryDefinitionDto) },
+        },
+      },
+    },
+  })
+  listCategories(): OtjActivityCategoryDefinitionDto[] {
+    return loadOtjActivityCategoriesConfig().categories.map((c) => ({
+      slug: c.slug,
+      label: c.label,
+    }));
+  }
+
   @Post()
   @ResponseMessage('OTJ log entry created successfully')
+  @ApiOperation({
+    summary: 'Create an OTJ log entry',
+    description:
+      'Creates a draft OTJ log entry in the active organisation. enrolmentId identifies the ' +
+      'programme/course; category identifies the activity type (see GET /otj-log-entries/categories). ' +
+      'activityName is the session label (max 80 chars). apprenticeId must match the enrolment. ' +
+      'When evidence.files is provided, each key must be org-scoped evidence storage for that apprentice.',
+  })
+  @ApiCreatedResponse({
+    description: 'OTJ log entry created in draft status',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(OtjLogEntryResponseDto) },
+      },
+    },
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'Validation failed (missing activityName, category, etc.)',
+    type: ValidationErrorResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Enrolment not found, apprentice mismatch, or invalid evidence storage keys',
+    type: ErrorResponseDto,
+  })
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateOtjLogEntryDto,
@@ -84,6 +150,12 @@ export class OtjLogEntriesController {
 
   @Get()
   @ResponseMessage('OTJ log entries retrieved successfully')
+  @ApiOperation({
+    summary: 'List OTJ log entries',
+    description:
+      'Paginated list scoped to the active organisation. Filter by status, apprentice, enrolment ' +
+      '(programme/course), category (activity type), or loggedDate range.',
+  })
   @ApiOkResponse({
     schema: {
       properties: {
@@ -107,7 +179,21 @@ export class OtjLogEntriesController {
 
   @Post('bulk-approve')
   @ResponseMessage('Bulk OTJ approval completed')
-  @ApiOperation({ summary: 'Bulk approve OTJ submitted entries' })
+  @ApiOperation({
+    summary: 'Bulk approve OTJ submitted entries',
+    description:
+      'Transitions each entry from submitted to approved. Entries not in submitted status return ' +
+      'per-id failure in the results array. Invalidates EIF score cache when any succeed.',
+  })
+  @ApiCreatedResponse({
+    description: 'Bulk approval result with per-id outcomes',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(BulkOtjActionResponseDto) },
+      },
+    },
+  })
   bulkApprove(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: BulkOtjActionDto,
@@ -119,7 +205,21 @@ export class OtjLogEntriesController {
 
   @Post('bulk-reject')
   @ResponseMessage('Bulk OTJ rejection completed')
-  @ApiOperation({ summary: 'Bulk reject OTJ submitted entries' })
+  @ApiOperation({
+    summary: 'Bulk reject OTJ submitted entries',
+    description:
+      'Transitions each entry from submitted to rejected with an optional reason. Invalidates EIF ' +
+      'score cache when any succeed.',
+  })
+  @ApiCreatedResponse({
+    description: 'Bulk rejection result with per-id outcomes',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(BulkOtjActionResponseDto) },
+      },
+    },
+  })
   bulkReject(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: BulkOtjActionDto,
@@ -131,6 +231,19 @@ export class OtjLogEntriesController {
 
   @Get(':id')
   @ResponseMessage('OTJ log entry retrieved successfully')
+  @ApiOperation({ summary: 'Get an OTJ log entry by id' })
+  @ApiOkResponse({
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(OtjLogEntryResponseDto) },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'OTJ log entry not found in organisation',
+    type: ErrorResponseDto,
+  })
   findOne(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -142,6 +255,33 @@ export class OtjLogEntriesController {
 
   @Patch(':id')
   @ResponseMessage('OTJ log entry updated successfully')
+  @ApiOperation({
+    summary: 'Update an OTJ log entry',
+    description:
+      'Partial update. Set status to submitted to move from draft. Enrolment/apprentice changes ' +
+      're-validate the match. Evidence keys must remain org-scoped evidence paths for the apprentice.',
+  })
+  @ApiOkResponse({
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(OtjLogEntryResponseDto) },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'OTJ log entry not found in organisation',
+    type: ErrorResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Invalid status transition, enrolment mismatch, or bad evidence keys',
+    type: ErrorResponseDto,
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'Validation failed',
+    type: ValidationErrorResponseDto,
+  })
   update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -154,7 +294,12 @@ export class OtjLogEntriesController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Soft-delete an OTJ log entry' })
   @ApiNoContentResponse({ description: 'OTJ log entry deleted' })
+  @ApiNotFoundResponse({
+    description: 'OTJ log entry not found in organisation',
+    type: ErrorResponseDto,
+  })
   async remove(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,

@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+import { OtjActivityCategory } from '../enums/otj-activity-category.enum.js';
 import { OtjLogStatus } from '../enums/otj-log-status.enum.js';
 
 export class OtjLogEntryResponseDto {
@@ -9,7 +10,10 @@ export class OtjLogEntryResponseDto {
   @ApiProperty({ format: 'uuid' })
   organisationId!: string;
 
-  @ApiProperty({ format: 'uuid' })
+  @ApiProperty({
+    format: 'uuid',
+    description: 'Programme/course enrolment this OTJ session counts toward.',
+  })
   enrolmentId!: string;
 
   @ApiProperty({ format: 'uuid' })
@@ -17,6 +21,15 @@ export class OtjLogEntryResponseDto {
 
   @ApiProperty({ format: 'date' })
   loggedDate!: string;
+
+  @ApiProperty({ maxLength: 80 })
+  activityName!: string;
+
+  @ApiProperty({
+    enum: OtjActivityCategory,
+    description: 'OTJ activity type (not the programme/course).',
+  })
+  category!: OtjActivityCategory;
 
   @ApiProperty()
   minutes!: number;

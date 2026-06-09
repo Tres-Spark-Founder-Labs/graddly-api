@@ -61,6 +61,8 @@ export class OtjLogEntriesService {
       apprenticeId: dto.apprenticeId,
       loggedDate: dto.loggedDate,
       minutes: dto.minutes,
+      activityName: dto.activityName,
+      category: dto.category,
       note: dto.note ?? null,
       evidence: dto.evidence ?? null,
       status: OtjLogStatus.DRAFT,
@@ -91,6 +93,8 @@ export class OtjLogEntriesService {
       qb.andWhere('otj.enrolmentId = :enrolmentId', {
         enrolmentId: query.enrolmentId,
       });
+    if (query.category)
+      qb.andWhere('otj.category = :category', { category: query.category });
     if (query.from)
       qb.andWhere('otj.loggedDate >= :from', { from: query.from });
     if (query.to) qb.andWhere('otj.loggedDate <= :to', { to: query.to });
@@ -148,6 +152,8 @@ export class OtjLogEntriesService {
     if (dto.apprenticeId !== undefined) row.apprenticeId = dto.apprenticeId;
     if (dto.loggedDate !== undefined) row.loggedDate = dto.loggedDate;
     if (dto.minutes !== undefined) row.minutes = dto.minutes;
+    if (dto.activityName !== undefined) row.activityName = dto.activityName;
+    if (dto.category !== undefined) row.category = dto.category;
     if (dto.note !== undefined) row.note = dto.note;
     if (dto.evidence !== undefined) row.evidence = dto.evidence;
 
@@ -355,6 +361,8 @@ export class OtjLogEntriesService {
       apprenticeId: entity.apprenticeId,
       loggedDate: entity.loggedDate,
       minutes: entity.minutes,
+      activityName: entity.activityName,
+      category: entity.category,
       note: entity.note,
       evidence: entity.evidence,
       status: entity.status,

@@ -4,6 +4,7 @@ import { Apprentice } from '../../apprentices/entities/apprentice.entity.js';
 import { BaseEntity } from '../../common/entities/base.entity.js';
 import { Enrolment } from '../../enrolments/entities/enrolment.entity.js';
 import { Organisation } from '../../organisations/entities/organisation.entity.js';
+import { OtjActivityCategory } from '../enums/otj-activity-category.enum.js';
 import { OtjLogStatus } from '../enums/otj-log-status.enum.js';
 
 @Entity('otj_log_entries')
@@ -22,6 +23,7 @@ import { OtjLogStatus } from '../enums/otj-log-status.enum.js';
   'enrolmentId',
   'loggedDate',
 ])
+@Index('IDX_otj_log_entries_org_category', ['organisationId', 'category'])
 export class OtjLogEntry extends BaseEntity {
   @Column({ type: 'uuid' })
   organisationId!: string;
@@ -49,6 +51,17 @@ export class OtjLogEntry extends BaseEntity {
 
   @Column({ type: 'int' })
   minutes!: number;
+
+  @Column({ type: 'varchar', length: 80 })
+  activityName!: string;
+
+  @Column({
+    type: 'enum',
+    enum: OtjActivityCategory,
+    enumName: 'otj_activity_category',
+    default: OtjActivityCategory.OTHER,
+  })
+  category!: OtjActivityCategory;
 
   @Column({ type: 'text', nullable: true })
   note!: string | null;

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "categories": [
+    {
+      "slug": "taught_learning",
+      "label": "Taught learning"
+    },
+    {
+      "slug": "applied_project",
+      "label": "Applied project"
+    },
+    {
+      "slug": "mentoring_coaching",
+      "label": "Mentoring & coaching"
+    },
+    {
+      "slug": "job_shadowing",
+      "label": "Job shadowing"
+    },
+    {
+      "slug": "off_site_learning",
+      "label": "Off-site learning"
+    },
+    {
+      "slug": "other",
+      "label": "Other"
+    }
+  ]
+}

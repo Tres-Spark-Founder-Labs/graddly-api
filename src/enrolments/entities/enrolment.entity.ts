@@ -15,6 +15,17 @@ import { EnrolmentStatus } from '../enums/enrolment-status.enum.js';
     where: `"isDeleted" = false AND "status" IN ('draft', 'active')`,
   },
 )
+@Index('IDX_enrolments_org_employer_org', [
+  'organisationId',
+  'employerOrganisationId',
+])
+@Index('IDX_enrolments_org_provider_org', [
+  'organisationId',
+  'providerOrganisationId',
+])
+@Index('IDX_enrolments_active_status', ['status'], {
+  where: `"isDeleted" = false`,
+})
 export class Enrolment extends BaseEntity {
   @Column({ type: 'uuid' })
   organisationId!: string;

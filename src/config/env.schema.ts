@@ -234,6 +234,34 @@ export const envSchema = z
 
     CRON_LEVY_TRANSFER_STATUS_SCHEDULE: z.string().min(1).default('0 3 * * *'),
 
+    RETENTION_AUDIT_YEARS: z.coerce.number().int().min(1).max(25).default(7),
+    RETENTION_SOFT_DELETE_DAYS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(3650)
+      .default(90),
+    RETENTION_NOTIFICATION_DAYS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(3650)
+      .default(365),
+
+    CRON_RETENTION_ENABLED: z
+      .string()
+      .optional()
+      .default('false')
+      .transform((v) => v === 'true'),
+    CRON_RETENTION_SCHEDULE: z.string().min(1).default('0 4 * * 0'),
+
+    PLATFORM_OPS_ENABLED: z
+      .string()
+      .optional()
+      .default('false')
+      .transform((v) => v === 'true'),
+    PLATFORM_OPS_API_KEY: z.string().optional().default(''),
+
     PORTFOLIO_HEATMAP_CACHE_TTL_SECONDS: z.coerce
       .number()
       .int()
@@ -310,6 +338,21 @@ export const envSchema = z
           message:
             'QUEUE_OPS_API_KEY must be set (min 32 characters) when QUEUE_OPS_ENABLED is true and NODE_ENV is production or staging.',
           path: ['QUEUE_OPS_API_KEY'],
+        });
+      }
+    }
+
+    if (data.PLATFORM_OPS_ENABLED) {
+      const weakPlatformKey =
+        !data.PLATFORM_OPS_API_KEY?.trim() ||
+        data.PLATFORM_OPS_API_KEY.length < 32;
+
+      if (weakPlatformKey) {
+        ctx.addIssue({
+          code: 'custom',
+          message:
+            'PLATFORM_OPS_API_KEY must be set (min 32 characters) when PLATFORM_OPS_ENABLED is true and NODE_ENV is production or staging.',
+          path: ['PLATFORM_OPS_API_KEY'],
         });
       }
     }

@@ -5,6 +5,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { getEnv } from '../../src/config/validate-env.js';
 import { configureApp } from '../../src/configure-app.js';
+import { configureHelmet } from '../../src/configure-helmet.js';
 
 import type { App } from 'supertest/types';
 
@@ -27,6 +28,7 @@ export async function createE2eApp(
   }).compile();
 
   const app = moduleFixture.createNestApplication();
+  configureHelmet(app);
   configureApp(app);
   await app.init();
   return app;

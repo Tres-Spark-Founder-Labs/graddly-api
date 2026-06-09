@@ -34,7 +34,10 @@
     "migration:run": "yarn build && yarn typeorm migration:run",
     "migration:show": "yarn build && yarn typeorm migration:show",
     "migration:revert": "yarn build && yarn typeorm migration:revert",
-    "migration:create": "node ./node_modules/typeorm/cli.js migration:create"
+    "migration:create": "node ./node_modules/typeorm/cli.js migration:create",
+    "load:setup": "tsx scripts/provision-k6-smoke-user.ts",
+    "load:smoke": "k6 run load/k6/smoke.js",
+    "load:smoke:local": "tsx scripts/run-k6-smoke-local.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.882.0",

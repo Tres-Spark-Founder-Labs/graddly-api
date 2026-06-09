@@ -21,6 +21,10 @@ const BOOTSTRAP_AUTH_GET_SUFFIXES = [
   '/levy-exchange/donor-links/oauth/callback',
 ] as const;
 
+const BOOTSTRAP_PLATFORM_OPS_POST_SUFFIXES = [
+  '/platform/gdpr/erasure',
+] as const;
+
 function normalizeRequestPath(request: Request): string {
   const path = (request.originalUrl ?? request.url ?? '').split('?')[0];
   return path.replace(/\/+$/, '') || '/';
@@ -35,6 +39,12 @@ export function isRlsBootstrapRequest(request: Request): boolean {
 
   if (request.method !== 'POST') {
     return false;
+  }
+
+  if (
+    BOOTSTRAP_PLATFORM_OPS_POST_SUFFIXES.some((suffix) => path.endsWith(suffix))
+  ) {
+    return true;
   }
 
   if (path.includes('/levy-exchange/transfers')) {

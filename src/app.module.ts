@@ -43,6 +43,7 @@ import { OfstedModule } from './ofsted/ofsted.module.js';
 import { OrganisationsModule } from './organisations/organisations.module.js';
 import { OtjModule } from './otj/otj.module.js';
 import { PdfModule } from './pdf/pdf.module.js';
+import { PlatformGdprModule } from './platform-gdpr/platform-gdpr.module.js';
 import { PortfolioModule } from './portfolio/portfolio.module.js';
 import { ProgrammesModule } from './programmes/programmes.module.js';
 import { RedisModule } from './redis/redis.module.js';
@@ -106,6 +107,7 @@ import { WithdrawalPushModule } from './withdrawal-push/withdrawal-push.module.j
     PdfModule,
     EsignatureModule,
     AuditModule,
+    PlatformGdprModule,
     HealthModule,
   ],
   controllers: [AppController],

@@ -18,6 +18,11 @@ export type AuditChanges = Record<string, AuditFieldChange>;
 @Entity('audit_log_entries')
 @Index('IDX_audit_log_org_created', ['organisationId', 'createdAt'])
 @Index('IDX_audit_log_entity_created', ['entityType', 'entityId', 'createdAt'])
+@Index('IDX_audit_log_org_entity_created', [
+  'organisationId',
+  'entityType',
+  'createdAt',
+])
 export class AuditLogEntry {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

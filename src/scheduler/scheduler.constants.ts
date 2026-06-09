@@ -21,3 +21,6 @@ export const LEVY_TRANSFER_STATUS_CRON_NAME = 'levy-transfer-status-daily';
 
 /** Daily levy expiry alert cron (90d and 30d). */
 export const LEVY_EXPIRY_ALERTS_CRON_NAME = 'levy-expiry-alerts-daily';
+
+/** Weekly GDPR data retention purge cron. */
+export const RETENTION_CRON_NAME = 'data-retention-weekly';

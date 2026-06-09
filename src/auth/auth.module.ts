@@ -45,6 +45,7 @@ import { JwtStrategy } from './strategies/jwt.strategy.js';
   ],
   exports: [
     AuthService,
+    RefreshTokenService,
     PassportModule,
     JwtModule,
     JwtStrategy,

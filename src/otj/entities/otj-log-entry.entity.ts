@@ -13,6 +13,9 @@ import { OtjLogStatus } from '../enums/otj-log-status.enum.js';
   'status',
   'createdAt',
 ])
+@Index('IDX_otj_log_entries_org_created', ['organisationId', 'createdAt'], {
+  where: `"isDeleted" = false`,
+})
 @Index('IDX_otj_log_entries_org_apprentice_logged_date', [
   'organisationId',
   'apprenticeId',

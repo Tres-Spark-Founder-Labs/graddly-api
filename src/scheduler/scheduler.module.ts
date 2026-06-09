@@ -5,6 +5,8 @@ import { TerminusModule } from '@nestjs/terminus';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { DasModule } from '../das/das.module.js';
+import { DataRetentionCronService } from '../data-retention/data-retention-cron.service.js';
+import { DataRetentionModule } from '../data-retention/data-retention.module.js';
 import { RedisHealthIndicator } from '../health/redis-health.indicator.js';
 import { LevyTransfer } from '../levy-exchange/entities/levy-transfer.entity.js';
 import { LevyExchangeModule } from '../levy-exchange/levy-exchange.module.js';
@@ -38,6 +40,7 @@ import { ReviewRemindersCronService } from './review-reminders-cron.service.js';
     OtjModule,
     ReviewsModule,
     LevyExchangeModule,
+    DataRetentionModule,
     TypeOrmModule.forFeature([Organisation, LevyTransfer]),
   ],
   providers: [
@@ -51,6 +54,7 @@ import { ReviewRemindersCronService } from './review-reminders-cron.service.js';
     ReviewRemindersCronService,
     LevyExpiryAlertsCronService,
     LevyTransferStatusCronService,
+    DataRetentionCronService,
   ],
   exports: [CronLockService],
 })

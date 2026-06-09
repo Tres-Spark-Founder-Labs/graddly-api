@@ -63,6 +63,17 @@ export default registerAs('app', () => {
       levyExpiryAlertsSchedule: e.CRON_LEVY_EXPIRY_ALERTS_SCHEDULE,
       levyTransferStatusEnabled: e.CRON_LEVY_TRANSFER_STATUS_ENABLED,
       levyTransferStatusSchedule: e.CRON_LEVY_TRANSFER_STATUS_SCHEDULE,
+      retentionEnabled: e.CRON_RETENTION_ENABLED,
+      retentionSchedule: e.CRON_RETENTION_SCHEDULE,
+    },
+    retention: {
+      auditYears: e.RETENTION_AUDIT_YEARS,
+      softDeleteDays: e.RETENTION_SOFT_DELETE_DAYS,
+      notificationDays: e.RETENTION_NOTIFICATION_DAYS,
+    },
+    platformOps: {
+      enabled: e.PLATFORM_OPS_ENABLED,
+      apiKey: e.PLATFORM_OPS_API_KEY,
     },
     queueOps: {
       enabled: e.QUEUE_OPS_ENABLED,

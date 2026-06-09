@@ -59,6 +59,10 @@ export default registerAs('app', () => {
       reviewOverdueSchedule: e.CRON_REVIEW_OVERDUE_SCHEDULE,
       reviewRemindersEnabled: e.CRON_REVIEW_REMINDERS_ENABLED,
       reviewRemindersSchedule: e.CRON_REVIEW_REMINDERS_SCHEDULE,
+      levyExpiryAlertsEnabled: e.CRON_LEVY_EXPIRY_ALERTS_ENABLED,
+      levyExpiryAlertsSchedule: e.CRON_LEVY_EXPIRY_ALERTS_SCHEDULE,
+      levyTransferStatusEnabled: e.CRON_LEVY_TRANSFER_STATUS_ENABLED,
+      levyTransferStatusSchedule: e.CRON_LEVY_TRANSFER_STATUS_SCHEDULE,
     },
     queueOps: {
       enabled: e.QUEUE_OPS_ENABLED,
@@ -136,7 +140,21 @@ export default registerAs('app', () => {
       clientSecret: e.DAS_CLIENT_SECRET,
       scope: e.DAS_SCOPE,
       levyBalancePath: e.DAS_LEVY_BALANCE_PATH,
+      transferConsentPath: e.DAS_LEVY_TRANSFER_CONSENT_PATH,
+      transferStatusPath: e.DAS_LEVY_TRANSFER_STATUS_PATH,
       timeoutMs: e.DAS_TIMEOUT_MS,
+    },
+    levyExchange: {
+      donorOAuth: {
+        authorizeUrl: e.DAS_DONOR_OAUTH_AUTHORIZE_URL,
+        tokenUrl: e.DAS_DONOR_OAUTH_TOKEN_URL,
+        clientId: e.DAS_DONOR_OAUTH_CLIENT_ID,
+        clientSecret: e.DAS_DONOR_OAUTH_CLIENT_SECRET,
+        redirectUri: e.DAS_DONOR_OAUTH_REDIRECT_URI,
+        scope: e.DAS_DONOR_OAUTH_SCOPE,
+        tokenEncryptionKey:
+          e.DAS_DONOR_TOKEN_ENCRYPTION_KEY?.trim() || e.JWT_SECRET,
+      },
     },
     withdrawalPush: {
       endpointUrl: e.WITHDRAWAL_PUSH_ENDPOINT_URL,

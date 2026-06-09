@@ -172,7 +172,23 @@ export const envSchema = z
     DAS_CLIENT_SECRET: z.string().optional().default(''),
     DAS_SCOPE: z.string().optional().default(''),
     DAS_LEVY_BALANCE_PATH: z.string().min(1).default('/api/levy/balance'),
+    DAS_LEVY_TRANSFER_CONSENT_PATH: z
+      .string()
+      .min(1)
+      .default('/api/levy/transfers/consent'),
+    DAS_LEVY_TRANSFER_STATUS_PATH: z
+      .string()
+      .min(1)
+      .default('/api/levy/transfers/status'),
     DAS_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60000).default(10000),
+
+    DAS_DONOR_OAUTH_AUTHORIZE_URL: z.string().url().optional().default(''),
+    DAS_DONOR_OAUTH_TOKEN_URL: z.string().url().optional().default(''),
+    DAS_DONOR_OAUTH_CLIENT_ID: z.string().optional().default(''),
+    DAS_DONOR_OAUTH_CLIENT_SECRET: z.string().optional().default(''),
+    DAS_DONOR_OAUTH_REDIRECT_URI: z.string().url().optional().default(''),
+    DAS_DONOR_OAUTH_SCOPE: z.string().optional().default(''),
+    DAS_DONOR_TOKEN_ENCRYPTION_KEY: z.string().optional().default(''),
 
     CRON_DAS_SYNC_ENABLED: z
       .string()
@@ -201,6 +217,22 @@ export const envSchema = z
       .default('false')
       .transform((v) => v === 'true'),
     CRON_REVIEW_REMINDERS_SCHEDULE: z.string().min(1).default('0 7 * * *'),
+
+    CRON_LEVY_EXPIRY_ALERTS_ENABLED: z
+      .string()
+      .optional()
+      .default('false')
+      .transform((v) => v === 'true'),
+
+    CRON_LEVY_EXPIRY_ALERTS_SCHEDULE: z.string().min(1).default('0 8 * * *'),
+
+    CRON_LEVY_TRANSFER_STATUS_ENABLED: z
+      .string()
+      .optional()
+      .default('false')
+      .transform((v) => v === 'true'),
+
+    CRON_LEVY_TRANSFER_STATUS_SCHEDULE: z.string().min(1).default('0 3 * * *'),
 
     PORTFOLIO_HEATMAP_CACHE_TTL_SECONDS: z.coerce
       .number()

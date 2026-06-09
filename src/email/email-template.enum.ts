@@ -4,4 +4,6 @@ export enum EmailTemplate {
   EMAIL_VERIFICATION = 'email-verification',
   INVITATION_ACCEPT = 'invitation-accept',
   REVIEW_REMINDER = 'review-reminder',
+  LEVY_EXPIRY_90 = 'levy-expiry-90',
+  LEVY_EXPIRY_30 = 'levy-expiry-30',
 }

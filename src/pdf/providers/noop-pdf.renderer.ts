@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import type {
   ICommitmentSnapshotContent,
+  ILevyTransferAgreementContent,
   IPdfRenderer,
   IReviewSnapshotContent,
   ISignedPdfOptions,
@@ -23,6 +24,12 @@ export class NoopPdfRenderer implements IPdfRenderer {
 
   renderCommitmentSnapshot(
     _content: ICommitmentSnapshotContent,
+  ): Promise<Buffer> {
+    return Promise.resolve(MINIMAL_PDF);
+  }
+
+  renderLevyTransferAgreement(
+    _content: ILevyTransferAgreementContent,
   ): Promise<Buffer> {
     return Promise.resolve(MINIMAL_PDF);
   }

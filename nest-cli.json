@@ -3,7 +3,11 @@
   "collection": "@nestjs/schematics",
   "sourceRoot": "src",
   "compilerOptions": {
-    "assets": ["ofsted/config/*.json", "otj/config/*.json"],
+    "assets": [
+      "ofsted/config/*.json",
+      "otj/config/*.json",
+      "levy-exchange/config/*.json"
+    ],
     "deleteOutDir": false,
     "plugins": [
       {

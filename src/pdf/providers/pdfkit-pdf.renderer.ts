@@ -3,6 +3,7 @@ import PDFDocument from 'pdfkit';
 
 import type {
   ICommitmentSnapshotContent,
+  ILevyTransferAgreementContent,
   IPdfRenderer,
   IReviewSnapshotContent,
   ISignedPdfOptions,
@@ -70,6 +71,27 @@ export class PdfKitPdfRenderer implements IPdfRenderer {
       if (content.additionalTerms) {
         doc.moveDown().fontSize(14).text('Additional terms');
         doc.fontSize(11).text(content.additionalTerms);
+      }
+    });
+  }
+
+  renderLevyTransferAgreement(
+    content: ILevyTransferAgreementContent,
+  ): Promise<Buffer> {
+    return renderToBuffer((doc) => {
+      doc.fontSize(20).text('Levy transfer agreement', { align: 'center' });
+      doc.moveDown();
+      doc.fontSize(12).text(`Donor: ${content.donorOrganisationName}`);
+      doc.text(`Recipient: ${content.recipientOrganisationName}`);
+      doc.text(`Amount: GBP ${content.amount}`);
+      if (content.startDate) {
+        doc.text(`Start date: ${content.startDate}`);
+      }
+      if (content.programmeDetails) {
+        doc.moveDown().fontSize(14).text('Programme details');
+        doc
+          .fontSize(11)
+          .text(JSON.stringify(content.programmeDetails, null, 2));
       }
     });
   }

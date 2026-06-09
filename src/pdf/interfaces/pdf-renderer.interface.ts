@@ -14,6 +14,14 @@ export interface ICommitmentSnapshotContent {
   additionalTerms?: string;
 }
 
+export interface ILevyTransferAgreementContent {
+  donorOrganisationName: string;
+  recipientOrganisationName: string;
+  amount: string;
+  startDate: string | null;
+  programmeDetails?: Record<string, unknown> | null;
+}
+
 export interface IReviewSnapshotContent {
   title: string | null;
   scheduledAt: string;
@@ -37,6 +45,9 @@ export interface IPdfRenderer {
   renderReviewSnapshot(content: IReviewSnapshotContent): Promise<Buffer>;
   renderCommitmentSnapshot(
     content: ICommitmentSnapshotContent,
+  ): Promise<Buffer>;
+  renderLevyTransferAgreement(
+    content: ILevyTransferAgreementContent,
   ): Promise<Buffer>;
   embedSignature(
     unsignedPdf: Buffer,

@@ -1,0 +1,9 @@
+{% extends "layouts/base.html.njk" %}
+
+{% block title %}Levy expiry alert (30 days){% endblock %}
+
+{% block content %}
+<p>Hi {{ firstName }},</p>
+<p><strong>{{ trancheAmount }}</strong> of levy funds will expire on <strong>{{ expiresOn }}</strong> (in {{ daysAhead }} day(s)).</p>
+<p>Sign in to {{ appName }} to review your surplus and <a href="{{ transferCtaUrl }}">initiate a transfer</a> before these funds expire.</p>
+{% endblock %}

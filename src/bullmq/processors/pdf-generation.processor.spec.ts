@@ -5,6 +5,8 @@ import { Job } from 'bullmq';
 import { PdfGenerationProcessor } from '../../bullmq/processors/pdf-generation.processor.js';
 import { CommitmentSignature } from '../../commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatement } from '../../commitments/entities/commitment-statement.entity.js';
+import { LevyTransfer } from '../../levy-exchange/entities/levy-transfer.entity.js';
+import { Organisation } from '../../organisations/entities/organisation.entity.js';
 import { PdfGenerationJob } from '../../pdf/entities/pdf-generation-job.entity.js';
 import { PdfJobStatus } from '../../pdf/enums/pdf-job-status.enum.js';
 import { PdfJobTemplate } from '../../pdf/enums/pdf-job-template.enum.js';
@@ -82,6 +84,14 @@ describe('PdfGenerationProcessor', () => {
             create: jest.fn((v: unknown) => v),
             save: jest.fn(),
           },
+        },
+        {
+          provide: getRepositoryToken(LevyTransfer),
+          useValue: { findOne: jest.fn(), save: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(Organisation),
+          useValue: { findOne: jest.fn() },
         },
       ],
     }).compile();

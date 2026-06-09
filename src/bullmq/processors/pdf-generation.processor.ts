@@ -13,6 +13,9 @@ import {
   setCurrentUserId,
 } from '../../common/context/correlation-id-context.js';
 import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
+import { LevyTransfer } from '../../levy-exchange/entities/levy-transfer.entity.js';
+import { LevyTransferStatus } from '../../levy-exchange/enums/levy-transfer-status.enum.js';
+import { Organisation } from '../../organisations/entities/organisation.entity.js';
 import { PdfGenerationJob } from '../../pdf/entities/pdf-generation-job.entity.js';
 import { PdfJobStatus } from '../../pdf/enums/pdf-job-status.enum.js';
 import { PdfJobTemplate } from '../../pdf/enums/pdf-job-template.enum.js';
@@ -33,6 +36,7 @@ import { QUEUE_PDF } from '../bullmq.constants.js';
 import type { CommitmentStatementContentDto } from '../../commitments/dto/commitment-statement-content.dto.js';
 import type {
   ICommitmentSnapshotContent,
+  ILevyTransferAgreementContent,
   IReviewSnapshotContent,
 } from '../../pdf/interfaces/pdf-renderer.interface.js';
 import type { IPdfJobPayload } from '../../pdf/pdf-job.payload.js';
@@ -58,6 +62,10 @@ export class PdfGenerationProcessor extends WorkerHost {
     private readonly commitmentStatementRepo: Repository<CommitmentStatement>,
     @InjectRepository(CommitmentSignature)
     private readonly commitmentSignatureRepo: Repository<CommitmentSignature>,
+    @InjectRepository(LevyTransfer)
+    private readonly levyTransferRepo: Repository<LevyTransfer>,
+    @InjectRepository(Organisation)
+    private readonly organisationRepo: Repository<Organisation>,
   ) {
     super();
   }
@@ -70,8 +78,15 @@ export class PdfGenerationProcessor extends WorkerHost {
       return;
     }
 
-    const { jobId, organisationId, userId, template, reviewId, statementId } =
-      job.data;
+    const {
+      jobId,
+      organisationId,
+      userId,
+      template,
+      reviewId,
+      statementId,
+      transferId,
+    } = job.data;
     setCurrentUserId(userId);
     setCurrentOrganisationId(organisationId);
     setLastKnownUserIdForGuc(userId);
@@ -104,6 +119,16 @@ export class PdfGenerationProcessor extends WorkerHost {
         );
         buffer = await this.pdfService.renderCommitmentSnapshot(content);
         filename = `commitment-snapshot-${statementId}.pdf`;
+      } else if (template === PdfJobTemplate.LEVY_TRANSFER_AGREEMENT) {
+        if (!transferId) {
+          throw new Error(
+            'transferId is required for levy_transfer_agreement template',
+          );
+        }
+        const content =
+          await this.buildLevyTransferAgreementContent(transferId);
+        buffer = await this.pdfService.renderLevyTransferAgreement(content);
+        filename = `levy-transfer-agreement-${transferId}.pdf`;
       } else {
         buffer = await this.pdfService.renderHelloPdf();
         filename = `hello-${jobId}.pdf`;
@@ -135,6 +160,9 @@ export class PdfGenerationProcessor extends WorkerHost {
       }
       if (template === PdfJobTemplate.COMMITMENT_SNAPSHOT && statementId) {
         await this.prepareCommitmentSigning(organisationId, statementId);
+      }
+      if (template === PdfJobTemplate.LEVY_TRANSFER_AGREEMENT && transferId) {
+        await this.prepareLevyTransferSigning(transferId);
       }
     } catch (error) {
       const message =
@@ -203,6 +231,45 @@ export class PdfGenerationProcessor extends WorkerHost {
       weeklyHours: content.weeklyHours,
       additionalTerms: content.additionalTerms,
     };
+  }
+
+  private async buildLevyTransferAgreementContent(
+    transferId: string,
+  ): Promise<ILevyTransferAgreementContent> {
+    const transfer = await this.levyTransferRepo.findOne({
+      where: { id: transferId, isDeleted: false },
+    });
+    if (!transfer) {
+      throw new Error('Levy transfer not found for agreement PDF');
+    }
+
+    const [donor, recipient] = await Promise.all([
+      this.organisationRepo.findOne({
+        where: { id: transfer.donorOrganisationId, isDeleted: false },
+      }),
+      this.organisationRepo.findOne({
+        where: { id: transfer.recipientOrganisationId, isDeleted: false },
+      }),
+    ]);
+
+    return {
+      donorOrganisationName: donor?.name ?? 'Donor organisation',
+      recipientOrganisationName: recipient?.name ?? 'Recipient organisation',
+      amount: transfer.amount,
+      startDate: transfer.startDate,
+      programmeDetails: transfer.programmeDetails,
+    };
+  }
+
+  private async prepareLevyTransferSigning(transferId: string): Promise<void> {
+    const transfer = await this.levyTransferRepo.findOne({
+      where: { id: transferId, isDeleted: false },
+    });
+    if (!transfer || transfer.status !== LevyTransferStatus.DRAFT) {
+      return;
+    }
+    transfer.status = LevyTransferStatus.PENDING_SIGNATURES;
+    await this.levyTransferRepo.save(transfer);
   }
 
   private async prepareCommitmentSigning(

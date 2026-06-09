@@ -4,6 +4,7 @@ import { PDF_RENDERER } from './pdf.constants.js';
 
 import type {
   ICommitmentSnapshotContent,
+  ILevyTransferAgreementContent,
   IPdfRenderer,
   IReviewSnapshotContent,
   ISignedPdfOptions,
@@ -25,6 +26,12 @@ export class PdfService {
     content: ICommitmentSnapshotContent,
   ): Promise<Buffer> {
     return this.renderer.renderCommitmentSnapshot(content);
+  }
+
+  renderLevyTransferAgreement(
+    content: ILevyTransferAgreementContent,
+  ): Promise<Buffer> {
+    return this.renderer.renderLevyTransferAgreement(content);
   }
 
   embedSignature(

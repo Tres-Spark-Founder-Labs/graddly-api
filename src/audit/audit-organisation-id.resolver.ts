@@ -7,6 +7,18 @@ import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { IlrLearnerRecord } from '../ilr/entities/ilr-learner-record.entity.js';
 import { IlrSubmission } from '../ilr/entities/ilr-submission.entity.js';
 import { Invitation } from '../invitations/entities/invitation.entity.js';
+import { DasDonorLink } from '../levy-exchange/entities/das-donor-link.entity.js';
+import { DasDonorOAuthToken } from '../levy-exchange/entities/das-donor-oauth-token.entity.js';
+import { DasLevyTranche } from '../levy-exchange/entities/das-levy-tranche.entity.js';
+import { LevyExpiryAlertDispatch } from '../levy-exchange/entities/levy-expiry-alert-dispatch.entity.js';
+import { LevyMatchApplication } from '../levy-exchange/entities/levy-match-application.entity.js';
+import { LevyRecipientProfile } from '../levy-exchange/entities/levy-recipient-profile.entity.js';
+import { LevySurplusSnapshot } from '../levy-exchange/entities/levy-surplus-snapshot.entity.js';
+import { LevyTransferDocument } from '../levy-exchange/entities/levy-transfer-document.entity.js';
+import { LevyTransferPreference } from '../levy-exchange/entities/levy-transfer-preference.entity.js';
+import { LevyTransferSignature } from '../levy-exchange/entities/levy-transfer-signature.entity.js';
+import { LevyTransfer } from '../levy-exchange/entities/levy-transfer.entity.js';
+import { LevyWaitingPoolEntry } from '../levy-exchange/entities/levy-waiting-pool-entry.entity.js';
 import { QipAction } from '../ofsted/entities/qip-action.entity.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
@@ -31,6 +43,18 @@ export type OrganisationScopedEntity =
   | Apprentice
   | Enrolment
   | DasLevyBalance
+  | DasDonorLink
+  | DasDonorOAuthToken
+  | DasLevyTranche
+  | LevySurplusSnapshot
+  | LevyExpiryAlertDispatch
+  | LevyRecipientProfile
+  | LevyTransferPreference
+  | LevyMatchApplication
+  | LevyWaitingPoolEntry
+  | LevyTransfer
+  | LevyTransferDocument
+  | LevyTransferSignature
   | OtjLogEntry
   | QipAction
   | Review
@@ -72,12 +96,33 @@ export function resolveAuditOrganisationId(
     return membership.organisationId ?? membership.organisation?.id ?? null;
   }
 
+  if (entityType === 'levy_match_applications') {
+    const app = entity as LevyMatchApplication;
+    return app.donorOrganisationId ?? app.recipientOrganisationId ?? null;
+  }
+
+  if (entityType === 'levy_transfers') {
+    const transfer = entity as LevyTransfer;
+    return (
+      transfer.donorOrganisationId ?? transfer.recipientOrganisationId ?? null
+    );
+  }
+
   if (
-    entityType === 'programmes' ||
     entityType === 'standards' ||
     entityType === 'apprentices' ||
     entityType === 'enrolments' ||
     entityType === 'das_levy_balances' ||
+    entityType === 'das_donor_links' ||
+    entityType === 'das_donor_oauth_tokens' ||
+    entityType === 'das_levy_tranches' ||
+    entityType === 'levy_surplus_snapshots' ||
+    entityType === 'levy_expiry_alert_dispatches' ||
+    entityType === 'levy_recipient_profiles' ||
+    entityType === 'levy_transfer_preferences' ||
+    entityType === 'levy_waiting_pool_entries' ||
+    entityType === 'levy_transfer_documents' ||
+    entityType === 'levy_transfer_signatures' ||
     entityType === 'otj_log_entries' ||
     entityType === 'qip_actions' ||
     entityType === 'reviews' ||
@@ -115,6 +160,18 @@ export function isAuditedEntity(entity: unknown): boolean {
     ctor === Apprentice ||
     ctor === Enrolment ||
     ctor === DasLevyBalance ||
+    ctor === DasDonorLink ||
+    ctor === DasDonorOAuthToken ||
+    ctor === DasLevyTranche ||
+    ctor === LevySurplusSnapshot ||
+    ctor === LevyExpiryAlertDispatch ||
+    ctor === LevyRecipientProfile ||
+    ctor === LevyTransferPreference ||
+    ctor === LevyMatchApplication ||
+    ctor === LevyWaitingPoolEntry ||
+    ctor === LevyTransfer ||
+    ctor === LevyTransferDocument ||
+    ctor === LevyTransferSignature ||
     ctor === OtjLogEntry ||
     ctor === QipAction ||
     ctor === Review ||

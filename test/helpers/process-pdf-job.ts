@@ -4,6 +4,8 @@ import { Job } from 'bullmq';
 import { PdfGenerationProcessor } from '../../src/bullmq/processors/pdf-generation.processor.js';
 import { CommitmentSignature } from '../../src/commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatement } from '../../src/commitments/entities/commitment-statement.entity.js';
+import { LevyTransfer } from '../../src/levy-exchange/entities/levy-transfer.entity.js';
+import { Organisation } from '../../src/organisations/entities/organisation.entity.js';
 import { PdfGenerationJob } from '../../src/pdf/entities/pdf-generation-job.entity.js';
 import { PDF_JOB_GENERATE } from '../../src/pdf/pdf-job.constants.js';
 import { PdfService } from '../../src/pdf/pdf.service.js';
@@ -35,6 +37,8 @@ export async function processPdfJobInApp(
     app.get<Repository<CommitmentSignature>>(
       getRepositoryToken(CommitmentSignature),
     ),
+    app.get<Repository<LevyTransfer>>(getRepositoryToken(LevyTransfer)),
+    app.get<Repository<Organisation>>(getRepositoryToken(Organisation)),
   );
 
   const job = {

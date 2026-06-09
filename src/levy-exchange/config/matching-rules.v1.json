@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "weights": {
+    "sector": 30,
+    "region": 25,
+    "programmeType": 25,
+    "amount": 20
+  },
+  "wildcardScore": 50,
+  "amountBands": [
+    { "minRatio": 1.0, "score": 100 },
+    { "minRatio": 0.75, "score": 75 },
+    { "minRatio": 0.5, "score": 50 },
+    { "minRatio": 0.25, "score": 25 },
+    { "minRatio": 0, "score": 0 }
+  ],
+  "minimumScore": 40,
+  "maxResults": 20
+}

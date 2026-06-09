@@ -39,6 +39,32 @@ describe('isRlsBootstrapRequest', () => {
     ).toBe(true);
   });
 
+  it('matches levy exchange bootstrap POST routes', () => {
+    expect(
+      isRlsBootstrapRequest(
+        makeRequest('POST', '/api/v1/levy-exchange/matches/search'),
+      ),
+    ).toBe(true);
+    expect(
+      isRlsBootstrapRequest(
+        makeRequest('POST', '/api/v1/levy-exchange/match-applications'),
+      ),
+    ).toBe(true);
+    expect(
+      isRlsBootstrapRequest(
+        makeRequest('POST', '/api/v1/levy-exchange/transfers'),
+      ),
+    ).toBe(true);
+    expect(
+      isRlsBootstrapRequest(
+        makeRequest(
+          'POST',
+          '/api/v1/levy-exchange/transfers/00000000-0000-4000-8000-000000000001/sign',
+        ),
+      ),
+    ).toBe(true);
+  });
+
   it('does not match authenticated routes', () => {
     expect(isRlsBootstrapRequest(makeRequest('GET', '/api/v1/auth/me'))).toBe(
       false,

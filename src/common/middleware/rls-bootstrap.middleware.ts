@@ -12,9 +12,14 @@ const BOOTSTRAP_AUTH_POST_SUFFIXES = [
   '/auth/verify-email',
   '/auth/resend-verification',
   '/invitations/accept',
+  '/levy-exchange/matches/search',
+  '/levy-exchange/match-applications',
 ] as const;
 
-const BOOTSTRAP_AUTH_GET_SUFFIXES = ['/auth/oidc/callback'] as const;
+const BOOTSTRAP_AUTH_GET_SUFFIXES = [
+  '/auth/oidc/callback',
+  '/levy-exchange/donor-links/oauth/callback',
+] as const;
 
 function normalizeRequestPath(request: Request): string {
   const path = (request.originalUrl ?? request.url ?? '').split('?')[0];
@@ -30,6 +35,10 @@ export function isRlsBootstrapRequest(request: Request): boolean {
 
   if (request.method !== 'POST') {
     return false;
+  }
+
+  if (path.includes('/levy-exchange/transfers')) {
+    return true;
   }
 
   return BOOTSTRAP_AUTH_POST_SUFFIXES.some((suffix) => path.endsWith(suffix));

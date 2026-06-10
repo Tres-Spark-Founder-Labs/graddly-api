@@ -42,6 +42,8 @@ import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CreateEnrolmentDto } from './dto/create-enrolment.dto.js';
 import { EnrolmentResponseDto } from './dto/enrolment-response.dto.js';
+import { EpaOutcomeResponseDto } from './dto/epa-outcome-response.dto.js';
+import { RecordEpaOutcomeDto } from './dto/record-epa-outcome.dto.js';
 import { UpdateEnrolmentOrganisationLinksDto } from './dto/update-enrolment-organisation-links.dto.js';
 import { UpdateEnrolmentParticipantsDto } from './dto/update-enrolment-participants.dto.js';
 import { EnrolmentsService } from './enrolments.service.js';
@@ -51,7 +53,9 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
 @ApiTags('Enrolments')
 @ApiExtraModels(
   EnrolmentResponseDto,
+  EpaOutcomeResponseDto,
   PaginationMetaDto,
+  RecordEpaOutcomeDto,
   UpdateEnrolmentOrganisationLinksDto,
   UpdateEnrolmentParticipantsDto,
 )
@@ -286,6 +290,44 @@ export class EnrolmentsController {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
     return this.enrolmentsService.complete(user, id);
+  }
+
+  @Post(':id/epa-outcome')
+  @ResponseMessage('EPA outcome recorded successfully')
+  @ApiOperation({
+    summary: 'Record EPA outcome for a completed enrolment',
+    description:
+      'Persists the EPA assessment result and queues a DAS completion notification push with the outcome. Enrolment must already be completed.',
+  })
+  @ApiCreatedResponse({
+    description: 'EPA outcome recorded',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(EpaOutcomeResponseDto) },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Enrolment not found',
+    type: ErrorResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Enrolment not completed',
+    type: ErrorResponseDto,
+  })
+  @ApiConflictResponse({
+    description: 'EPA outcome already recorded',
+    type: ErrorResponseDto,
+  })
+  recordEpaOutcome(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RecordEpaOutcomeDto,
+  ) {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.enrolmentsService.recordEpaOutcome(user, id, dto);
   }
 
   @Post(':id/cancel')

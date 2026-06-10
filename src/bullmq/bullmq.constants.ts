@@ -28,6 +28,18 @@ export const QUEUE_ILR_SUBMIT = 'ilr-submit';
 /** Dead-letter queue for terminal ILR submit failures. */
 export const QUEUE_ILR_SUBMIT_DLQ = 'ilr-submit-dlq';
 
+/** Queue for DAS enrolment submission pushes (PRD-001). */
+export const QUEUE_ENROLMENT_PUSH = 'enrolment-push';
+
+/** Dead-letter queue for terminal enrolment push failures. */
+export const QUEUE_ENROLMENT_PUSH_DLQ = 'enrolment-push-dlq';
+
+/** Queue for DAS completion notification pushes (PRD-002). */
+export const QUEUE_COMPLETION_PUSH = 'completion-push';
+
+/** Dead-letter queue for terminal completion push failures. */
+export const QUEUE_COMPLETION_PUSH_DLQ = 'completion-push-dlq';
+
 /** Internal queue for smoke / health jobs. */
 export const QUEUE_SYSTEM = 'system';
 
@@ -41,6 +53,10 @@ export const BULLMQ_QUEUES = [
   QUEUE_EVIDENCE_PACK,
   QUEUE_ILR_SUBMIT,
   QUEUE_ILR_SUBMIT_DLQ,
+  QUEUE_ENROLMENT_PUSH,
+  QUEUE_ENROLMENT_PUSH_DLQ,
+  QUEUE_COMPLETION_PUSH,
+  QUEUE_COMPLETION_PUSH_DLQ,
   QUEUE_SYSTEM,
 ] as const;
 

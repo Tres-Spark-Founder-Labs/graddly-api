@@ -180,6 +180,14 @@ export const envSchema = z
       .string()
       .min(1)
       .default('/api/levy/transfers/status'),
+    DAS_ENROLMENT_SUBMIT_PATH: z
+      .string()
+      .min(1)
+      .default('/api/apprenticeships/enrolments'),
+    DAS_COMPLETION_NOTIFY_PATH: z
+      .string()
+      .min(1)
+      .default('/api/apprenticeships/completions'),
     DAS_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60000).default(10000),
 
     DAS_DONOR_OAUTH_AUTHORIZE_URL: z.string().url().optional().default(''),

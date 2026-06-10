@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 /* eslint-disable @typescript-eslint/naming-convention -- ILR manual override keys */
+import { EnrolmentPushService } from '../enrolment-push/enrolment-push.service.js';
 import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 
 import { IlrLearnerRecord } from './entities/ilr-learner-record.entity.js';
@@ -20,6 +21,7 @@ import {
 
 describe('IlrLearnerRecordsService', () => {
   let service: IlrLearnerRecordsService;
+  const enrolmentPush = { queueFromIlrRecord: jest.fn() };
   const repo = {
     findOne: jest.fn(),
     create: jest.fn((input: unknown) => input),
@@ -67,6 +69,7 @@ describe('IlrLearnerRecordsService', () => {
           provide: EifScoreCacheService,
           useValue: { invalidate: jest.fn() },
         },
+        { provide: EnrolmentPushService, useValue: enrolmentPush },
       ],
     }).compile();
 
@@ -85,6 +88,7 @@ describe('IlrLearnerRecordsService', () => {
     expect(result.status).toBe(IlrLearnerRecordStatus.DRAFT);
     expect(result.fields.Provider.UKPRN).toBe('10012345');
     expect(repo.save).toHaveBeenCalled();
+    expect(enrolmentPush.queueFromIlrRecord).toHaveBeenCalled();
   });
 
   it('rebuilds existing record idempotently for same period', async () => {
@@ -102,6 +106,7 @@ describe('IlrLearnerRecordsService', () => {
 
     expect(result.manualOverrides['Learner.ULN']).toBe('1111111111');
     expect(result.status).toBe(IlrLearnerRecordStatus.DRAFT);
+    expect(enrolmentPush.queueFromIlrRecord).not.toHaveBeenCalled();
   });
 
   it('patch resets status to draft', async () => {

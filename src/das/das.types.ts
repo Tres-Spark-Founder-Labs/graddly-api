@@ -25,3 +25,31 @@ export interface IDasTransferStatusPayload {
   paymentDates: string[] | null;
   raw: Record<string, unknown>;
 }
+
+export interface IDasEnrolmentSubmissionRequest {
+  ukprn: string;
+  learnerRef: string;
+  standardCode: string;
+  givenNames: string;
+  familyName: string;
+  plannedStartDate: string;
+  plannedEndDate: string | null;
+}
+
+export interface IDasEnrolmentSubmissionResult {
+  reference: string | null;
+  status: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface IDasCompletionNotificationRequest {
+  learnerRef: string;
+  completionDate: string;
+  epaOutcome: string | null;
+}
+
+export interface IDasCompletionNotificationResult {
+  reference: string | null;
+  status: string | null;
+  raw: Record<string, unknown>;
+}

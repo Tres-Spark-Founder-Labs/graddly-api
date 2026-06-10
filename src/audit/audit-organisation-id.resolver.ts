@@ -2,8 +2,11 @@ import { Apprentice } from '../apprentices/entities/apprentice.entity.js';
 import { CommitmentSignature } from '../commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatementGroup } from '../commitments/entities/commitment-statement-group.entity.js';
 import { CommitmentStatement } from '../commitments/entities/commitment-statement.entity.js';
+import { EnrolmentCompletionPush } from '../completion-push/entities/enrolment-completion-push.entity.js';
 import { DasLevyBalance } from '../das/entities/das-levy-balance.entity.js';
+import { EnrolmentSubmissionPush } from '../enrolment-push/entities/enrolment-submission-push.entity.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
+import { EpaOutcomeRecord } from '../enrolments/entities/epa-outcome.entity.js';
 import { IlrLearnerRecord } from '../ilr/entities/ilr-learner-record.entity.js';
 import { IlrSubmission } from '../ilr/entities/ilr-submission.entity.js';
 import { Invitation } from '../invitations/entities/invitation.entity.js';
@@ -75,6 +78,9 @@ export type OrganisationScopedEntity =
   | EnrolmentKsbCoverage
   | IlrLearnerRecord
   | IlrSubmission
+  | EnrolmentSubmissionPush
+  | EnrolmentCompletionPush
+  | EpaOutcomeRecord
   | WithdrawalCompletionPush
   | (Record<string, unknown> & {
       organisationId?: string;

@@ -291,9 +291,13 @@ describe('BullmqOpsController (e2e, Redis integration)', () => {
         'evidence-pack',
         'ilr-submit',
         'ilr-submit-dlq',
+        'enrolment-push',
+        'enrolment-push-dlq',
+        'completion-push',
+        'completion-push-dlq',
         'system',
       ]),
     );
-    expect(names).toHaveLength(10);
+    expect(names).toHaveLength(14);
   });
 });

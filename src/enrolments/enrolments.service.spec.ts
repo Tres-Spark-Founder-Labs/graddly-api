@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { Apprentice } from '../apprentices/entities/apprentice.entity.js';
+import { CompletionPushService } from '../completion-push/completion-push.service.js';
 import { MessageThreadsService } from '../messaging/message-threads.service.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
@@ -10,6 +11,7 @@ import { WithdrawalPushService } from '../withdrawal-push/withdrawal-push.servic
 
 import { EnrolmentsService } from './enrolments.service.js';
 import { Enrolment } from './entities/enrolment.entity.js';
+import { EpaOutcomeRecord } from './entities/epa-outcome.entity.js';
 import { EnrolmentStatus } from './enums/enrolment-status.enum.js';
 
 describe('EnrolmentsService', () => {
@@ -49,9 +51,24 @@ describe('EnrolmentsService', () => {
           useValue: { findOne: organisationFindOne },
         },
         {
+          provide: getRepositoryToken(EpaOutcomeRecord),
+          useValue: {
+            findOne: jest.fn(),
+            create: jest.fn(),
+            save: jest.fn(),
+          },
+        },
+        {
           provide: WithdrawalPushService,
           useValue: {
             queueFromEnrolment: jest.fn(),
+          },
+        },
+        {
+          provide: CompletionPushService,
+          useValue: {
+            queueFromEnrolmentCompleted: jest.fn(),
+            queueFromEpaOutcome: jest.fn(),
           },
         },
         {

@@ -153,6 +153,8 @@ export default registerAs('app', () => {
       levyBalancePath: e.DAS_LEVY_BALANCE_PATH,
       transferConsentPath: e.DAS_LEVY_TRANSFER_CONSENT_PATH,
       transferStatusPath: e.DAS_LEVY_TRANSFER_STATUS_PATH,
+      enrolmentSubmitPath: e.DAS_ENROLMENT_SUBMIT_PATH,
+      completionNotifyPath: e.DAS_COMPLETION_NOTIFY_PATH,
       timeoutMs: e.DAS_TIMEOUT_MS,
     },
     levyExchange: {

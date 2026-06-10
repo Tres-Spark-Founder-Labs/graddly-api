@@ -13,15 +13,19 @@ import { Apprentice } from '../apprentices/entities/apprentice.entity.js';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
+import { CompletionPushService } from '../completion-push/completion-push.service.js';
 import { MessageThreadsService } from '../messaging/message-threads.service.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
 import { WithdrawalPushService } from '../withdrawal-push/withdrawal-push.service.js';
 
 import { CreateEnrolmentDto } from './dto/create-enrolment.dto.js';
+import { EpaOutcomeResponseDto } from './dto/epa-outcome-response.dto.js';
+import { RecordEpaOutcomeDto } from './dto/record-epa-outcome.dto.js';
 import { UpdateEnrolmentOrganisationLinksDto } from './dto/update-enrolment-organisation-links.dto.js';
 import { UpdateEnrolmentParticipantsDto } from './dto/update-enrolment-participants.dto.js';
 import { Enrolment } from './entities/enrolment.entity.js';
+import { EpaOutcomeRecord } from './entities/epa-outcome.entity.js';
 import { EnrolmentStatus } from './enums/enrolment-status.enum.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
@@ -37,7 +41,10 @@ export class EnrolmentsService {
     private readonly standardRepo: Repository<Standard>,
     @InjectRepository(Organisation)
     private readonly organisationRepo: Repository<Organisation>,
+    @InjectRepository(EpaOutcomeRecord)
+    private readonly epaOutcomeRepo: Repository<EpaOutcomeRecord>,
     private readonly withdrawalPushService: WithdrawalPushService,
+    private readonly completionPushService: CompletionPushService,
     @Inject(forwardRef(() => MessageThreadsService))
     private readonly messageThreadsService: MessageThreadsService,
   ) {}
@@ -239,7 +246,68 @@ export class EnrolmentsService {
     enrolment.completedAt = new Date();
     const saved = await this.enrolmentRepo.save(enrolment);
     await this.messageThreadsService.archiveForEnrolment(saved.id);
+    await this.completionPushService.queueFromEnrolmentCompleted({
+      organisationId: user.organisationId!,
+      enrolmentId: saved.id,
+      apprenticeId: saved.apprenticeId,
+      learnerRef: saved.id,
+      completionDate: this.toIsoDate(saved.completedAt!),
+      requestedByUserId: user.id,
+    });
     return saved;
+  }
+
+  async recordEpaOutcome(
+    user: AuthenticatedUser,
+    enrolmentId: string,
+    dto: RecordEpaOutcomeDto,
+  ): Promise<EpaOutcomeResponseDto> {
+    const enrolment = await this.findOne(user, enrolmentId);
+    if (enrolment.status !== EnrolmentStatus.COMPLETED) {
+      throw new BadRequestException(
+        'EPA outcome can only be recorded for completed enrolments',
+      );
+    }
+
+    const existing = await this.epaOutcomeRepo.findOne({
+      where: {
+        enrolmentId,
+        organisationId: user.organisationId!,
+        isDeleted: false,
+      },
+    });
+    if (existing) {
+      throw new ConflictException('EPA outcome already recorded for enrolment');
+    }
+
+    const record = await this.epaOutcomeRepo.save(
+      this.epaOutcomeRepo.create({
+        organisationId: user.organisationId!,
+        enrolmentId,
+        outcome: dto.outcome,
+        assessedOn: dto.assessedOn,
+        recordedByUserId: user.id,
+      }),
+    );
+
+    await this.completionPushService.queueFromEpaOutcome({
+      organisationId: user.organisationId!,
+      enrolmentId,
+      apprenticeId: enrolment.apprenticeId,
+      epaOutcomeId: record.id,
+      learnerRef: enrolmentId,
+      completionDate: this.toIsoDate(enrolment.completedAt!),
+      epaOutcome: dto.outcome,
+      requestedByUserId: user.id,
+    });
+
+    return {
+      id: record.id,
+      enrolmentId: record.enrolmentId,
+      outcome: record.outcome,
+      assessedOn: record.assessedOn,
+      createdAt: record.createdAt.toISOString(),
+    };
   }
 
   async cancel(user: AuthenticatedUser, id: string): Promise<Enrolment> {
@@ -296,5 +364,9 @@ export class EnrolmentsService {
     if (!organisation) {
       throw new NotFoundException('Organisation not found');
     }
+  }
+
+  private toIsoDate(value: Date): string {
+    return value.toISOString().slice(0, 10);
   }
 }

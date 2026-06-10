@@ -13,6 +13,8 @@ import {
   setCurrentUserId,
 } from '../common/context/correlation-id-context.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
+import { EnrolmentPushService } from '../enrolment-push/enrolment-push.service.js';
+import { EnrolmentPushTrigger } from '../enrolment-push/enums/enrolment-push-trigger.enum.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 
@@ -44,6 +46,7 @@ export class IlrSubmitProcessor extends WorkerHost {
     private readonly enrolmentContext: IlrEnrolmentContext,
     private readonly payloadSerializer: IlrPayloadSerializerService,
     private readonly notificationsService: NotificationsService,
+    private readonly enrolmentPushService: EnrolmentPushService,
     @InjectQueue(QUEUE_ILR_SUBMIT_DLQ)
     private readonly dlqQueue: Queue,
   ) {
@@ -141,6 +144,16 @@ export class IlrSubmitProcessor extends WorkerHost {
           submissionId: submission.id,
           learnerRecordId: record.id,
         },
+      });
+
+      await this.enrolmentPushService.queueFromIlrRecord({
+        organisationId,
+        graph,
+        fields: record.fields,
+        ilrLearnerRecordId: record.id,
+        ilrSubmissionId: submission.id,
+        trigger: EnrolmentPushTrigger.ILR_SUBMITTED,
+        requestedByUserId,
       });
     } catch (error) {
       const message = this.toMessage(error);

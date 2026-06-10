@@ -24,12 +24,14 @@ import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard.js'
 import { TenantContextInterceptor } from './common/interceptors/tenant-context.interceptor.js';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware.js';
 import { RlsBootstrapMiddleware } from './common/middleware/rls-bootstrap.middleware.js';
+import { CompletionPushModule } from './completion-push/completion-push.module.js';
 import appConfig from './config/app.config.js';
 import { typeOrmForRoot } from './config/typeorm-module.factory.js';
 import databaseConfig from './config/typeorm.config.js';
 // import { TenantSessionSubscriber } from './database/tenant-session.subscriber.js';
 import { getEnv, validateEnv } from './config/validate-env.js';
 import { DasModule } from './das/das.module.js';
+import { EnrolmentPushModule } from './enrolment-push/enrolment-push.module.js';
 import { EnrolmentsModule } from './enrolments/enrolments.module.js';
 import { EsignatureModule } from './esignature/esignature.module.js';
 import { HealthModule } from './health/health.module.js';
@@ -104,6 +106,8 @@ import { WithdrawalPushModule } from './withdrawal-push/withdrawal-push.module.j
     MessagingModule,
     ReportingModule,
     WithdrawalPushModule,
+    EnrolmentPushModule,
+    CompletionPushModule,
     PdfModule,
     EsignatureModule,
     AuditModule,

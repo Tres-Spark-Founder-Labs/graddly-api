@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Job } from 'bullmq';
 
 import { QUEUE_ILR_SUBMIT_DLQ } from '../bullmq/bullmq.constants.js';
+import { EnrolmentPushService } from '../enrolment-push/enrolment-push.service.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 
@@ -27,6 +28,7 @@ describe('IlrSubmitProcessor', () => {
   const esfaClient = { submit: jest.fn() };
   const dlqQueue = { add: jest.fn() };
   const notifications = { createForUser: jest.fn() };
+  const enrolmentPush = { queueFromIlrRecord: jest.fn() };
 
   const submission = {
     id: 'sub-1',
@@ -82,6 +84,7 @@ describe('IlrSubmitProcessor', () => {
           },
         },
         { provide: NotificationsService, useValue: notifications },
+        { provide: EnrolmentPushService, useValue: enrolmentPush },
         {
           provide: getQueueToken(QUEUE_ILR_SUBMIT_DLQ),
           useValue: dlqQueue,

@@ -11,6 +11,7 @@ import {
 import { expectMatchApplicationResource } from '../helpers/levy-exchange-contracts.js';
 import {
   createLexOrgContext,
+  mockDasForLevyExchange,
   seedConfirmedMatch,
   seedDonorLink,
   seedLinkedDonor,
@@ -29,6 +30,14 @@ describe('Levy Exchange match applications (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
+  });
+
+  beforeEach(() => {
+    mockDasForLevyExchange(app);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('creates, lists, confirms, and rejects match applications', async () => {
@@ -139,6 +148,17 @@ describe('Levy Exchange match applications (e2e)', () => {
       donorCtx,
       recipientCtx,
     );
+
+    const visibleRes = await request(app.getHttpServer())
+      .get('/api/v1/levy-exchange/match-applications')
+      .query({ role: 'donor', page: 1, perPage: 10 })
+      .set(donorCtx.authHeaders)
+      .expect(200);
+    expect(
+      (visibleRes.body as { data: { id: string }[] }).data.some(
+        (row) => row.id === matchApplicationId,
+      ),
+    ).toBe(true);
 
     const rejectRes = await request(app.getHttpServer())
       .patch(`/api/v1/levy-exchange/match-applications/${matchApplicationId}`)

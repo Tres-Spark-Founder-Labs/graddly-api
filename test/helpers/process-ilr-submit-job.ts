@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Job } from 'bullmq';
 
 import { QUEUE_ILR_SUBMIT_DLQ } from '../../src/bullmq/bullmq.constants.js';
+import { EnrolmentPushService } from '../../src/enrolment-push/enrolment-push.service.js';
 import { IlrSubmission } from '../../src/ilr/entities/ilr-submission.entity.js';
 import { IlrEnrolmentContext } from '../../src/ilr/ilr-enrolment.context.js';
 import { IlrLearnerRecordsService } from '../../src/ilr/ilr-learner-records.service.js';
@@ -28,6 +29,7 @@ export async function processIlrSubmitJobInApp(
     app.get(IlrEnrolmentContext),
     app.get(IlrPayloadSerializerService),
     app.get(NotificationsService),
+    app.get(EnrolmentPushService),
     app.get(getQueueToken(QUEUE_ILR_SUBMIT_DLQ)),
   );
 

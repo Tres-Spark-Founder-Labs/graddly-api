@@ -8,7 +8,10 @@ import { ORGANISATION_ID_HEADER } from '../src/common/constants/organisation-hea
 
 import { createE2eApp } from './helpers/e2e-app.js';
 import { expectSuccessEnvelope } from './helpers/e2e-response-contracts.js';
-import { seedIlrOrgContext } from './helpers/ilr-seed.js';
+import {
+  ensurePublishedIlrMappingConfig,
+  seedIlrOrgContext,
+} from './helpers/ilr-seed.js';
 
 import type { App } from 'supertest/types';
 
@@ -17,6 +20,7 @@ describe('ILR mapping configs (e2e)', () => {
 
   beforeAll(async () => {
     app = await createE2eApp();
+    await ensurePublishedIlrMappingConfig();
   });
 
   afterAll(async () => {

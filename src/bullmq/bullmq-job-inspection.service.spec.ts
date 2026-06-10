@@ -5,9 +5,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BullmqJobInspectionService } from './bullmq-job-inspection.service.js';
 import {
   QUEUE_DAS_SYNC,
+  QUEUE_COMPLETION_PUSH,
+  QUEUE_COMPLETION_PUSH_DLQ,
+  QUEUE_DAS_SYNC,
   QUEUE_DAS_SYNC_DLQ,
   QUEUE_DIGEST,
   QUEUE_EMAIL,
+  QUEUE_ENROLMENT_PUSH,
+  QUEUE_ENROLMENT_PUSH_DLQ,
   QUEUE_EVIDENCE_PACK,
   QUEUE_ILR_SUBMIT,
   QUEUE_ILR_SUBMIT_DLQ,
@@ -110,6 +115,22 @@ describe('BullmqJobInspectionService', () => {
           provide: getQueueToken(QUEUE_ILR_SUBMIT_DLQ),
           useValue: createQueueMock().queue,
         },
+        {
+          provide: getQueueToken(QUEUE_ENROLMENT_PUSH),
+          useValue: createQueueMock().queue,
+        },
+        {
+          provide: getQueueToken(QUEUE_ENROLMENT_PUSH_DLQ),
+          useValue: createQueueMock().queue,
+        },
+        {
+          provide: getQueueToken(QUEUE_COMPLETION_PUSH),
+          useValue: createQueueMock().queue,
+        },
+        {
+          provide: getQueueToken(QUEUE_COMPLETION_PUSH_DLQ),
+          useValue: createQueueMock().queue,
+        },
         { provide: getQueueToken(QUEUE_SYSTEM), useValue: systemQueue },
       ],
     }).compile();
@@ -121,7 +142,7 @@ describe('BullmqJobInspectionService', () => {
     it('returns summaries for all registered queues', async () => {
       const summaries = await service.listQueues();
 
-      expect(summaries).toHaveLength(10);
+      expect(summaries).toHaveLength(14);
       expect(summaries.find((q) => q.name === QUEUE_EMAIL)?.counts.failed).toBe(
         3,
       );

@@ -4,6 +4,10 @@ import { ConfigService } from '@nestjs/config';
 import { DasOAuthService } from './das-oauth.service.js';
 
 import type {
+  IDasCompletionNotificationRequest,
+  IDasCompletionNotificationResult,
+  IDasEnrolmentSubmissionRequest,
+  IDasEnrolmentSubmissionResult,
   IDasLevyBalancePayload,
   IDasTransferConsentRequest,
   IDasTransferConsentResult,
@@ -194,6 +198,96 @@ export class DasHttpClient {
         'paymentDate',
         'dates',
       ]),
+      raw,
+    };
+  }
+
+  async submitEnrolment(
+    request: IDasEnrolmentSubmissionRequest,
+    accessToken?: string,
+  ): Promise<IDasEnrolmentSubmissionResult> {
+    return this.postDasJson(
+      'app.das.enrolmentSubmitPath',
+      'DAS enrolment submission',
+      request,
+      accessToken,
+      ['reference', 'enrolmentReference', 'dasEnrolmentReference'],
+      ['status', 'enrolmentStatus'],
+    );
+  }
+
+  async notifyCompletion(
+    request: IDasCompletionNotificationRequest,
+    accessToken?: string,
+  ): Promise<IDasCompletionNotificationResult> {
+    return this.postDasJson(
+      'app.das.completionNotifyPath',
+      'DAS completion notification',
+      request,
+      accessToken,
+      ['reference', 'completionReference', 'dasCompletionReference'],
+      ['status', 'completionStatus'],
+    );
+  }
+
+  private async postDasJson(
+    pathConfigKey: string,
+    operationLabel: string,
+    body: object,
+    accessToken: string | undefined,
+    referenceKeys: string[],
+    statusKeys: string[],
+  ): Promise<{
+    reference: string | null;
+    status: string | null;
+    raw: Record<string, unknown>;
+  }> {
+    const baseUrl = this.config.get<string>('app.das.baseUrl');
+    const path = this.config.get<string>(pathConfigKey);
+    const timeoutMs = this.config.get<number>('app.das.timeoutMs', 10_000);
+
+    if (!baseUrl || !path) {
+      throw new InternalServerErrorException(
+        `${operationLabel} path configuration missing`,
+      );
+    }
+
+    const token = accessToken ?? (await this.oauth.getAccessToken());
+    const url = new URL(path, baseUrl);
+    const headers = new Headers();
+    headers.set('Authorization', `Bearer ${token}`);
+    headers.set('Accept', 'application/json');
+    headers.set('Content-Type', 'application/json');
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    let res: Response;
+    try {
+      res = await fetch(url.toString(), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `${operationLabel} request failed: ${this.toMessage(error)}`,
+      );
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    if (!res.ok) {
+      const payload = await this.safeReadBody(res);
+      throw new InternalServerErrorException(
+        `${operationLabel} request failed (${res.status}): ${payload}`,
+      );
+    }
+
+    const raw = (await res.json()) as Record<string, unknown>;
+    return {
+      reference: this.pickString(raw, referenceKeys),
+      status: this.pickString(raw, statusKeys),
       raw,
     };
   }

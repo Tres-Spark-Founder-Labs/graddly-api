@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AuthModule } from '../auth/auth.module.js';
+import { EnrolmentPushModule } from '../enrolment-push/enrolment-push.module.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { OfstedModule } from '../ofsted/ofsted.module.js';
@@ -33,6 +34,7 @@ import type { IIlrEsfaClient } from './interfaces/ilr-esfa.client.interface.js';
 @Module({
   imports: [
     AuthModule,
+    EnrolmentPushModule,
     NotificationsModule,
     OfstedModule,
     TypeOrmModule.forFeature([

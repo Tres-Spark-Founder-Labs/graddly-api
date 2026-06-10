@@ -46,7 +46,7 @@ phase_order,phase,task_id,task,status,timeline,story_points,assignee,depends_on,
 12,L,DAS-002,Levy balance fetch + persist lastSyncedAt,Done,Phase L,5,TBD,DAS-001,
 12,L,DAS-003,BullMQ 15m sync job + manual sync,Partial,Phase L,5,TBD,DAS-002 BMQ-001,"CRON_DAS_SYNC_ENABLED=false by default"
 12,L,DAS-004,Retry backoff + DLQ for DAS,Partial,Phase L,5,TBD,DAS-003,"DAS sync DLQ only"
-12,L,DAS-005,Push enrolment withdrawal completion,Partial,Phase L,8,TBD,DAS-004,"Withdrawal push done; enrolment + completion push missing — see PRD-001 PRD-002"
+12,L,DAS-005,Push enrolment withdrawal completion,Done,Phase L,8,TBD,DAS-004,"Withdrawal + enrolment + completion DAS push; see docs/das-push.md"
 12,L,DAS-006,Levy forecast API from active programmes,Done,Phase L,5,TBD,DAS-002 DOM-003,
 13,M,OTJ-001,OtjLogEntry entity + migration,Done,Phase M,5,TBD,DOM-002,
 13,M,OTJ-002,OTJ CRUD + pagination + filters,Done,Phase M,5,TBD,OTJ-001,
@@ -81,8 +81,8 @@ phase_order,phase,task_id,task,status,timeline,story_points,assignee,depends_on,
 22,QA,QA-001,Swagger envelope uplift on 18 controllers,Done,QA Epic,8,TBD,,"getSchemaPath envelope + auth/org extras"
 22,QA,QA-002,E2e dedicated files + route matrix,Done,QA Epic,13,TBD,,"14 new/split specs + route gap fills"
 22,QA,QA-003,Unit spec coverage complete,Done,QA Epic,21,TBD,,"23 new service specs + 37 gap fills"
-23,PRD,PRD-001,DAS enrolment submission push (≤5 min after ILR create),Not started,PRD MVP,8,TBD,ILR-003 DAS-005,"07-integrations.md §8.1; Gradlly → DAS"
-23,PRD,PRD-002,DAS completion notification push,Not started,PRD MVP,5,TBD,DAS-005,"07-integrations.md §8.1"
+23,PRD,PRD-001,DAS enrolment submission push (≤5 min after ILR create),Done,PRD MVP,8,TBD,ILR-003 DAS-005,"07-integrations.md §8.1; Gradlly → DAS"
+23,PRD,PRD-002,DAS completion notification push,Done,PRD MVP,5,TBD,DAS-005,"07-integrations.md §8.1"
 23,PRD,PRD-003,Enrolment pipeline sub-states (invited → DAS confirmed),Not started,PRD MVP,5,TBD,DOM-003,"F1.2.x employer tracking; 01-platform.md flow"
 23,PRD,PRD-004,ILR official XML serializer + live ESFA client,Done,PRD MVP,13,TBD,ILR-003,"Replace noop default; GROWTH(ILR-XML) in code"
 23,PRD,PRD-005,ILR async submit BullMQ + retries,Done,PRD MVP,5,TBD,ILR-003 PRD-004,"Match withdrawal-push pattern"

@@ -36,7 +36,7 @@ Working checklist to close gaps between the PRD (`docs/prd/`) and this API. Fron
 
 ### ESFA / DAS integration
 
-- [ ] **PRD-001** · DAS enrolment submission push  
+- [x] **PRD-001** · DAS enrolment submission push  
   - **PRD:** `07-integrations.md` §8.1 — within 5 minutes of ILR creation  
   - **Gap:** Only withdrawal push exists (`withdrawal-push/`). No enrolment push.  
   - **Deliver:** Queue job on ILR learner record create/submit → DAS API; status entity; retry/DLQ.  
@@ -147,7 +147,7 @@ Working checklist to close gaps between the PRD (`docs/prd/`) and this API. Fron
 
 ### ESFA (continued)
 
-- [ ] **PRD-002** · DAS completion notification push  
+- [x] **PRD-002** · DAS completion notification push  
   - **PRD:** `07-integrations.md` §8.1  
   - **Deliver:** Queue on enrolment completion + EPA outcome; mirror withdrawal-push pattern.
 

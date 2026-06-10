@@ -16,10 +16,14 @@ import {
 } from './bullmq-job.mapper.js';
 import {
   BULLMQ_QUEUES,
+  QUEUE_COMPLETION_PUSH,
+  QUEUE_COMPLETION_PUSH_DLQ,
   QUEUE_DAS_SYNC,
   QUEUE_DAS_SYNC_DLQ,
   QUEUE_DIGEST,
   QUEUE_EMAIL,
+  QUEUE_ENROLMENT_PUSH,
+  QUEUE_ENROLMENT_PUSH_DLQ,
   QUEUE_EVIDENCE_PACK,
   QUEUE_ILR_SUBMIT,
   QUEUE_ILR_SUBMIT_DLQ,
@@ -45,6 +49,10 @@ export class BullmqJobInspectionService {
     @InjectQueue(QUEUE_EVIDENCE_PACK) evidencePackQueue: Queue,
     @InjectQueue(QUEUE_ILR_SUBMIT) ilrSubmitQueue: Queue,
     @InjectQueue(QUEUE_ILR_SUBMIT_DLQ) ilrSubmitDlqQueue: Queue,
+    @InjectQueue(QUEUE_ENROLMENT_PUSH) enrolmentPushQueue: Queue,
+    @InjectQueue(QUEUE_ENROLMENT_PUSH_DLQ) enrolmentPushDlqQueue: Queue,
+    @InjectQueue(QUEUE_COMPLETION_PUSH) completionPushQueue: Queue,
+    @InjectQueue(QUEUE_COMPLETION_PUSH_DLQ) completionPushDlqQueue: Queue,
     @InjectQueue(QUEUE_SYSTEM) systemQueue: Queue,
   ) {
     this.queues = new Map([
@@ -57,6 +65,10 @@ export class BullmqJobInspectionService {
       [QUEUE_EVIDENCE_PACK, evidencePackQueue],
       [QUEUE_ILR_SUBMIT, ilrSubmitQueue],
       [QUEUE_ILR_SUBMIT_DLQ, ilrSubmitDlqQueue],
+      [QUEUE_ENROLMENT_PUSH, enrolmentPushQueue],
+      [QUEUE_ENROLMENT_PUSH_DLQ, enrolmentPushDlqQueue],
+      [QUEUE_COMPLETION_PUSH, completionPushQueue],
+      [QUEUE_COMPLETION_PUSH_DLQ, completionPushDlqQueue],
       [QUEUE_SYSTEM, systemQueue],
     ]);
   }

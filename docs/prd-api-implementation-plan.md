@@ -20,7 +20,7 @@ Update this table when starting or completing a phase. Status: `not_started` · 
 | Phase | Name | Tasks | Priority | ~SP | Status | Branch / PR | Completed |
 |-------|------|-------|----------|-----|--------|-------------|-----------|
 | 1 | ILR / ESFA production | PRD-004, PRD-005 | P0 | 18 | done | feat/prd-phase-1-ilr-hardening | 2026-06-09 |
-| 2 | DAS outbound sync | PRD-001, PRD-002 | P0/P1 | 13 | not_started | — | — |
+| 2 | DAS outbound sync | PRD-001, PRD-002 | P0/P1 | 13 | done | feat/prd-phase-2-das-push | 2026-06-09 |
 | 3 | Cross-portal enrolment flow | PRD-003, PRD-018 | P1 | 10 | not_started | — | — |
 | 4 | Apprentice journey + pace | PRD-008, PRD-006 | P0 | 16 | not_started | — | — |
 | 5 | Apprentice exports | PRD-007, PRD-020 | P0/P1 | 13 | not_started | — | — |

@@ -1,4 +1,6 @@
+import * as fs from 'fs';
 import { createHash, randomUUID } from 'node:crypto';
+import * as path from 'path';
 
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -8,6 +10,7 @@ import { ORGANISATION_ID_HEADER } from '../../src/common/constants/organisation-
 
 import { createVerifiedUser } from './e2e-http.js';
 import { buildOrgPayload } from './e2e-organisation.js';
+import { createE2ePgClient } from './rls-db.js';
 
 export type IlrSeedContext = {
   owner: Awaited<ReturnType<typeof createVerifiedUser>>;
@@ -31,6 +34,38 @@ function deriveUkprn(runId: string): string {
   return String(10_000_000 + offset).padStart(8, '0');
 }
 
+export async function ensurePublishedIlrMappingConfig(
+  academicYear = '2025-26',
+): Promise<void> {
+  const pg = createE2ePgClient();
+  await pg.connect();
+  try {
+    await pg.query(`SELECT set_config('app.rls_bootstrap', 'true', true)`);
+    const existing = await pg.query<{ id: string }>(
+      `SELECT id FROM ilr_mapping_configs
+       WHERE "academicYear" = $1 AND status = 'published' AND "isDeleted" = false
+       LIMIT 1`,
+      [academicYear],
+    );
+    if (existing.rowCount) {
+      return;
+    }
+
+    const seedPath = path.resolve(
+      __dirname,
+      '../../src/ilr/config/seeds/ilr-mapping-2025-26.v1.json',
+    );
+    const config = JSON.parse(fs.readFileSync(seedPath, 'utf8')) as object;
+    await pg.query(
+      `INSERT INTO ilr_mapping_configs ("academicYear", version, status, config, "publishedAt")
+       VALUES ($1, 1, 'published', $2::jsonb, now())`,
+      [academicYear, JSON.stringify(config)],
+    );
+  } finally {
+    await pg.end();
+  }
+}
+
 export async function seedIlrOrgContext(
   app: INestApplication<App>,
   suffix?: string | number,
@@ -39,6 +74,8 @@ export async function seedIlrOrgContext(
     invalidDates?: boolean;
   } = {},
 ): Promise<IlrSeedContext> {
+  await ensurePublishedIlrMappingConfig();
+
   const runId = resolveRunId(suffix);
   const ukprn = options.ukprn ?? deriveUkprn(runId);
 

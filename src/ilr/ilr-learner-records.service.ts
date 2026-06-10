@@ -8,6 +8,8 @@ import { Repository } from 'typeorm';
 
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
+import { EnrolmentPushService } from '../enrolment-push/enrolment-push.service.js';
+import { EnrolmentPushTrigger } from '../enrolment-push/enums/enrolment-push-trigger.enum.js';
 import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 
 import { BuildIlrLearnerRecordDto } from './dto/build-ilr-learner-record.dto.js';
@@ -35,6 +37,7 @@ export class IlrLearnerRecordsService {
     private readonly validationEngine: IlrValidationEngine,
     private readonly statusService: IlrLearnerRecordStatusService,
     private readonly eifScoreCache: EifScoreCacheService,
+    private readonly enrolmentPushService: EnrolmentPushService,
   ) {}
 
   async build(
@@ -61,6 +64,7 @@ export class IlrLearnerRecordsService {
         isDeleted: false,
       },
     });
+    const isNewRecord = !record;
 
     const manualOverrides = record?.manualOverrides ?? {};
     const fields = this.rowBuilder.buildFields(mappingConfig.config, {
@@ -96,7 +100,20 @@ export class IlrLearnerRecordsService {
       });
     }
 
-    return this.toResponse(await this.repo.save(record));
+    const saved = await this.repo.save(record);
+
+    if (isNewRecord) {
+      await this.enrolmentPushService.queueFromIlrRecord({
+        organisationId,
+        graph,
+        fields: saved.fields,
+        ilrLearnerRecordId: saved.id,
+        trigger: EnrolmentPushTrigger.ILR_CREATED,
+        requestedByUserId: user.id,
+      });
+    }
+
+    return this.toResponse(saved);
   }
 
   async findAll(

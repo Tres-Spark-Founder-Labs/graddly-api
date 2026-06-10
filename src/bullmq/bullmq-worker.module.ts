@@ -3,11 +3,16 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { CommitmentSignature } from '../commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatement } from '../commitments/entities/commitment-statement.entity.js';
+import { CompletionPushModule } from '../completion-push/completion-push.module.js';
+import { CompletionPushProcessor } from '../completion-push/completion-push.processor.js';
 import { DasModule } from '../das/das.module.js';
 import { EmailModule } from '../email/email.module.js';
+import { EnrolmentPushModule } from '../enrolment-push/enrolment-push.module.js';
+import { EnrolmentPushProcessor } from '../enrolment-push/enrolment-push.processor.js';
 import { IlrSubmitProcessor } from '../ilr/ilr-submit.processor.js';
 import { IlrModule } from '../ilr/ilr.module.js';
 import { LevyTransfer } from '../levy-exchange/entities/levy-transfer.entity.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 import { EvidencePackJob } from '../ofsted/entities/evidence-pack-job.entity.js';
 import { OfstedModule } from '../ofsted/ofsted.module.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
@@ -37,7 +42,10 @@ import { SystemPingProcessor } from './processors/system-ping.processor.js';
     PdfModule,
     StorageModule,
     WithdrawalPushModule,
+    NotificationsModule,
     IlrModule,
+    EnrolmentPushModule,
+    CompletionPushModule,
     OfstedModule,
     ReportingModule,
     TypeOrmModule.forFeature([
@@ -61,6 +69,8 @@ import { SystemPingProcessor } from './processors/system-ping.processor.js';
     EvidencePackProcessor,
     WithdrawalPushProcessor,
     IlrSubmitProcessor,
+    EnrolmentPushProcessor,
+    CompletionPushProcessor,
   ],
 })
 export class BullmqWorkerModule {}

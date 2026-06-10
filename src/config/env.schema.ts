@@ -291,6 +291,7 @@ export const envSchema = z
       .min(1000)
       .max(60000)
       .default(15000),
+    ILR_ESFA_PAYLOAD_FORMAT: z.enum(['json', 'xml']).default('xml'),
     ILR_CONFIG_WRITE_ENABLED: z
       .string()
       .optional()

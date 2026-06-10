@@ -7,6 +7,7 @@ import { IlrSubmissionStatus } from '../src/ilr/enums/ilr-submission-status.enum
 import { createE2eApp } from './helpers/e2e-app.js';
 import { expectSuccessEnvelope } from './helpers/e2e-response-contracts.js';
 import { seedIlrOrgContext } from './helpers/ilr-seed.js';
+import { processIlrSubmitJobInApp } from './helpers/process-ilr-submit-job.js';
 
 import type { App } from 'supertest/types';
 
@@ -61,18 +62,24 @@ describe('ILR Submissions (e2e)', () => {
       .expect(201);
 
     expectSuccessEnvelope(submitRes.body);
-    const submission = (submitRes.body as { data: IlrSubmissionBody }).data;
-    expect(submission.status).toBe(IlrSubmissionStatus.SUBMITTED);
+    const queued = (submitRes.body as { data: IlrSubmissionBody }).data;
+    expect(queued.status).toBe(IlrSubmissionStatus.QUEUED);
+
+    await processIlrSubmitJobInApp(app, {
+      submissionId: queued.id,
+      organisationId: orgId,
+      requestedByUserId: owner.userId,
+    });
 
     const getRes = await request(app.getHttpServer())
-      .get(`/api/v1/ilr/submissions/${submission.id}`)
+      .get(`/api/v1/ilr/submissions/${queued.id}`)
       .set('Authorization', `Bearer ${owner.accessToken}`)
       .set(ORGANISATION_ID_HEADER, orgId)
       .expect(200);
 
     expectSuccessEnvelope(getRes.body);
     const fetched = (getRes.body as { data: IlrSubmissionBody }).data;
-    expect(fetched.id).toBe(submission.id);
+    expect(fetched.id).toBe(queued.id);
     expect(fetched.status).toBe(IlrSubmissionStatus.SUBMITTED);
     expect(fetched.esfaReference).toMatch(/^NOOP-/);
     expect(fetched.receipt).toEqual(

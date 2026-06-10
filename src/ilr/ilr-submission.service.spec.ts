@@ -1,12 +1,11 @@
 import {
   BadRequestException,
   ConflictException,
-  InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
-import { NotificationsService } from '../notifications/notifications.service.js';
 import { OrganisationRole } from '../organisations/organisation-role.enum.js';
 
 import { IlrSubmission } from './entities/ilr-submission.entity.js';
@@ -17,7 +16,7 @@ import { IlrLearnerRecordStatusService } from './ilr-learner-record-status.servi
 import { IlrLearnerRecordsService } from './ilr-learner-records.service.js';
 import { IlrPayloadSerializerService } from './ilr-payload-serializer.service.js';
 import { IlrSubmissionService } from './ilr-submission.service.js';
-import { ILR_ESFA_CLIENT } from './ilr.constants.js';
+import { IlrSubmitDispatchService } from './ilr-submit-dispatch.service.js';
 import {
   buildLearnerRecordFixture,
   buildSampleFieldMap,
@@ -25,7 +24,7 @@ import {
 
 describe('IlrSubmissionService', () => {
   let service: IlrSubmissionService;
-  const esfaClient = { submit: jest.fn() };
+  const submitDispatch = { enqueue: jest.fn() };
   const submissionRepo = {
     create: jest.fn((input: unknown) => input),
     save: jest.fn((input: IlrSubmission) =>
@@ -64,8 +63,8 @@ describe('IlrSubmissionService', () => {
           useValue: submissionRepo,
         },
         {
-          provide: ILR_ESFA_CLIENT,
-          useValue: esfaClient,
+          provide: IlrSubmitDispatchService,
+          useValue: submitDispatch,
         },
         {
           provide: IlrLearnerRecordsService,
@@ -81,10 +80,6 @@ describe('IlrSubmissionService', () => {
             }),
           },
         },
-        {
-          provide: NotificationsService,
-          useValue: { createForUser: jest.fn() },
-        },
       ],
     }).compile();
 
@@ -92,10 +87,6 @@ describe('IlrSubmissionService', () => {
     jest.clearAllMocks();
     submissionRepo.findOne.mockResolvedValue(null);
     submissionRepo.count.mockResolvedValue(0);
-    esfaClient.submit.mockResolvedValue({
-      esfaReference: 'ESFA-1',
-      receipt: { status: 'accepted' },
-    });
   });
 
   it('requires validated record before submit', async () => {
@@ -115,7 +106,7 @@ describe('IlrSubmissionService', () => {
           provide: getRepositoryToken(IlrSubmission),
           useValue: submissionRepo,
         },
-        { provide: ILR_ESFA_CLIENT, useValue: esfaClient },
+        { provide: IlrSubmitDispatchService, useValue: submitDispatch },
         { provide: IlrLearnerRecordsService, useValue: learnerRecords },
         {
           provide: IlrEnrolmentContext,
@@ -124,10 +115,6 @@ describe('IlrSubmissionService', () => {
               organisation: { ukprn: '10012345' },
             }),
           },
-        },
-        {
-          provide: NotificationsService,
-          useValue: { createForUser: jest.fn() },
         },
       ],
     }).compile();
@@ -138,25 +125,23 @@ describe('IlrSubmissionService', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('stores receipt on successful submit', async () => {
+  it('queues submit and returns queued status without calling ESFA inline', async () => {
     const result = await service.submit(owner as never, validatedRecord.id);
-    expect(result.status).toBe(IlrSubmissionStatus.SUBMITTED);
-    expect(result.esfaReference).toBe('ESFA-1');
+    expect(result.status).toBe(IlrSubmissionStatus.QUEUED);
     expect(result.attempt).toBe(1);
+    expect(submitDispatch.enqueue).toHaveBeenCalledWith({
+      submissionId: 'sub-1',
+      organisationId: 'org-1',
+      requestedByUserId: 'user-1',
+    });
+    expect(result.requestPayload).toMatchObject({ format: 'ilr-xml' });
   });
 
-  it('blocks amend while processing', async () => {
-    submissionRepo.findOne.mockImplementation(
-      (options: { where?: { status?: IlrSubmissionStatus } }) => {
-        if (options.where?.status === IlrSubmissionStatus.PROCESSING) {
-          return Promise.resolve({
-            id: 'sub-processing',
-            status: IlrSubmissionStatus.PROCESSING,
-          });
-        }
-        return Promise.resolve(null);
-      },
-    );
+  it('blocks amend while in flight', async () => {
+    submissionRepo.findOne.mockResolvedValueOnce({
+      id: 'sub-queued',
+      status: IlrSubmissionStatus.QUEUED,
+    });
 
     await expect(
       service.amend(owner as never, validatedRecord.id),
@@ -181,9 +166,15 @@ describe('IlrSubmissionService', () => {
         ilrLearnerRecordId: validatedRecord.id,
         status: IlrSubmissionStatus.SUBMITTED,
         attempt: 1,
+        isAmendment: false,
+        amendsSubmissionId: null,
         esfaReference: 'ESFA-1',
         receipt: {},
         lastError: null,
+        requestPayload: {},
+        requestedByUserId: 'user-1',
+        submittedAt: new Date(),
+        failedAt: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       },
@@ -205,9 +196,15 @@ describe('IlrSubmissionService', () => {
       ilrLearnerRecordId: validatedRecord.id,
       status: IlrSubmissionStatus.SUBMITTED,
       attempt: 1,
+      isAmendment: false,
+      amendsSubmissionId: null,
       esfaReference: 'ESFA-1',
       receipt: {},
       lastError: null,
+      requestPayload: {},
+      requestedByUserId: 'user-1',
+      submittedAt: new Date(),
+      failedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -217,19 +214,10 @@ describe('IlrSubmissionService', () => {
     expect(result.id).toBe('sub-1');
   });
 
-  it('records failure and rethrows when ESFA client fails', async () => {
-    esfaClient.submit.mockRejectedValue(
-      new InternalServerErrorException('submit failed'),
-    );
-
-    await expect(
-      service.submit(owner as never, validatedRecord.id),
-    ).rejects.toThrow(InternalServerErrorException);
-    expect(submissionRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: IlrSubmissionStatus.FAILED,
-        lastError: expect.stringMatching(/submit failed/) as string,
-      }),
+  it('throws when submission not found', async () => {
+    submissionRepo.findOne.mockResolvedValue(null);
+    await expect(service.findOne(owner as never, 'missing')).rejects.toThrow(
+      NotFoundException,
     );
   });
 });

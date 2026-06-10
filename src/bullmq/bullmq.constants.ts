@@ -22,6 +22,12 @@ export const QUEUE_WITHDRAWAL_PUSH = 'withdrawal-push';
 /** Queue for async Ofsted evidence pack ZIP jobs (Phase R). */
 export const QUEUE_EVIDENCE_PACK = 'evidence-pack';
 
+/** Queue for async ILR ESFA submit jobs. */
+export const QUEUE_ILR_SUBMIT = 'ilr-submit';
+
+/** Dead-letter queue for terminal ILR submit failures. */
+export const QUEUE_ILR_SUBMIT_DLQ = 'ilr-submit-dlq';
+
 /** Internal queue for smoke / health jobs. */
 export const QUEUE_SYSTEM = 'system';
 
@@ -33,6 +39,8 @@ export const BULLMQ_QUEUES = [
   QUEUE_DAS_SYNC_DLQ,
   QUEUE_WITHDRAWAL_PUSH,
   QUEUE_EVIDENCE_PACK,
+  QUEUE_ILR_SUBMIT,
+  QUEUE_ILR_SUBMIT_DLQ,
   QUEUE_SYSTEM,
 ] as const;
 

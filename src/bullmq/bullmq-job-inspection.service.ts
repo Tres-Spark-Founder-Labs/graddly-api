@@ -21,6 +21,8 @@ import {
   QUEUE_DIGEST,
   QUEUE_EMAIL,
   QUEUE_EVIDENCE_PACK,
+  QUEUE_ILR_SUBMIT,
+  QUEUE_ILR_SUBMIT_DLQ,
   QUEUE_PDF,
   QUEUE_SYSTEM,
   QUEUE_WITHDRAWAL_PUSH,
@@ -41,6 +43,8 @@ export class BullmqJobInspectionService {
     @InjectQueue(QUEUE_DAS_SYNC_DLQ) dasSyncDlqQueue: Queue,
     @InjectQueue(QUEUE_WITHDRAWAL_PUSH) withdrawalPushQueue: Queue,
     @InjectQueue(QUEUE_EVIDENCE_PACK) evidencePackQueue: Queue,
+    @InjectQueue(QUEUE_ILR_SUBMIT) ilrSubmitQueue: Queue,
+    @InjectQueue(QUEUE_ILR_SUBMIT_DLQ) ilrSubmitDlqQueue: Queue,
     @InjectQueue(QUEUE_SYSTEM) systemQueue: Queue,
   ) {
     this.queues = new Map([
@@ -51,6 +55,8 @@ export class BullmqJobInspectionService {
       [QUEUE_DAS_SYNC_DLQ, dasSyncDlqQueue],
       [QUEUE_WITHDRAWAL_PUSH, withdrawalPushQueue],
       [QUEUE_EVIDENCE_PACK, evidencePackQueue],
+      [QUEUE_ILR_SUBMIT, ilrSubmitQueue],
+      [QUEUE_ILR_SUBMIT_DLQ, ilrSubmitDlqQueue],
       [QUEUE_SYSTEM, systemQueue],
     ]);
   }

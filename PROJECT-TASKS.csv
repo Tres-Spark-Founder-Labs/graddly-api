@@ -1,83 +1,107 @@
 phase_order,phase,task_id,task,status,timeline,story_points,assignee,depends_on,notes
-1,A,ADR-001,Record ADR: tenancy model (app-level org scoping vs Postgres RLS optional),Not started,Phase A,2,TBD,,"Blocks Phase C if choosing RLS"
-1,A,OBS-001,Observability: Sentry + request correlation IDs,Not started,Phase A,3,TBD,,
-1,A,CFG-001,Validated env schema + secrets checklist,Not started,Phase A,3,TBD,,
-1,A,CI-001,CI hygiene: migration/build checks on PR,Not started,Phase A,2,TBD,,
-2,B,ORG-001,Organisation entity + CRUD + migration,Not started,Phase B,5,TBD,Phase A,
-2,B,ORG-002,OrganisationMembership + role enum + migration,Not started,Phase B,5,TBD,ORG-001,
-2,B,AUTH-001,JWT payload: orgId + roles + migration path for clients,Not started,Phase B,5,TBD,ORG-002,
-2,B,AUTH-002,Active organisation resolution + guard,Not started,Phase B,3,TBD,AUTH-001,
-2,B,RBAC-001,@Roles decorator + RolesGuard + unit tests,Not started,Phase B,5,TBD,AUTH-001,
-2,B,RATE-001,Per-user rate limiting refinement,Not started,Phase B,3,TBD,,
-3,C,RLS-001,DB session SET current_org + TypeORM hooks,Not started,Phase C,8,TBD,ADR-001,"Skip if no RLS"
-3,C,RLS-002,RLS policies on existing PII tables + migration,Not started,Phase C,8,TBD,RLS-001,
+1,A,ADR-001,Record ADR: tenancy model (app-level org scoping vs Postgres RLS optional),Done,Phase A,2,TBD,,"docs/adr/0001-tenancy-application-scoping-with-optional-postgres-rls.md"
+1,A,OBS-001,Observability: Sentry + request correlation IDs,Done,Phase A,3,TBD,,"instrument.ts + correlation-id.middleware.ts"
+1,A,CFG-001,Validated env schema + secrets checklist,Done,Phase A,3,TBD,,"env.schema.ts + docs/secrets-checklist.md"
+1,A,CI-001,CI hygiene: migration/build checks on PR,Done,Phase A,2,TBD,,".github/workflows/ci.yml — lint unit migrations e2e"
+2,B,ORG-001,Organisation entity + CRUD + migration,Done,Phase B,5,TBD,Phase A,
+2,B,ORG-002,OrganisationMembership + role enum + migration,Done,Phase B,5,TBD,ORG-001,
+2,B,AUTH-001,JWT payload: orgId + roles + migration path for clients,Done,Phase B,5,TBD,ORG-002,"docs/api/jwt-payload.md"
+2,B,AUTH-002,Active organisation resolution + guard,Done,Phase B,3,TBD,AUTH-001,
+2,B,RBAC-001,@Roles decorator + RolesGuard + unit tests,Done,Phase B,5,TBD,AUTH-001,
+2,B,RATE-001,Per-user rate limiting refinement,Done,Phase B,3,TBD,,"CustomThrottlerGuard + Redis storage"
+3,C,RLS-001,DB session SET current_org + TypeORM hooks,Done,Phase C,8,TBD,ADR-001,"apply-tenant-gucs + rls-bootstrap middleware"
+3,C,RLS-002,RLS policies on existing PII tables + migration,Done,Phase C,8,TBD,RLS-001,
 3,C,RLS-003,Integration tests cross-tenant isolation,Done,Phase C,5,TBD,RLS-002,
 4,D,OIDC-001,Passport OIDC strategy + One Login config placeholders,Done,Phase D,5,TBD,Phase B,
 4,D,OIDC-002,OAuth callback routes + state/nonce + token exchange,Done,Phase D,5,TBD,OIDC-001,
 4,D,OIDC-003,Link One Login to user by email + provisioning rules,Done,Phase D,5,TBD,OIDC-002,
-4,D,PWD-001,Password reset tokens + email hook Resend stub,Done,Phase D,5,TBD,Phase G optional ordering,"Resend + noop provider"
+4,D,PWD-001,Password reset tokens + email hook Resend stub,Done,Phase D,5,TBD,Phase G optional ordering,"Resend + noop provider (not SendGrid)"
 4,D,PWD-002,Email verification for local sign-up,Done,Phase D,3,TBD,,
 4,D,TOK-001,Refresh rotation hardening + logout-all + TTL alignment,Done,Phase D,3,TBD,,
 5,E,INV-001,Invitation entity + migration,Done,Phase E,3,TBD,Phase D,
 5,E,INV-002,POST invitations + resend + revoke + accept token flow,Done,Phase E,5,TBD,INV-001,
-6,F,BMQ-001,BullMQ module + queues + Redis + shutdown,Not started,Phase F,5,TBD,Phase B,
-6,F,CRON-001,Nest Schedule + health cron sample,Not started,Phase F,2,TBD,BMQ-001,
-6,F,DLQ-001,Failed job / DLQ inspection pattern,Not started,Phase F,3,TBD,BMQ-001,
-7,G,NOTIF-001,Notification + NotificationPreference entities,Not started,Phase G,5,TBD,Phase F,
-7,G,NOTIF-002,In-app notification APIs,Not started,Phase G,3,TBD,NOTIF-001,
-7,G,NOTIF-003,SendGrid transactional send path + template config,Not started,Phase G,5,TBD,NOTIF-001,
-7,G,NOTIF-004,BullMQ worker dispatches email,Not started,Phase G,5,TBD,NOTIF-003 BMQ-001,
-7,G,NOTIF-005,Digest queue skeleton,Not started,Phase G,3,TBD,NOTIF-004,
-8,H,STO-001,StorageModule S3 config,Not started,Phase H,3,TBD,,
-8,H,STO-002,Presigned upload/download + org/learner paths,Not started,Phase H,5,TBD,STO-001,
-8,H,STO-003,File validation mime + 25MB cap,Not started,Phase H,3,TBD,STO-002,
-9,I,AUD-001,AuditLogEntry entity + migration,Not started,Phase I,5,TBD,Phase B,
-9,I,AUD-002,TypeORM subscriber for mutations,Not started,Phase I,8,TBD,AUD-001,
-9,I,AUD-003,Audit export paginated CSV/JSON,Not started,Phase I,5,TBD,AUD-002,
-10,J,PDF-001,PdfModule baseline Puppeteer/pdfkit + Docker proof,Not started,Phase J,5,TBD,Phase H,
-10,J,PDF-002,Async PDF job BullMQ + status endpoint,Not started,Phase J,5,TBD,PDF-001 BMQ-001,
-10,J,ESIG-001,ESignature metadata + IP/timestamp records,Not started,Phase J,5,TBD,PDF-002,
-10,J,ESIG-002,Embed signature in PDF + store in S3,Not started,Phase J,8,TBD,ESIG-001 STO-002,
-11,K,DOM-001,Programme + Standard entities,Not started,Phase K,5,TBD,ORG-001,
-11,K,DOM-002,Apprentice entity + status + org links,Not started,Phase K,8,TBD,DOM-001,
-11,K,DOM-003,Enrolment state machine,Not started,Phase K,8,TBD,DOM-002,
-11,K,DOM-004,Enrolment + apprentice REST APIs scoped,Not started,Phase K,8,TBD,DOM-003 RBAC-001,
-12,L,DAS-001,DAS OAuth2 client + HTTP layer,Not started,Phase L,8,TBD,DOM-004,
-12,L,DAS-002,Levy balance fetch + persist lastSyncedAt,Not started,Phase L,5,TBD,DAS-001,
-12,L,DAS-003,BullMQ 15m sync job + manual sync,Not started,Phase L,5,TBD,DAS-002 BMQ-001,
-12,L,DAS-004,Retry backoff + DLQ for DAS,Not started,Phase L,5,TBD,DAS-003,
-12,L,DAS-005,Push enrolment withdrawal completion,Not started,Phase L,8,TBD,DAS-004,
-12,L,DAS-006,Levy forecast API from active programmes,Not started,Phase L,5,TBD,DAS-002 DOM-003,
-13,M,OTJ-001,OtjLogEntry entity + migration,Not started,Phase M,5,TBD,DOM-002,
-13,M,OTJ-002,OTJ CRUD + pagination + filters,Not started,Phase M,5,TBD,OTJ-001,
-13,M,OTJ-003,Pace service + nightly cron flags,Not started,Phase M,8,TBD,OTJ-002 CRON-001,
-13,M,OTJ-004,Approve reject bulk + notifications,Not started,Phase M,5,TBD,OTJ-002 NOTIF-004,
-14,N,REV-001,Review entity + schedule + overdue,Not started,Phase N,5,TBD,DOM-002,
-14,N,REV-002,Calendar list bulk schedule reminder jobs,Not started,Phase N,8,TBD,REV-001 NOTIF-004,
-14,N,REV-003,Review record + co-sign + PDF snapshot,Not started,Phase N,8,TBD,REV-002 ESIG-002,
-15,O,COM-001,CommitmentStatement versioning + status machine,Not started,Phase O,5,TBD,DOM-002,
-15,O,COM-002,Tripartite signing + ESignature + PDF storage,Not started,Phase O,8,TBD,COM-001 ESIG-002,
-15,O,COM-003,Commitment lifecycle audit events,Not started,Phase O,3,TBD,COM-002 AUD-002,
-16,P,PFL-001,KSB evidence entities + mapping,Not started,Phase P,5,TBD,DOM-002,
-16,P,PFL-002,Evidence APIs + Storage integration,Not started,Phase P,5,TBD,PFL-001 STO-002,
-16,P,PFL-003,Heatmap aggregation endpoint,Not started,Phase P,5,TBD,PFL-002,
-17,Q,ILR-001,ILR mapping config layer versioned,Not started,Phase Q,8,TBD,DOM-002,
-17,Q,ILR-002,Build ILR row + validation engine,Not started,Phase Q,8,TBD,ILR-001,
-17,Q,ILR-003,ESFA submit + receipt + amendment,Not started,Phase Q,8,TBD,ILR-002,
-18,R,EIF-001,EIF score service + Redis cache 1h,Not started,Phase R,8,TBD,OTJ-003 REV-003 COM-001 ILR-002,"Many inputs; stub criteria first OK"
-18,R,EIF-002,QIP CRUD,Not started,Phase R,5,TBD,EIF-001,
-18,R,EIF-003,Evidence pack ZIP async job,Not started,Phase R,8,TBD,EIF-002 STO-002 PDF-002,
-19,S,LEX-001,Donor DAS link + OAuth consent entities,Not started,Phase S,8,TBD,DAS-001 ORG-001,
-19,S,LEX-002,Surplus + expiry + alert jobs,Not started,Phase S,5,TBD,LEX-001,
-19,S,LEX-003,Rule-based matching API v1,Not started,Phase S,8,TBD,LEX-002,
-19,S,LEX-004,Transfer docs e-sign + DAS transfer create,Not started,Phase S,8,TBD,LEX-003 ESIG-002 DAS-005,
-20,T,MSG-001,Direct messaging threads + attachments,Not started,Phase T,8,TBD,DOM-002 STO-003 NOTIF-003,
-20,T,RPT-001,Levy ROI reporting endpoints + PDF reuse,Not started,Phase T,5,TBD,DAS-006 PDF-002,
-20,T,RPT-002,Employer directory metrics API,Not started,Phase T,5,TBD,DOM-004 OTJ-003,
-21,U,SEC-001,Helmet + CSP baseline review,Not started,Phase U,3,TBD,,
-21,U,GDP-001,Data retention scheduled jobs,Not started,Phase U,5,TBD,,
-21,U,GDP-002,Right to erasure anonymise + audit retain,Not started,Phase U,8,TBD,GDP-001 AUD-001,
-21,U,PERF-001,Index review + load-test checklist,Not started,Phase U,5,TBD,,
+6,F,BMQ-001,BullMQ module + queues + Redis + shutdown,Done,Phase F,5,TBD,Phase B,
+6,F,CRON-001,Nest Schedule + health cron sample,Done,Phase F,2,TBD,BMQ-001,"health + das/otj/review/levy/retention/digest crons"
+6,F,DLQ-001,Failed job / DLQ inspection pattern,Partial,Phase F,3,TBD,BMQ-001,"DAS sync DLQ + bullmq-ops; not all queues have DLQ"
+7,G,NOTIF-001,Notification + NotificationPreference entities,Done,Phase G,5,TBD,Phase F,
+7,G,NOTIF-002,In-app notification APIs,Done,Phase G,3,TBD,NOTIF-001,
+7,G,NOTIF-003,Resend transactional send path + template config,Done,Phase G,5,TBD,NOTIF-001,"Was SendGrid in original plan; Resend + noop implemented"
+7,G,NOTIF-004,BullMQ worker dispatches email,Done,Phase G,5,TBD,NOTIF-003 BMQ-001,
+7,G,NOTIF-005,Digest queue skeleton,Partial,Phase G,3,TBD,NOTIF-004,"Cron + processor log-only; weekly OTJ digest content not wired"
+8,H,STO-001,StorageModule S3 config,Done,Phase H,3,TBD,,"S3 + noop providers"
+8,H,STO-002,Presigned upload/download + org/learner paths,Done,Phase H,5,TBD,STO-001,
+8,H,STO-003,File validation mime + 25MB cap,Done,Phase H,3,TBD,STO-002,
+9,I,AUD-001,AuditLogEntry entity + migration,Done,Phase I,5,TBD,Phase B,
+9,I,AUD-002,TypeORM subscriber for mutations,Done,Phase I,8,TBD,AUD-001,"audit-log.subscriber.ts"
+9,I,AUD-003,Audit export paginated CSV/JSON,Done,Phase I,5,TBD,AUD-002,
+10,J,PDF-001,PdfModule baseline pdfkit + Docker proof,Done,Phase J,5,TBD,Phase H,"pdfkit provider (noop fallback)"
+10,J,PDF-002,Async PDF job BullMQ + status endpoint,Done,Phase J,5,TBD,PDF-001 BMQ-001,
+10,J,ESIG-001,ESignature metadata + IP/timestamp records,Done,Phase J,5,TBD,PDF-002,
+10,J,ESIG-002,Embed signature in PDF + store in S3,Done,Phase J,8,TBD,ESIG-001 STO-002,
+11,K,DOM-001,Programme + Standard entities,Done,Phase K,5,TBD,ORG-001,
+11,K,DOM-002,Apprentice entity + status + org links,Done,Phase K,8,TBD,DOM-001,
+11,K,DOM-003,Enrolment state machine,Partial,Phase K,8,TBD,DOM-002,"draft/active/completed/cancelled only; PRD pipeline sub-states missing — see PRD-003"
+11,K,DOM-004,Enrolment + apprentice REST APIs scoped,Done,Phase K,8,TBD,DOM-003 RBAC-001,
+12,L,DAS-001,DAS OAuth2 client + HTTP layer,Partial,Phase L,8,TBD,DOM-004,"HTTP client exists; requires live ESFA credentials for production"
+12,L,DAS-002,Levy balance fetch + persist lastSyncedAt,Done,Phase L,5,TBD,DAS-001,
+12,L,DAS-003,BullMQ 15m sync job + manual sync,Partial,Phase L,5,TBD,DAS-002 BMQ-001,"CRON_DAS_SYNC_ENABLED=false by default"
+12,L,DAS-004,Retry backoff + DLQ for DAS,Partial,Phase L,5,TBD,DAS-003,"DAS sync DLQ only"
+12,L,DAS-005,Push enrolment withdrawal completion,Partial,Phase L,8,TBD,DAS-004,"Withdrawal push done; enrolment + completion push missing — see PRD-001 PRD-002"
+12,L,DAS-006,Levy forecast API from active programmes,Done,Phase L,5,TBD,DAS-002 DOM-003,
+13,M,OTJ-001,OtjLogEntry entity + migration,Done,Phase M,5,TBD,DOM-002,
+13,M,OTJ-002,OTJ CRUD + pagination + filters,Done,Phase M,5,TBD,OTJ-001,
+13,M,OTJ-003,Pace service + nightly cron flags,Partial,Phase M,8,TBD,OTJ-002 CRON-001,"30-day minutes heuristic; PRD EPA % pace + alerts — see PRD-006"
+13,M,OTJ-004,Approve reject bulk + notifications,Done,Phase M,5,TBD,OTJ-002 NOTIF-004,
+14,N,REV-001,Review entity + schedule + overdue,Done,Phase N,5,TBD,DOM-002,
+14,N,REV-002,Calendar list bulk schedule reminder jobs,Partial,Phase N,8,TBD,REV-001 NOTIF-004,"7d/1d reminders; apprentice 48h + intervention queue link missing — see PRD-008 PRD-009"
+14,N,REV-003,Review record + co-sign + PDF snapshot,Done,Phase N,8,TBD,REV-002 ESIG-002,
+15,O,COM-001,CommitmentStatement versioning + status machine,Done,Phase O,5,TBD,DOM-002,
+15,O,COM-002,Tripartite signing + ESignature + PDF storage,Done,Phase O,8,TBD,COM-001 ESIG-002,
+15,O,COM-003,Commitment lifecycle audit events,Done,Phase O,3,TBD,COM-002 AUD-002,
+16,P,PFL-001,KSB evidence entities + mapping,Done,Phase P,5,TBD,DOM-002,
+16,P,PFL-002,Evidence APIs + Storage integration,Done,Phase P,5,TBD,PFL-001 STO-002,
+16,P,PFL-003,Heatmap aggregation endpoint,Done,Phase P,5,TBD,PFL-002,
+17,Q,ILR-001,ILR mapping config layer versioned,Done,Phase Q,8,TBD,DOM-002,
+17,Q,ILR-002,Build ILR row + validation engine,Done,Phase Q,8,TBD,ILR-001,
+17,Q,ILR-003,ESFA submit + receipt + amendment,Done,Phase Q,8,TBD,ILR-002,"Async BullMQ submit + ILR XML serializer + http ESFA client"
+18,R,EIF-001,EIF score service + Redis cache 1h,Partial,Phase R,8,TBD,OTJ-003 REV-003 COM-001 ILR-002,"safeguarding_stub + programme_docs_stub fixed percents — see PRD-011"
+18,R,EIF-002,QIP CRUD,Done,Phase R,5,TBD,EIF-001,
+18,R,EIF-003,Evidence pack ZIP async job,Done,Phase R,8,TBD,EIF-002 STO-002 PDF-002,"Provider Ofsted pack; not apprentice EPA pack"
+19,S,LEX-001,Donor DAS link + OAuth consent entities,Done,Phase S,8,TBD,DAS-001 ORG-001,
+19,S,LEX-002,Surplus + expiry + alert jobs,Done,Phase S,5,TBD,LEX-001,
+19,S,LEX-003,Rule-based matching API v1,Done,Phase S,8,TBD,LEX-002,"Assisted mode aligns with PRD Phase 1"
+19,S,LEX-004,Transfer docs e-sign + DAS transfer create,Partial,Phase S,8,TBD,LEX-003 ESIG-002 DAS-005,"E-sign + transfer flow done; live DAS transfer submit needs config"
+20,T,MSG-001,Direct messaging threads + attachments,Done,Phase T,8,TBD,DOM-002 STO-003 NOTIF-003,
+20,T,RPT-001,Levy ROI reporting endpoints + PDF reuse,Partial,Phase T,5,TBD,DAS-006 PDF-002,"Built early (PRD Phase 2); stub EPA pass rate + spend proxy — see PRD-012"
+20,T,RPT-002,Employer directory metrics API,Done,Phase T,5,TBD,DOM-004 OTJ-003,
+21,U,SEC-001,Helmet + CSP baseline review,Done,Phase U,3,TBD,,"configure-helmet.ts + docs/security-headers.md"
+21,U,GDP-001,Data retention scheduled jobs,Partial,Phase U,5,TBD,,"Cron + service exist; CRON_RETENTION_ENABLED=false; no operator API"
+21,U,GDP-002,Right to erasure anonymise + audit retain,Done,Phase U,8,TBD,GDP-001 AUD-001,"platform-gdpr/erasure.service.ts"
+21,U,PERF-001,Index review + load-test checklist,Partial,Phase U,5,TBD,,"docs/performance.md + k6 smoke; full sign-off pending"
 22,QA,QA-001,Swagger envelope uplift on 18 controllers,Done,QA Epic,8,TBD,,"getSchemaPath envelope + auth/org extras"
 22,QA,QA-002,E2e dedicated files + route matrix,Done,QA Epic,13,TBD,,"14 new/split specs + route gap fills"
 22,QA,QA-003,Unit spec coverage complete,Done,QA Epic,21,TBD,,"23 new service specs + 37 gap fills"
+23,PRD,PRD-001,DAS enrolment submission push (≤5 min after ILR create),Not started,PRD MVP,8,TBD,ILR-003 DAS-005,"07-integrations.md §8.1; Gradlly → DAS"
+23,PRD,PRD-002,DAS completion notification push,Not started,PRD MVP,5,TBD,DAS-005,"07-integrations.md §8.1"
+23,PRD,PRD-003,Enrolment pipeline sub-states (invited → DAS confirmed),Not started,PRD MVP,5,TBD,DOM-003,"F1.2.x employer tracking; 01-platform.md flow"
+23,PRD,PRD-004,ILR official XML serializer + live ESFA client,Done,PRD MVP,13,TBD,ILR-003,"Replace noop default; GROWTH(ILR-XML) in code"
+23,PRD,PRD-005,ILR async submit BullMQ + retries,Done,PRD MVP,5,TBD,ILR-003 PRD-004,"Match withdrawal-push pattern"
+23,PRD,PRD-006,OTJ pace alerts per PRD (EPA % + in-app + digest),Not started,PRD MVP,8,TBD,OTJ-003 NOTIF-005,"F3.1.4; replace 30-day minutes heuristic"
+23,PRD,PRD-007,Apprentice EPA evidence pack export API,Not started,PRD MVP,8,TBD,PFL-002 PDF-002,"F3.3.4; distinct from Ofsted EIF pack"
+23,PRD,PRD-008,Programme timeline + gateway checklist + EPA date,Not started,PRD MVP,8,TBD,DOM-004,"F3.2.1 F3.2.2 F3.2.3"
+23,PRD,PRD-009,Provider at-risk intervention queue API,Not started,PRD MVP,8,TBD,OTJ-003 REV-001,"F2.2.2; log intervention actions"
+23,PRD,PRD-010,Provider learner cohort dashboard API,Not started,PRD MVP,5,TBD,RPT-002 DOM-004,"F2.2.1; unified columns + export"
+23,PRD,PRD-011,EIF real safeguarding + programme docs inputs,Not started,PRD MVP,5,TBD,EIF-001,"Remove stub percents in eif-score-calculator"
+23,PRD,PRD-012,Levy utilisation history + cost-per-apprentice APIs,Not started,PRD MVP,8,TBD,DAS-002 RPT-001,"F1.1.3 monthly contribution/spend series"
+23,PRD,PRD-013,DAS funding payment confirmation daily sync,Not started,PRD MVP,8,TBD,DAS-001,"07-integrations.md §8.1"
+23,PRD,PRD-014,FlowPortal levy eligibility checker (anonymous),Not started,PRD MVP,5,TBD,LEX-003,"F4.2.1"
+23,PRD,PRD-015,FlowPortal ESFA registration wizard API,Not started,PRD MVP,13,TBD,PRD-014,"F4.2.2; multi-step progress + Companies House"
+23,PRD,PRD-016,FlowPortal Module C — AI apprenticeship programmes API,Not started,PRD MVP,13,TBD,DOM-001,"F4.4.1–4.4.3; zero backend today"
+23,PRD,PRD-017,SME dashboard aggregate API,Not started,PRD MVP,5,TBD,OTJ-004 COM-002,"F4.3.1 pending approvals + reviews due"
+23,PRD,PRD-018,Auto-provision apprentice user on enrolment,Not started,PRD MVP,5,TBD,INV-002 DOM-004,"01-platform.md §2.4"
+23,PRD,PRD-019,Commitment unsigned chase reminders (7-day),Not started,PRD MVP,3,TBD,COM-002 NOTIF-004,"F1.3.x F3.4.1 F4.3.2"
+23,PRD,PRD-020,Apprentice document library aggregate API,Not started,PRD MVP,5,TBD,COM-002 REV-003 PFL-002,"F3.4.3 F2.2.4"
+23,PRD,PRD-021,Individual learner profile aggregate API,Not started,PRD MVP,5,TBD,PRD-010,"F2.2.4 single-call profile"
+23,PRD,PRD-022,Production cron defaults + env documentation,Not started,PRD MVP,3,TBD,CRON-001,"15m DAS sync; nightly pace; review reminders"
+23,PRD,PRD-023,Weekly OTJ digest email content (wire NOTIF-005),Not started,PRD MVP,5,TBD,NOTIF-005 PRD-006,"Replace digest skeleton"
+23,PRD,PRD-024,Apprentice review 48h reminder,Not started,PRD MVP,3,TBD,REV-002,"F3.2.4"

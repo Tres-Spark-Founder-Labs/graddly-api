@@ -65,4 +65,7 @@ export class IlrSubmission extends BaseEntity {
 
   @Column({ type: 'jsonb', nullable: true })
   requestPayload!: Record<string, unknown> | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  requestedByUserId!: string | null;
 }

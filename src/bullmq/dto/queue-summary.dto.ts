@@ -3,7 +3,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { QueueJobCountsDto } from './queue-job-counts.dto.js';
 
 export class QueueSummaryDto {
-  @ApiProperty({ example: 'email' })
+  @ApiProperty({ example: 'ilr-submit' })
   name!: string;
 
   @ApiProperty({ type: QueueJobCountsDto })

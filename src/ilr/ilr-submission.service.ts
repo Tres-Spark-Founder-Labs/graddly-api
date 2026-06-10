@@ -1,19 +1,15 @@
 /**
- * Synchronous ILR submit/amend orchestration in v1.
- * GROWTH: BullMQ ilr-submit queue + retries (see withdrawal-push).
+ * Async ILR submit/amend orchestration — enqueues BullMQ jobs for ESFA delivery.
  */
 import {
   BadRequestException,
   ConflictException,
-  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
-import { NotificationType } from '../notifications/enums/notification-type.enum.js';
-import { NotificationsService } from '../notifications/notifications.service.js';
 import { OrganisationRole } from '../organisations/organisation-role.enum.js';
 
 import { IlrSubmissionResponseDto } from './dto/ilr-submission-response.dto.js';
@@ -23,9 +19,8 @@ import { IlrEnrolmentContext } from './ilr-enrolment.context.js';
 import { IlrLearnerRecordStatusService } from './ilr-learner-record-status.service.js';
 import { IlrLearnerRecordsService } from './ilr-learner-records.service.js';
 import { IlrPayloadSerializerService } from './ilr-payload-serializer.service.js';
-import { ILR_ESFA_CLIENT } from './ilr.constants.js';
+import { IlrSubmitDispatchService } from './ilr-submit-dispatch.service.js';
 
-import type { IIlrEsfaClient } from './interfaces/ilr-esfa.client.interface.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 
 @Injectable()
@@ -33,13 +28,11 @@ export class IlrSubmissionService {
   constructor(
     @InjectRepository(IlrSubmission)
     private readonly submissionRepo: Repository<IlrSubmission>,
-    @Inject(ILR_ESFA_CLIENT)
-    private readonly esfaClient: IIlrEsfaClient,
     private readonly learnerRecordsService: IlrLearnerRecordsService,
     private readonly enrolmentContext: IlrEnrolmentContext,
     private readonly payloadSerializer: IlrPayloadSerializerService,
     private readonly statusService: IlrLearnerRecordStatusService,
-    private readonly notificationsService: NotificationsService,
+    private readonly submitDispatch: IlrSubmitDispatchService,
   ) {}
 
   async submit(
@@ -54,7 +47,7 @@ export class IlrSubmissionService {
     );
     this.statusService.assertCanSubmit(record.status);
 
-    await this.assertNoProcessingSubmission(learnerRecordId);
+    await this.assertNoInFlightSubmission(learnerRecordId);
 
     const graph = await this.enrolmentContext.requireEnrolmentGraph(
       organisationId,
@@ -78,8 +71,6 @@ export class IlrSubmissionService {
       priorEsfaReference: null,
       learnerRecordId: record.id,
     };
-    const requestPayload = this.payloadSerializer.toRequestBody(payloadInput);
-    const submitRequest = this.payloadSerializer.toSubmitRequest(payloadInput);
 
     let submission = this.submissionRepo.create({
       organisationId,
@@ -87,8 +78,9 @@ export class IlrSubmissionService {
       attempt,
       isAmendment: false,
       amendsSubmissionId: null,
-      status: IlrSubmissionStatus.PROCESSING,
-      requestPayload,
+      status: IlrSubmissionStatus.QUEUED,
+      requestPayload: this.payloadSerializer.toRequestBody(payloadInput),
+      requestedByUserId: user.id,
       esfaReference: null,
       receipt: null,
       submittedAt: null,
@@ -97,41 +89,13 @@ export class IlrSubmissionService {
     });
     submission = await this.submissionRepo.save(submission);
 
-    try {
-      const result = await this.esfaClient.submit(submitRequest);
-      submission.status = IlrSubmissionStatus.SUBMITTED;
-      submission.esfaReference = result.esfaReference;
-      submission.receipt = result.receipt;
-      submission.submittedAt = new Date();
-      const saved = await this.submissionRepo.save(submission);
+    await this.submitDispatch.enqueue({
+      submissionId: submission.id,
+      organisationId,
+      requestedByUserId: user.id,
+    });
 
-      await this.notificationsService.createForUser({
-        organisationId,
-        userId: user.id,
-        type: NotificationType.ILR_SUBMISSION_SUCCEEDED,
-        title: 'ILR submission succeeded',
-        body: `ILR record submitted with reference ${result.esfaReference}.`,
-        metadata: { submissionId: saved.id, learnerRecordId: record.id },
-      });
-
-      return this.toResponse(saved);
-    } catch (error) {
-      submission.status = IlrSubmissionStatus.FAILED;
-      submission.failedAt = new Date();
-      submission.lastError = this.toMessage(error);
-      const saved = await this.submissionRepo.save(submission);
-
-      await this.notificationsService.createForUser({
-        organisationId,
-        userId: user.id,
-        type: NotificationType.ILR_SUBMISSION_FAILED,
-        title: 'ILR submission failed',
-        body: submission.lastError,
-        metadata: { submissionId: saved.id, learnerRecordId: record.id },
-      });
-
-      throw error;
-    }
+    return this.toResponse(submission);
   }
 
   async amend(
@@ -146,7 +110,7 @@ export class IlrSubmissionService {
     );
     this.statusService.assertCanSubmit(record.status);
 
-    await this.assertNoProcessingSubmission(learnerRecordId);
+    await this.assertNoInFlightSubmission(learnerRecordId);
 
     const prior = await this.submissionRepo.findOne({
       where: {
@@ -185,8 +149,6 @@ export class IlrSubmissionService {
       priorEsfaReference: prior.esfaReference,
       learnerRecordId: record.id,
     };
-    const requestPayload = this.payloadSerializer.toRequestBody(payloadInput);
-    const submitRequest = this.payloadSerializer.toSubmitRequest(payloadInput);
 
     let submission = this.submissionRepo.create({
       organisationId,
@@ -194,8 +156,9 @@ export class IlrSubmissionService {
       attempt,
       isAmendment: true,
       amendsSubmissionId: prior.id,
-      status: IlrSubmissionStatus.PROCESSING,
-      requestPayload,
+      status: IlrSubmissionStatus.QUEUED,
+      requestPayload: this.payloadSerializer.toRequestBody(payloadInput),
+      requestedByUserId: user.id,
       esfaReference: null,
       receipt: null,
       submittedAt: null,
@@ -204,41 +167,13 @@ export class IlrSubmissionService {
     });
     submission = await this.submissionRepo.save(submission);
 
-    try {
-      const result = await this.esfaClient.submit(submitRequest);
-      submission.status = IlrSubmissionStatus.SUBMITTED;
-      submission.esfaReference = result.esfaReference;
-      submission.receipt = result.receipt;
-      submission.submittedAt = new Date();
-      const saved = await this.submissionRepo.save(submission);
+    await this.submitDispatch.enqueue({
+      submissionId: submission.id,
+      organisationId,
+      requestedByUserId: user.id,
+    });
 
-      await this.notificationsService.createForUser({
-        organisationId,
-        userId: user.id,
-        type: NotificationType.ILR_SUBMISSION_SUCCEEDED,
-        title: 'ILR amendment succeeded',
-        body: `ILR amendment submitted with reference ${result.esfaReference}.`,
-        metadata: { submissionId: saved.id, learnerRecordId: record.id },
-      });
-
-      return this.toResponse(saved);
-    } catch (error) {
-      submission.status = IlrSubmissionStatus.FAILED;
-      submission.failedAt = new Date();
-      submission.lastError = this.toMessage(error);
-      const saved = await this.submissionRepo.save(submission);
-
-      await this.notificationsService.createForUser({
-        organisationId,
-        userId: user.id,
-        type: NotificationType.ILR_SUBMISSION_FAILED,
-        title: 'ILR amendment failed',
-        body: submission.lastError,
-        metadata: { submissionId: saved.id, learnerRecordId: record.id },
-      });
-
-      throw error;
-    }
+    return this.toResponse(submission);
   }
 
   async listForRecord(
@@ -275,19 +210,22 @@ export class IlrSubmissionService {
     return this.toResponse(row);
   }
 
-  private async assertNoProcessingSubmission(
+  private async assertNoInFlightSubmission(
     learnerRecordId: string,
   ): Promise<void> {
-    const processing = await this.submissionRepo.findOne({
+    const inFlight = await this.submissionRepo.findOne({
       where: {
         ilrLearnerRecordId: learnerRecordId,
-        status: IlrSubmissionStatus.PROCESSING,
+        status: In([
+          IlrSubmissionStatus.QUEUED,
+          IlrSubmissionStatus.PROCESSING,
+        ]),
         isDeleted: false,
       },
     });
-    if (processing) {
+    if (inFlight) {
       throw new ConflictException(
-        'An ILR submission is already processing for this learner record',
+        'An ILR submission is already in progress for this learner record',
       );
     }
   }
@@ -325,12 +263,9 @@ export class IlrSubmissionService {
       failedAt: entity.failedAt?.toISOString() ?? null,
       lastError: entity.lastError,
       requestPayload: entity.requestPayload,
+      requestedByUserId: entity.requestedByUserId,
       createdAt: entity.createdAt.toISOString(),
       updatedAt: entity.updatedAt.toISOString(),
     };
-  }
-
-  private toMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
   }
 }

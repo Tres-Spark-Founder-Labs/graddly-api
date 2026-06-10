@@ -17,6 +17,7 @@
 | [07-integrations.md](./07-integrations.md) | ESFA DAS, ILR, GOV.UK One Login |
 | [08-data-model.md](./08-data-model.md) | Core entities and relationships |
 | [09-release-phases.md](./09-release-phases.md) | MVP vs Phase 2 scope |
+| [../prd-api-implementation-plan.md](../prd-api-implementation-plan.md) | API execution plan — phased delivery order and progress tracker |
 
 ## Updating
 

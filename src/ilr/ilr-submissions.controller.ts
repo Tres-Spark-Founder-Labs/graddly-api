@@ -53,7 +53,11 @@ export class IlrSubmissionsController {
 
   @Get(':id')
   @ResponseMessage('ILR submission retrieved successfully')
-  @ApiOperation({ summary: 'Get ILR submission receipt details' })
+  @ApiOperation({
+    summary: 'Get ILR submission receipt details (poll endpoint)',
+    description:
+      'Poll after POST submit/amend until status is terminal. `esfaReference` and `receipt` are null while `queued` or `processing`. Safe to re-fetch idempotently.',
+  })
   @ApiOkResponse({
     schema: {
       properties: {

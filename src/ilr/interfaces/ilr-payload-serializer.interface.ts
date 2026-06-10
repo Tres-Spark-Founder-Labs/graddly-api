@@ -14,4 +14,5 @@ export interface IIlrPayloadSerializerInput {
 export interface IIlrPayloadSerializer {
   toSubmitRequest(input: IIlrPayloadSerializerInput): IIlrEsfaSubmitRequest;
   toRequestBody(input: IIlrPayloadSerializerInput): Record<string, unknown>;
+  toIlrXml(input: IIlrPayloadSerializerInput): string;
 }

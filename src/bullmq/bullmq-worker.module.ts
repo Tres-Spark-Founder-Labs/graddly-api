@@ -5,6 +5,8 @@ import { CommitmentSignature } from '../commitments/entities/commitment-signatur
 import { CommitmentStatement } from '../commitments/entities/commitment-statement.entity.js';
 import { DasModule } from '../das/das.module.js';
 import { EmailModule } from '../email/email.module.js';
+import { IlrSubmitProcessor } from '../ilr/ilr-submit.processor.js';
+import { IlrModule } from '../ilr/ilr.module.js';
 import { LevyTransfer } from '../levy-exchange/entities/levy-transfer.entity.js';
 import { EvidencePackJob } from '../ofsted/entities/evidence-pack-job.entity.js';
 import { OfstedModule } from '../ofsted/ofsted.module.js';
@@ -35,6 +37,7 @@ import { SystemPingProcessor } from './processors/system-ping.processor.js';
     PdfModule,
     StorageModule,
     WithdrawalPushModule,
+    IlrModule,
     OfstedModule,
     ReportingModule,
     TypeOrmModule.forFeature([
@@ -57,6 +60,7 @@ import { SystemPingProcessor } from './processors/system-ping.processor.js';
     PdfGenerationProcessor,
     EvidencePackProcessor,
     WithdrawalPushProcessor,
+    IlrSubmitProcessor,
   ],
 })
 export class BullmqWorkerModule {}

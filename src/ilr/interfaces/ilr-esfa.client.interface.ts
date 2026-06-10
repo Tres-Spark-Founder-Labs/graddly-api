@@ -12,6 +12,8 @@ export interface IIlrEsfaSubmitRequest {
   isAmendment: boolean;
   priorEsfaReference?: string | null;
   learnerRecordId: string;
+  /** Official ILR XML body when submitting via HTTP ESFA client. */
+  xmlPayload?: string;
 }
 
 export interface IIlrEsfaSubmitResult {

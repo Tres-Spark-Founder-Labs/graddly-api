@@ -1,6 +1,6 @@
 /**
- * HTTP ESFA submit client (REST stub). Parses flexible response keys.
- * GROWTH: receipt polling endpoint, amend-specific path when sandbox contract is known.
+ * HTTP ESFA submit client. Sends ILR XML when xmlPayload is set (default for http provider).
+ * Parses flexible JSON response keys from stub/sandbox endpoints.
  */
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -27,6 +27,10 @@ export class IlrEsfaHttpClient implements IIlrEsfaClient {
       '/api/v1/ilr/submit',
     );
     const timeoutMs = this.config.get<number>('app.ilr.esfa.timeoutMs', 15_000);
+    const payloadFormat = this.config.get<'json' | 'xml'>(
+      'app.ilr.esfa.payloadFormat',
+      'xml',
+    );
 
     if (!baseUrl) {
       throw new InternalServerErrorException(
@@ -38,18 +42,30 @@ export class IlrEsfaHttpClient implements IIlrEsfaClient {
     const url = new URL(submitPath, baseUrl);
     const headers = new Headers();
     headers.set('Authorization', `Bearer ${token}`);
-    headers.set('Accept', 'application/json');
-    headers.set('Content-Type', 'application/json');
 
-    const body = JSON.stringify({
-      ukprn: request.ukprn,
-      collectionPeriod: request.collectionPeriod,
-      academicYear: request.academicYear,
-      isAmendment: request.isAmendment,
-      priorEsfaReference: request.priorEsfaReference ?? null,
-      learnerRecordId: request.learnerRecordId,
-      fields: request.fields,
-    });
+    const useXml =
+      payloadFormat === 'xml' &&
+      typeof request.xmlPayload === 'string' &&
+      request.xmlPayload.length > 0;
+
+    let body: string;
+    if (useXml) {
+      headers.set('Content-Type', 'application/xml');
+      headers.set('Accept', 'application/json');
+      body = request.xmlPayload!;
+    } else {
+      headers.set('Content-Type', 'application/json');
+      headers.set('Accept', 'application/json');
+      body = JSON.stringify({
+        ukprn: request.ukprn,
+        collectionPeriod: request.collectionPeriod,
+        academicYear: request.academicYear,
+        isAmendment: request.isAmendment,
+        priorEsfaReference: request.priorEsfaReference ?? null,
+        learnerRecordId: request.learnerRecordId,
+        fields: request.fields,
+      });
+    }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);

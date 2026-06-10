@@ -10,7 +10,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiCreatedResponse,
   ApiExtraModels,
   ApiForbiddenResponse,
@@ -197,15 +199,31 @@ export class IlrLearnerRecordsController {
   }
 
   @Post(':id/submit')
-  @ResponseMessage('ILR record submitted successfully')
-  @ApiOperation({ summary: 'Submit a validated ILR learner record to ESFA' })
+  @ResponseMessage('ILR submission queued successfully')
+  @ApiOperation({
+    summary: 'Queue ILR submit to ESFA (async)',
+    description:
+      'Creates a submission with status `queued` and enqueues a BullMQ job. Poll `GET /api/v1/ilr/submissions/:id` until status is `submitted` or `failed`. Requires a validated learner record and organisation UKPRN. Owner or admin only.',
+  })
   @ApiCreatedResponse({
+    description:
+      'Submission accepted and queued. Response status is `queued`, not `submitted`.',
     schema: {
       properties: {
         message: { type: 'string' },
         data: { $ref: getSchemaPath(IlrSubmissionResponseDto) },
       },
     },
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Draft or invalid record, missing UKPRN, or caller is not owner/admin',
+    type: ErrorResponseDto,
+  })
+  @ApiConflictResponse({
+    description:
+      'Another submission is already queued or processing for this learner record',
+    type: ErrorResponseDto,
   })
   submit(
     @CurrentUser() user: AuthenticatedUser,
@@ -217,15 +235,30 @@ export class IlrLearnerRecordsController {
   }
 
   @Post(':id/amend')
-  @ResponseMessage('ILR amendment submitted successfully')
-  @ApiOperation({ summary: 'Submit an ILR amendment after re-validation' })
+  @ResponseMessage('ILR amendment queued successfully')
+  @ApiOperation({
+    summary: 'Queue ILR amendment to ESFA (async)',
+    description:
+      'Same async flow as submit. Requires a prior successful submission (`submitted`) with an ESFA reference. Poll `GET /api/v1/ilr/submissions/:id` for the new submission row.',
+  })
   @ApiCreatedResponse({
+    description: 'Amendment accepted and queued with status `queued`.',
     schema: {
       properties: {
         message: { type: 'string' },
         data: { $ref: getSchemaPath(IlrSubmissionResponseDto) },
       },
     },
+  })
+  @ApiBadRequestResponse({
+    description:
+      'No prior successful submission, missing UKPRN, or caller is not owner/admin',
+    type: ErrorResponseDto,
+  })
+  @ApiConflictResponse({
+    description:
+      'Another submission is already queued or processing for this learner record',
+    type: ErrorResponseDto,
   })
   amend(
     @CurrentUser() user: AuthenticatedUser,
@@ -238,7 +271,11 @@ export class IlrLearnerRecordsController {
 
   @Get(':id/submissions')
   @ResponseMessage('ILR submissions retrieved successfully')
-  @ApiOperation({ summary: 'List submission history for a learner record' })
+  @ApiOperation({
+    summary: 'List submission history for a learner record',
+    description:
+      'Returns all attempts including in-flight (`queued`, `processing`) and terminal rows. Use `GET /api/v1/ilr/submissions/:id` to poll a specific submission.',
+  })
   @ApiOkResponse({
     schema: {
       properties: {

@@ -187,6 +187,7 @@ export default registerAs('app', () => {
         scope: e.ILR_ESFA_SCOPE,
         submitPath: e.ILR_ESFA_SUBMIT_PATH,
         timeoutMs: e.ILR_ESFA_TIMEOUT_MS,
+        payloadFormat: e.ILR_ESFA_PAYLOAD_FORMAT,
       },
     },
   };

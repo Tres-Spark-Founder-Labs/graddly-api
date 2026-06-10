@@ -24,6 +24,7 @@ import { IlrPayloadSerializerService } from './ilr-payload-serializer.service.js
 import { IlrRowBuilderService } from './ilr-row-builder.service.js';
 import { IlrSubmissionService } from './ilr-submission.service.js';
 import { IlrSubmissionsController } from './ilr-submissions.controller.js';
+import { IlrSubmitDispatchService } from './ilr-submit-dispatch.service.js';
 import { IlrValidationEngine } from './ilr-validation-engine.service.js';
 import { ILR_ESFA_CLIENT } from './ilr.constants.js';
 
@@ -51,6 +52,7 @@ import type { IIlrEsfaClient } from './interfaces/ilr-esfa.client.interface.js';
     IlrMappingConfigService,
     IlrLearnerRecordsService,
     IlrSubmissionService,
+    IlrSubmitDispatchService,
     IlrEnrolmentContext,
     IlrRowBuilderService,
     IlrValidationEngine,
@@ -75,6 +77,17 @@ import type { IIlrEsfaClient } from './interfaces/ilr-esfa.client.interface.js';
       inject: [ConfigService, IlrEsfaNoopClient, IlrEsfaHttpClient],
     },
   ],
-  exports: [TypeOrmModule, IlrLearnerRecordsService, IlrSubmissionService],
+  exports: [
+    TypeOrmModule,
+    IlrLearnerRecordsService,
+    IlrSubmissionService,
+    IlrSubmitDispatchService,
+    IlrPayloadSerializerService,
+    IlrEnrolmentContext,
+    ILR_ESFA_CLIENT,
+    IlrEsfaOAuthService,
+    IlrEsfaNoopClient,
+    IlrEsfaHttpClient,
+  ],
 })
 export class IlrModule {}

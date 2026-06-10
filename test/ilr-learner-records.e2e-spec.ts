@@ -10,6 +10,7 @@ import { ILR_ESFA_CLIENT } from '../src/ilr/ilr.constants.js';
 import { createE2eApp } from './helpers/e2e-app.js';
 import { expectSuccessEnvelope } from './helpers/e2e-response-contracts.js';
 import { seedIlrOrgContext } from './helpers/ilr-seed.js';
+import { processIlrSubmitJobInApp } from './helpers/process-ilr-submit-job.js';
 
 import type { App } from 'supertest/types';
 
@@ -129,7 +130,7 @@ describe('ILR learner records (e2e)', () => {
   });
 
   describe('submit (noop)', () => {
-    it('submits validated record and stores receipt', async () => {
+    it('queues submit then completes via worker with receipt', async () => {
       const suffix = Date.now();
       const { owner, orgId, enrolmentId } = await seedIlrOrgContext(
         app,
@@ -161,7 +162,22 @@ describe('ILR learner records (e2e)', () => {
         .expect(201);
 
       expectSuccessEnvelope(submitRes.body);
-      const submission = (submitRes.body as { data: IlrSubmissionBody }).data;
+      const queued = (submitRes.body as { data: IlrSubmissionBody }).data;
+      expect(queued.status).toBe(IlrSubmissionStatus.QUEUED);
+
+      await processIlrSubmitJobInApp(app, {
+        submissionId: queued.id,
+        organisationId: orgId,
+        requestedByUserId: owner.userId,
+      });
+
+      const pollRes = await request(app.getHttpServer())
+        .get(`/api/v1/ilr/submissions/${queued.id}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .set(ORGANISATION_ID_HEADER, orgId)
+        .expect(200);
+
+      const submission = (pollRes.body as { data: IlrSubmissionBody }).data;
       expect(submission.status).toBe(IlrSubmissionStatus.SUBMITTED);
       expect(submission.esfaReference).toMatch(/^NOOP-/);
       expect(submission.receipt).toEqual(
@@ -240,9 +256,15 @@ describe('ILR learner records (e2e)', () => {
         .set('Authorization', `Bearer ${owner.accessToken}`)
         .set(ORGANISATION_ID_HEADER, orgId)
         .expect(201);
-      const firstSubmissionId = (
-        firstSubmitRes.body as { data: IlrSubmissionBody }
-      ).data.id;
+      const firstQueued = (firstSubmitRes.body as { data: IlrSubmissionBody })
+        .data;
+      const firstSubmissionId = firstQueued.id;
+
+      await processIlrSubmitJobInApp(app, {
+        submissionId: firstSubmissionId,
+        organisationId: orgId,
+        requestedByUserId: owner.userId,
+      });
 
       await request(app.getHttpServer())
         .patch(`/api/v1/ilr/learner-records/${recordId}`)
@@ -263,10 +285,26 @@ describe('ILR learner records (e2e)', () => {
         .set(ORGANISATION_ID_HEADER, orgId)
         .expect(201);
 
-      const amendSubmission = (amendRes.body as { data: IlrSubmissionBody })
+      const amendQueued = (amendRes.body as { data: IlrSubmissionBody }).data;
+      expect(amendQueued.isAmendment).toBe(true);
+      expect(amendQueued.amendsSubmissionId).toBe(firstSubmissionId);
+      expect(amendQueued.status).toBe(IlrSubmissionStatus.QUEUED);
+
+      await processIlrSubmitJobInApp(app, {
+        submissionId: amendQueued.id,
+        organisationId: orgId,
+        requestedByUserId: owner.userId,
+      });
+
+      const amendPollRes = await request(app.getHttpServer())
+        .get(`/api/v1/ilr/submissions/${amendQueued.id}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .set(ORGANISATION_ID_HEADER, orgId)
+        .expect(200);
+
+      const amendSubmission = (amendPollRes.body as { data: IlrSubmissionBody })
         .data;
-      expect(amendSubmission.isAmendment).toBe(true);
-      expect(amendSubmission.amendsSubmissionId).toBe(firstSubmissionId);
+      expect(amendSubmission.status).toBe(IlrSubmissionStatus.SUBMITTED);
       expect(amendSubmission.receipt).toBeTruthy();
     });
   });
@@ -331,11 +369,17 @@ describe('ILR learner records (e2e)', () => {
         .set(ORGANISATION_ID_HEADER, orgId)
         .expect(201);
 
-      await request(app.getHttpServer())
+      const submitRes = await request(app.getHttpServer())
         .post(`/api/v1/ilr/learner-records/${recordId}/submit`)
         .set('Authorization', `Bearer ${owner.accessToken}`)
         .set(ORGANISATION_ID_HEADER, orgId)
         .expect(201);
+      const firstQueued = (submitRes.body as { data: IlrSubmissionBody }).data;
+      await processIlrSubmitJobInApp(app, {
+        submissionId: firstQueued.id,
+        organisationId: orgId,
+        requestedByUserId: owner.userId,
+      });
 
       await request(app.getHttpServer())
         .patch(`/api/v1/ilr/learner-records/${recordId}`)
@@ -399,11 +443,24 @@ describe('ILR learner records (e2e)', () => {
         .spyOn(esfaClient, 'submit')
         .mockRejectedValueOnce(new Error('Simulated ESFA failure'));
 
-      await request(app.getHttpServer())
+      const submitRes = await request(app.getHttpServer())
         .post(`/api/v1/ilr/learner-records/${recordId}/submit`)
         .set('Authorization', `Bearer ${owner.accessToken}`)
         .set(ORGANISATION_ID_HEADER, orgId)
-        .expect(500);
+        .expect(201);
+      const queued = (submitRes.body as { data: IlrSubmissionBody }).data;
+
+      await expect(
+        processIlrSubmitJobInApp(
+          app,
+          {
+            submissionId: queued.id,
+            organisationId: orgId,
+            requestedByUserId: owner.userId,
+          },
+          { attemptsMade: 2 },
+        ),
+      ).rejects.toThrow('Simulated ESFA failure');
 
       const notificationsRes = await request(app.getHttpServer())
         .get('/api/v1/notifications')

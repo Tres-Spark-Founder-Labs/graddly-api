@@ -2,10 +2,12 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
   UnauthorizedException,
+  forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -17,8 +19,10 @@ import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { InvitationAcceptEmail } from '../email/payloads/invitation-accept.email.js';
+import { EnrolmentProvisioningService } from '../enrolments/enrolment-provisioning.service.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
+import { OrganisationRole } from '../organisations/organisation-role.enum.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
 import { RedisService } from '../redis/redis.service.js';
 import { User } from '../users/entities/user.entity.js';
@@ -41,6 +45,8 @@ export class InvitationsService {
     private readonly config: ConfigService,
     private readonly redis: RedisService,
     private readonly emailDispatch: EmailDispatchService,
+    @Inject(forwardRef(() => EnrolmentProvisioningService))
+    private readonly enrolmentProvisioningService: EnrolmentProvisioningService,
     @InjectRepository(Invitation)
     private readonly invitationRepo: Repository<Invitation>,
     @InjectRepository(OrganisationMembership)
@@ -117,6 +123,11 @@ export class InvitationsService {
     await this.redis.del(redisKey);
     await this.deleteAllAcceptTokensForInvitation(invitationId);
 
+    await this.enrolmentProvisioningService.onInvitationAccepted(
+      invitation,
+      user.id,
+    );
+
     return { organisationId, role };
   }
 
@@ -187,6 +198,72 @@ export class InvitationsService {
     }
 
     const firstName = await this.resolveFirstNameForEmail(dto.email);
+    await this.storeAcceptTokenAndSendEmail(
+      invitation,
+      organisation.name,
+      firstName,
+      portalType,
+    );
+
+    const reloaded = await this.invitationRepo.findOne({
+      where: { id: invitation.id },
+      relations: ['invitedBy'],
+    });
+    return this.toResponse(reloaded!);
+  }
+
+  /** Internal: apprentice portal invite tied to an enrolment activation. */
+  async createForEnrolment(input: {
+    actor: AuthenticatedUser;
+    email: string;
+    organisationId: string;
+    enrolmentId: string;
+    portalType: PortalType;
+  }): Promise<InvitationResponseDto> {
+    const { actor, email, organisationId, enrolmentId, portalType } = input;
+    if (actor.organisationId !== organisationId) {
+      throw new BadRequestException(
+        'Enrolment apprentice invite must target the activating organisation',
+      );
+    }
+
+    await this.assertUserNotAlreadyMember(
+      organisationId,
+      email.trim().toLowerCase(),
+    );
+
+    const expiresAt = this.defaultExpiresAt();
+    const organisation = await this.organisationRepo.findOne({
+      where: { id: organisationId },
+    });
+    if (!organisation) {
+      throw new NotFoundException('Organisation not found');
+    }
+
+    const invitation = this.invitationRepo.create({
+      email: email.trim(),
+      role: OrganisationRole.MEMBER,
+      expiresAt,
+      organisation: { id: organisationId },
+      invitedBy: { id: actor.id },
+      enrolmentId,
+    });
+
+    try {
+      await this.invitationRepo.save(invitation);
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        const code = (err.driverError as { code?: string } | undefined)?.code;
+        if (code === '23505') {
+          throw new ConflictException(
+            'An invitation already exists for this email in this organisation',
+          );
+        }
+      }
+      throw err;
+    }
+
+    const firstName = await this.resolveFirstNameForEmail(email);
     await this.storeAcceptTokenAndSendEmail(
       invitation,
       organisation.name,

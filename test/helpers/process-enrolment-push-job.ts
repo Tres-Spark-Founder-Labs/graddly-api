@@ -9,6 +9,7 @@ import { DasHttpClient } from '../../src/das/das-http.client.js';
 import { ENROLMENT_PUSH_JOB_SEND } from '../../src/enrolment-push/enrolment-push.constants.js';
 import { EnrolmentPushProcessor } from '../../src/enrolment-push/enrolment-push.processor.js';
 import { EnrolmentSubmissionPush } from '../../src/enrolment-push/entities/enrolment-submission-push.entity.js';
+import { EnrolmentPipelineService } from '../../src/enrolments/enrolment-pipeline.service.js';
 
 import type { IEnrolmentPushJobPayload } from '../../src/enrolment-push/enrolment-push.payload.js';
 import type { App } from 'supertest/types';
@@ -20,6 +21,7 @@ export async function processEnrolmentPushJobInApp(
 ): Promise<void> {
   const processor = new EnrolmentPushProcessor(
     app.get(DasHttpClient),
+    app.get(EnrolmentPipelineService),
     app.get<Repository<EnrolmentSubmissionPush>>(
       getRepositoryToken(EnrolmentSubmissionPush),
     ),

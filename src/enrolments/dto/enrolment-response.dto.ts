@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+import { EnrolmentPipelineState } from '../enums/enrolment-pipeline-state.enum.js';
 import { EnrolmentStatus } from '../enums/enrolment-status.enum.js';
 
 export class EnrolmentResponseDto {
@@ -76,4 +77,44 @@ export class EnrolmentResponseDto {
     description: 'Linked provider organisation for cross-portal reporting',
   })
   providerOrganisationId!: string | null;
+
+  @ApiProperty({
+    enum: EnrolmentPipelineState,
+    nullable: true,
+    description:
+      'Cross-portal pipeline sub-state: invited → account_created → provider_accepted → ilr_created → das_confirmed',
+    example: EnrolmentPipelineState.INVITED,
+  })
+  pipelineState!: EnrolmentPipelineState | null;
+
+  @ApiProperty({
+    nullable: true,
+    description: 'When the apprentice invitation was sent (pipeline: invited)',
+  })
+  pipelineInvitedAt!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description:
+      'When the apprentice portal account was linked (pipeline: account_created)',
+  })
+  pipelineAccountCreatedAt!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description: 'When the provider accepted the enrolment',
+  })
+  pipelineProviderAcceptedAt!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description: 'When the ILR learner record was first created',
+  })
+  pipelineIlrCreatedAt!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description: 'When DAS confirmed the enrolment submission',
+  })
+  pipelineDasConfirmedAt!: string | null;
 }

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -24,8 +25,11 @@ import { EpaOutcomeResponseDto } from './dto/epa-outcome-response.dto.js';
 import { RecordEpaOutcomeDto } from './dto/record-epa-outcome.dto.js';
 import { UpdateEnrolmentOrganisationLinksDto } from './dto/update-enrolment-organisation-links.dto.js';
 import { UpdateEnrolmentParticipantsDto } from './dto/update-enrolment-participants.dto.js';
+import { EnrolmentPipelineService } from './enrolment-pipeline.service.js';
+import { EnrolmentProvisioningService } from './enrolment-provisioning.service.js';
 import { Enrolment } from './entities/enrolment.entity.js';
 import { EpaOutcomeRecord } from './entities/epa-outcome.entity.js';
+import { EnrolmentPipelineState } from './enums/enrolment-pipeline-state.enum.js';
 import { EnrolmentStatus } from './enums/enrolment-status.enum.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
@@ -45,6 +49,8 @@ export class EnrolmentsService {
     private readonly epaOutcomeRepo: Repository<EpaOutcomeRecord>,
     private readonly withdrawalPushService: WithdrawalPushService,
     private readonly completionPushService: CompletionPushService,
+    private readonly pipelineService: EnrolmentPipelineService,
+    private readonly provisioningService: EnrolmentProvisioningService,
     @Inject(forwardRef(() => MessageThreadsService))
     private readonly messageThreadsService: MessageThreadsService,
   ) {}
@@ -222,7 +228,13 @@ export class EnrolmentsService {
   }
 
   async activate(user: AuthenticatedUser, id: string): Promise<Enrolment> {
-    const enrolment = await this.findOne(user, id);
+    const enrolment = await this.enrolmentRepo.findOne({
+      where: { id, organisationId: user.organisationId! },
+      relations: ['apprentice'],
+    });
+    if (!enrolment) {
+      throw new NotFoundException('Enrolment not found');
+    }
     if (enrolment.status === EnrolmentStatus.ACTIVE) {
       return enrolment;
     }
@@ -231,7 +243,63 @@ export class EnrolmentsService {
     }
     enrolment.status = EnrolmentStatus.ACTIVE;
     enrolment.activatedAt = new Date();
-    return this.enrolmentRepo.save(enrolment);
+    const saved = await this.enrolmentRepo.save(enrolment);
+    return this.provisioningService.onActivate(saved, user);
+  }
+
+  async acceptProvider(
+    user: AuthenticatedUser,
+    id: string,
+  ): Promise<Enrolment> {
+    const enrolment = await this.findForProviderAccept(user, id);
+    if (enrolment.status !== EnrolmentStatus.ACTIVE) {
+      throw new BadRequestException(
+        'Only active enrolments can be accepted by the provider',
+      );
+    }
+    if (
+      !this.pipelineService.isAtLeast(
+        enrolment.pipelineState,
+        EnrolmentPipelineState.ACCOUNT_CREATED,
+      )
+    ) {
+      throw new BadRequestException(
+        'Apprentice account must be created before provider acceptance',
+      );
+    }
+    const advanced = await this.pipelineService.advanceIfAhead(
+      enrolment.id,
+      EnrolmentPipelineState.PROVIDER_ACCEPTED,
+    );
+    if (!advanced) {
+      throw new NotFoundException('Enrolment not found');
+    }
+    return advanced;
+  }
+
+  private async findForProviderAccept(
+    user: AuthenticatedUser,
+    id: string,
+  ): Promise<Enrolment> {
+    const orgId = user.organisationId!;
+    const enrolment = await this.enrolmentRepo.findOne({
+      where: { id, isDeleted: false },
+    });
+    if (!enrolment) {
+      throw new NotFoundException('Enrolment not found');
+    }
+
+    const isProviderOrg =
+      enrolment.providerOrganisationId === orgId ||
+      (enrolment.providerOrganisationId === null &&
+        enrolment.organisationId === orgId);
+    if (!isProviderOrg) {
+      throw new ForbiddenException(
+        'Only the linked provider organisation can accept this enrolment',
+      );
+    }
+
+    return enrolment;
   }
 
   async complete(user: AuthenticatedUser, id: string): Promise<Enrolment> {

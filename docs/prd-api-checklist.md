@@ -118,12 +118,12 @@ Working checklist to close gaps between the PRD (`docs/prd/`) and this API. Fron
   - **Gap:** Forecast exists (`GET /das/levy-forecast`); no monthly contribution/spend series or cost-per-apprentice table.  
   - **Deliver:** Persist DAS transaction/contribution history on sync; `GET /reporting/levy-utilisation` with 12-month series + segments (used / expiring / available) + cost table.
 
-- [ ] **PRD-003** · Enrolment pipeline sub-states  
+- [x] **PRD-003** · Enrolment pipeline sub-states  
   - **PRD:** F1.2.x · `01-platform.md` §2.4  
   - **Gap:** `[~]` DOM-003 — only draft/active/completed/cancelled.  
   - **Deliver:** Track invited → account_created → provider_accepted → ilr_created → das_confirmed (computed or explicit enum); expose on enrolment DTO + transition hooks.
 
-- [ ] **PRD-018** · Auto-provision apprentice user on enrolment  
+- [x] **PRD-018** · Auto-provision apprentice user on enrolment  
   - **PRD:** `01-platform.md` §2.4  
   - **Gap:** Invitation flow only.  
   - **Deliver:** On enrolment activate (or create), invite or provision apprentice portal user + link to apprentice record.

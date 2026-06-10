@@ -4,6 +4,7 @@ import { Apprentice } from '../../apprentices/entities/apprentice.entity.js';
 import { BaseEntity } from '../../common/entities/base.entity.js';
 import { Organisation } from '../../organisations/entities/organisation.entity.js';
 import { Standard } from '../../programmes/entities/standard.entity.js';
+import { EnrolmentPipelineState } from '../enums/enrolment-pipeline-state.enum.js';
 import { EnrolmentStatus } from '../enums/enrolment-status.enum.js';
 
 @Entity('enrolments')
@@ -104,4 +105,27 @@ export class Enrolment extends BaseEntity {
   @ManyToOne(() => Organisation, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'providerOrganisationId' })
   providerOrganisation!: Organisation | null;
+
+  @Column({
+    type: 'enum',
+    enum: EnrolmentPipelineState,
+    enumName: 'enrolment_pipeline_state',
+    nullable: true,
+  })
+  pipelineState!: EnrolmentPipelineState | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  pipelineInvitedAt!: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  pipelineAccountCreatedAt!: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  pipelineProviderAcceptedAt!: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  pipelineIlrCreatedAt!: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  pipelineDasConfirmedAt!: Date | null;
 }

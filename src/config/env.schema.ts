@@ -305,6 +305,12 @@ export const envSchema = z
       .optional()
       .default('false')
       .transform((v) => v === 'true'),
+
+    ENROLMENT_AUTO_INVITE_APPRENTICE: z
+      .string()
+      .optional()
+      .default('true')
+      .transform((v) => v !== 'false'),
   })
   .superRefine((data, ctx) => {
     const deployed =

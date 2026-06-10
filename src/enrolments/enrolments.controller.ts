@@ -236,7 +236,11 @@ export class EnrolmentsController {
 
   @Post(':id/activate')
   @ResponseMessage('Enrolment activated successfully')
-  @ApiOperation({ summary: 'Activate enrolment (draft -> active)' })
+  @ApiOperation({
+    summary: 'Activate enrolment (draft -> active)',
+    description:
+      'Sets enrolment status to active, sends an apprentice portal invitation (or links an existing user), advances pipeline to `invited` or `account_created`, and notifies provider admins that acceptance is pending.',
+  })
   @ApiCreatedResponse({
     description: 'Enrolment activated',
     schema: {
@@ -261,6 +265,43 @@ export class EnrolmentsController {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
     return this.enrolmentsService.activate(user, id);
+  }
+
+  @Post(':id/accept-provider')
+  @ResponseMessage('Enrolment accepted by provider successfully')
+  @ApiOperation({
+    summary: 'Provider accepts an active enrolment',
+    description:
+      'Advances pipeline to `provider_accepted`. Caller must be the linked provider organisation (or the enrolment-owning org when no provider link is set). Requires pipeline at least `account_created`.',
+  })
+  @ApiCreatedResponse({
+    description: 'Enrolment accepted by provider',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(EnrolmentResponseDto) },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Enrolment not found',
+    type: ErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    description: 'Caller is not the linked provider organisation',
+    type: ErrorResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid state or pipeline prerequisite not met',
+    type: ErrorResponseDto,
+  })
+  acceptProvider(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.enrolmentsService.acceptProvider(user, id);
   }
 
   @Post(':id/complete')

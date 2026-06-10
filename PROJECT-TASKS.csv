@@ -40,7 +40,7 @@ phase_order,phase,task_id,task,status,timeline,story_points,assignee,depends_on,
 10,J,ESIG-002,Embed signature in PDF + store in S3,Done,Phase J,8,TBD,ESIG-001 STO-002,
 11,K,DOM-001,Programme + Standard entities,Done,Phase K,5,TBD,ORG-001,
 11,K,DOM-002,Apprentice entity + status + org links,Done,Phase K,8,TBD,DOM-001,
-11,K,DOM-003,Enrolment state machine,Partial,Phase K,8,TBD,DOM-002,"draft/active/completed/cancelled only; PRD pipeline sub-states missing — see PRD-003"
+11,K,DOM-003,Enrolment state machine,Done,Phase K,8,TBD,DOM-002,"draft/active/completed/cancelled + pipeline sub-states (PRD-003)"
 11,K,DOM-004,Enrolment + apprentice REST APIs scoped,Done,Phase K,8,TBD,DOM-003 RBAC-001,
 12,L,DAS-001,DAS OAuth2 client + HTTP layer,Partial,Phase L,8,TBD,DOM-004,"HTTP client exists; requires live ESFA credentials for production"
 12,L,DAS-002,Levy balance fetch + persist lastSyncedAt,Done,Phase L,5,TBD,DAS-001,
@@ -83,7 +83,7 @@ phase_order,phase,task_id,task,status,timeline,story_points,assignee,depends_on,
 22,QA,QA-003,Unit spec coverage complete,Done,QA Epic,21,TBD,,"23 new service specs + 37 gap fills"
 23,PRD,PRD-001,DAS enrolment submission push (≤5 min after ILR create),Done,PRD MVP,8,TBD,ILR-003 DAS-005,"07-integrations.md §8.1; Gradlly → DAS"
 23,PRD,PRD-002,DAS completion notification push,Done,PRD MVP,5,TBD,DAS-005,"07-integrations.md §8.1"
-23,PRD,PRD-003,Enrolment pipeline sub-states (invited → DAS confirmed),Not started,PRD MVP,5,TBD,DOM-003,"F1.2.x employer tracking; 01-platform.md flow"
+23,PRD,PRD-003,Enrolment pipeline sub-states (invited → DAS confirmed),Done,PRD MVP,5,TBD,DOM-003,"F1.2.x employer tracking; 01-platform.md flow"
 23,PRD,PRD-004,ILR official XML serializer + live ESFA client,Done,PRD MVP,13,TBD,ILR-003,"Replace noop default; GROWTH(ILR-XML) in code"
 23,PRD,PRD-005,ILR async submit BullMQ + retries,Done,PRD MVP,5,TBD,ILR-003 PRD-004,"Match withdrawal-push pattern"
 23,PRD,PRD-006,OTJ pace alerts per PRD (EPA % + in-app + digest),Not started,PRD MVP,8,TBD,OTJ-003 NOTIF-005,"F3.1.4; replace 30-day minutes heuristic"
@@ -98,7 +98,7 @@ phase_order,phase,task_id,task,status,timeline,story_points,assignee,depends_on,
 23,PRD,PRD-015,FlowPortal ESFA registration wizard API,Not started,PRD MVP,13,TBD,PRD-014,"F4.2.2; multi-step progress + Companies House"
 23,PRD,PRD-016,FlowPortal Module C — AI apprenticeship programmes API,Not started,PRD MVP,13,TBD,DOM-001,"F4.4.1–4.4.3; zero backend today"
 23,PRD,PRD-017,SME dashboard aggregate API,Not started,PRD MVP,5,TBD,OTJ-004 COM-002,"F4.3.1 pending approvals + reviews due"
-23,PRD,PRD-018,Auto-provision apprentice user on enrolment,Not started,PRD MVP,5,TBD,INV-002 DOM-004,"01-platform.md §2.4"
+23,PRD,PRD-018,Auto-provision apprentice user on enrolment,Done,PRD MVP,5,TBD,INV-002 DOM-004,"01-platform.md §2.4"
 23,PRD,PRD-019,Commitment unsigned chase reminders (7-day),Not started,PRD MVP,3,TBD,COM-002 NOTIF-004,"F1.3.x F3.4.1 F4.3.2"
 23,PRD,PRD-020,Apprentice document library aggregate API,Not started,PRD MVP,5,TBD,COM-002 REV-003 PFL-002,"F3.4.3 F2.2.4"
 23,PRD,PRD-021,Individual learner profile aggregate API,Not started,PRD MVP,5,TBD,PRD-010,"F2.2.4 single-call profile"

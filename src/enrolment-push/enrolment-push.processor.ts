@@ -14,6 +14,8 @@ import {
 } from '../common/context/correlation-id-context.js';
 import { DasHttpClient } from '../das/das-http.client.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
+import { EnrolmentPipelineService } from '../enrolments/enrolment-pipeline.service.js';
+import { EnrolmentPipelineState } from '../enrolments/enums/enrolment-pipeline-state.enum.js';
 
 import {
   ENROLMENT_PUSH_DLQ_JOB_DEAD_LETTER,
@@ -30,6 +32,7 @@ import type { IDasEnrolmentSubmissionRequest } from '../das/das.types.js';
 export class EnrolmentPushProcessor extends WorkerHost {
   constructor(
     private readonly dasClient: DasHttpClient,
+    private readonly enrolmentPipelineService: EnrolmentPipelineService,
     @InjectRepository(EnrolmentSubmissionPush)
     private readonly repo: Repository<EnrolmentSubmissionPush>,
     @InjectQueue(QUEUE_ENROLMENT_PUSH_DLQ)
@@ -68,6 +71,10 @@ export class EnrolmentPushProcessor extends WorkerHost {
       record.dasReference = result.reference;
       record.lastError = null;
       await this.repo.save(record);
+      await this.enrolmentPipelineService.advanceIfAhead(
+        record.enrolmentId,
+        EnrolmentPipelineState.DAS_CONFIRMED,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       record.status = EnrolmentPushStatus.FAILED;

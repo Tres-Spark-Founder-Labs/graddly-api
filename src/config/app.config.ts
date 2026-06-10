@@ -178,6 +178,9 @@ export default registerAs('app', () => {
     ofsted: {
       eifScoreCacheTtlSeconds: e.EIF_SCORE_CACHE_TTL_SECONDS,
     },
+    enrolment: {
+      autoInviteApprentice: e.ENROLMENT_AUTO_INVITE_APPRENTICE,
+    },
     ilr: {
       configWriteEnabled: e.ILR_CONFIG_WRITE_ENABLED,
       esfa: {

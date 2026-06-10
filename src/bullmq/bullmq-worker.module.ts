@@ -9,6 +9,7 @@ import { DasModule } from '../das/das.module.js';
 import { EmailModule } from '../email/email.module.js';
 import { EnrolmentPushModule } from '../enrolment-push/enrolment-push.module.js';
 import { EnrolmentPushProcessor } from '../enrolment-push/enrolment-push.processor.js';
+import { EnrolmentsModule } from '../enrolments/enrolments.module.js';
 import { IlrSubmitProcessor } from '../ilr/ilr-submit.processor.js';
 import { IlrModule } from '../ilr/ilr.module.js';
 import { LevyTransfer } from '../levy-exchange/entities/levy-transfer.entity.js';
@@ -44,6 +45,7 @@ import { SystemPingProcessor } from './processors/system-ping.processor.js';
     WithdrawalPushModule,
     NotificationsModule,
     IlrModule,
+    EnrolmentsModule,
     EnrolmentPushModule,
     CompletionPushModule,
     OfstedModule,

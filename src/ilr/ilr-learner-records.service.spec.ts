@@ -3,6 +3,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 
 /* eslint-disable @typescript-eslint/naming-convention -- ILR manual override keys */
 import { EnrolmentPushService } from '../enrolment-push/enrolment-push.service.js';
+import { EnrolmentPipelineService } from '../enrolments/enrolment-pipeline.service.js';
+import { EnrolmentPipelineState } from '../enrolments/enums/enrolment-pipeline-state.enum.js';
 import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 
 import { IlrLearnerRecord } from './entities/ilr-learner-record.entity.js';
@@ -22,6 +24,7 @@ import {
 describe('IlrLearnerRecordsService', () => {
   let service: IlrLearnerRecordsService;
   const enrolmentPush = { queueFromIlrRecord: jest.fn() };
+  const enrolmentPipeline = { advanceIfAhead: jest.fn() };
   const repo = {
     findOne: jest.fn(),
     create: jest.fn((input: unknown) => input),
@@ -70,6 +73,7 @@ describe('IlrLearnerRecordsService', () => {
           useValue: { invalidate: jest.fn() },
         },
         { provide: EnrolmentPushService, useValue: enrolmentPush },
+        { provide: EnrolmentPipelineService, useValue: enrolmentPipeline },
       ],
     }).compile();
 
@@ -89,6 +93,10 @@ describe('IlrLearnerRecordsService', () => {
     expect(result.fields.Provider.UKPRN).toBe('10012345');
     expect(repo.save).toHaveBeenCalled();
     expect(enrolmentPush.queueFromIlrRecord).toHaveBeenCalled();
+    expect(enrolmentPipeline.advanceIfAhead).toHaveBeenCalledWith(
+      '11111111-1111-1111-1111-111111111111',
+      EnrolmentPipelineState.ILR_CREATED,
+    );
   });
 
   it('rebuilds existing record idempotently for same period', async () => {
@@ -107,6 +115,7 @@ describe('IlrLearnerRecordsService', () => {
     expect(result.manualOverrides['Learner.ULN']).toBe('1111111111');
     expect(result.status).toBe(IlrLearnerRecordStatus.DRAFT);
     expect(enrolmentPush.queueFromIlrRecord).not.toHaveBeenCalled();
+    expect(enrolmentPipeline.advanceIfAhead).not.toHaveBeenCalled();
   });
 
   it('patch resets status to draft', async () => {

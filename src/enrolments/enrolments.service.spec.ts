@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
@@ -9,14 +13,21 @@ import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
 import { WithdrawalPushService } from '../withdrawal-push/withdrawal-push.service.js';
 
+import { EnrolmentPipelineService } from './enrolment-pipeline.service.js';
+import { EnrolmentProvisioningService } from './enrolment-provisioning.service.js';
 import { EnrolmentsService } from './enrolments.service.js';
 import { Enrolment } from './entities/enrolment.entity.js';
 import { EpaOutcomeRecord } from './entities/epa-outcome.entity.js';
+import { EnrolmentPipelineState } from './enums/enrolment-pipeline-state.enum.js';
 import { EnrolmentStatus } from './enums/enrolment-status.enum.js';
 
 describe('EnrolmentsService', () => {
   let service: EnrolmentsService;
 
+  const pipelineService = {
+    advanceIfAhead: jest.fn(),
+    isAtLeast: jest.fn().mockReturnValue(true),
+  };
   const enrolmentFindOne = jest.fn();
   const enrolmentSave = jest.fn();
   const enrolmentCreate = jest.fn();
@@ -75,6 +86,16 @@ describe('EnrolmentsService', () => {
           provide: MessageThreadsService,
           useValue: { archiveForEnrolment: jest.fn() },
         },
+        {
+          provide: EnrolmentPipelineService,
+          useValue: pipelineService,
+        },
+        {
+          provide: EnrolmentProvisioningService,
+          useValue: {
+            onActivate: jest.fn((e: Enrolment) => Promise.resolve(e)),
+          },
+        },
       ],
     }).compile();
 
@@ -84,11 +105,12 @@ describe('EnrolmentsService', () => {
 
   const user = { id: 'u-1', organisationId: 'org-1' } as const;
 
-  it('activates draft enrolment', async () => {
+  it('activates draft enrolment and delegates provisioning', async () => {
     const enrolment = {
       id: 'enr-1',
       organisationId: 'org-1',
       status: EnrolmentStatus.DRAFT,
+      apprentice: { email: 'app@example.com' },
     } as Enrolment;
 
     enrolmentFindOne.mockResolvedValue(enrolment);
@@ -99,6 +121,47 @@ describe('EnrolmentsService', () => {
     const result = await service.activate(user, 'enr-1');
     expect(result.status).toBe(EnrolmentStatus.ACTIVE);
     expect(result.activatedAt).toBeInstanceOf(Date);
+  });
+
+  it('accept-provider advances pipeline for provider org', async () => {
+    const enrolment = {
+      id: 'enr-1',
+      organisationId: 'org-employer',
+      providerOrganisationId: 'org-provider',
+      status: EnrolmentStatus.ACTIVE,
+      pipelineState: EnrolmentPipelineState.ACCOUNT_CREATED,
+      isDeleted: false,
+    } as Enrolment;
+
+    enrolmentFindOne.mockResolvedValue(enrolment);
+    pipelineService.isAtLeast.mockReturnValue(true);
+    pipelineService.advanceIfAhead.mockResolvedValue({
+      ...enrolment,
+      pipelineState: EnrolmentPipelineState.PROVIDER_ACCEPTED,
+    });
+
+    const result = await service.acceptProvider(
+      { id: 'u-2', organisationId: 'org-provider' },
+      'enr-1',
+    );
+
+    expect(result.pipelineState).toBe(EnrolmentPipelineState.PROVIDER_ACCEPTED);
+  });
+
+  it('reject accept-provider from non-provider org', async () => {
+    enrolmentFindOne.mockResolvedValue({
+      id: 'enr-1',
+      organisationId: 'org-employer',
+      providerOrganisationId: 'org-provider',
+      isDeleted: false,
+    });
+
+    await expect(
+      service.acceptProvider(
+        { id: 'u-2', organisationId: 'org-other' },
+        'enr-1',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('rejects completion from draft', async () => {

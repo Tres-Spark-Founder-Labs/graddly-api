@@ -1,8 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AuthModule } from '../auth/auth.module.js';
 import { EmailModule } from '../email/email.module.js';
+import { EnrolmentsModule } from '../enrolments/enrolments.module.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { User } from '../users/entities/user.entity.js';
@@ -21,6 +22,7 @@ import { InvitationsService } from './invitations.service.js';
     ]),
     AuthModule,
     EmailModule,
+    forwardRef(() => EnrolmentsModule),
   ],
   controllers: [InvitationsController],
   providers: [InvitationsService],

@@ -10,6 +10,8 @@ import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { EnrolmentPushService } from '../enrolment-push/enrolment-push.service.js';
 import { EnrolmentPushTrigger } from '../enrolment-push/enums/enrolment-push-trigger.enum.js';
+import { EnrolmentPipelineService } from '../enrolments/enrolment-pipeline.service.js';
+import { EnrolmentPipelineState } from '../enrolments/enums/enrolment-pipeline-state.enum.js';
 import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 
 import { BuildIlrLearnerRecordDto } from './dto/build-ilr-learner-record.dto.js';
@@ -38,6 +40,7 @@ export class IlrLearnerRecordsService {
     private readonly statusService: IlrLearnerRecordStatusService,
     private readonly eifScoreCache: EifScoreCacheService,
     private readonly enrolmentPushService: EnrolmentPushService,
+    private readonly enrolmentPipelineService: EnrolmentPipelineService,
   ) {}
 
   async build(
@@ -103,6 +106,10 @@ export class IlrLearnerRecordsService {
     const saved = await this.repo.save(record);
 
     if (isNewRecord) {
+      await this.enrolmentPipelineService.advanceIfAhead(
+        dto.enrolmentId,
+        EnrolmentPipelineState.ILR_CREATED,
+      );
       await this.enrolmentPushService.queueFromIlrRecord({
         organisationId,
         graph,

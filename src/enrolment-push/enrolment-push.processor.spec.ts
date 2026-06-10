@@ -5,6 +5,8 @@ import { Job } from 'bullmq';
 
 import { QUEUE_ENROLMENT_PUSH_DLQ } from '../bullmq/bullmq.constants.js';
 import { DasHttpClient } from '../das/das-http.client.js';
+import { EnrolmentPipelineService } from '../enrolments/enrolment-pipeline.service.js';
+import { EnrolmentPipelineState } from '../enrolments/enums/enrolment-pipeline-state.enum.js';
 
 import { ENROLMENT_PUSH_JOB_SEND } from './enrolment-push.constants.js';
 import { EnrolmentPushProcessor } from './enrolment-push.processor.js';
@@ -16,10 +18,12 @@ import type { IEnrolmentPushJobPayload } from './enrolment-push.payload.js';
 describe('EnrolmentPushProcessor', () => {
   let processor: EnrolmentPushProcessor;
   const dasClient = { submitEnrolment: jest.fn() };
+  const pipelineService = { advanceIfAhead: jest.fn() };
   const dlqQueue = { add: jest.fn() };
   const push = {
     id: 'push-1',
     organisationId: 'org-1',
+    enrolmentId: 'enr-1',
     status: EnrolmentPushStatus.QUEUED,
     attempts: 0,
     payload: {
@@ -42,6 +46,7 @@ describe('EnrolmentPushProcessor', () => {
       providers: [
         EnrolmentPushProcessor,
         { provide: DasHttpClient, useValue: dasClient },
+        { provide: EnrolmentPipelineService, useValue: pipelineService },
         {
           provide: getRepositoryToken(EnrolmentSubmissionPush),
           useValue: repo,
@@ -84,6 +89,10 @@ describe('EnrolmentPushProcessor', () => {
         status: EnrolmentPushStatus.DELIVERED,
         dasReference: 'DAS-ENR-1',
       }),
+    );
+    expect(pipelineService.advanceIfAhead).toHaveBeenCalledWith(
+      'enr-1',
+      EnrolmentPipelineState.DAS_CONFIRMED,
     );
   });
 

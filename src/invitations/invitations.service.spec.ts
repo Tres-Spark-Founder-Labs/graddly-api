@@ -9,6 +9,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { InvitationAcceptEmail } from '../email/payloads/invitation-accept.email.js';
+import { EnrolmentProvisioningService } from '../enrolments/enrolment-provisioning.service.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { OrganisationRole } from '../organisations/organisation-role.enum.js';
@@ -52,6 +53,7 @@ describe('InvitationsService', () => {
     })),
   };
   const emailDispatch = { enqueue: jest.fn() };
+  const enrolmentProvisioning = { onInvitationAccepted: jest.fn() };
   const portalUrls: Record<string, string> = {
     [PortalType.EMPLOYER]: 'https://employer.graddly.test',
     [PortalType.PROVIDER]: 'https://provider.graddly.test',
@@ -139,6 +141,10 @@ describe('InvitationsService', () => {
         { provide: ConfigService, useValue: config },
         { provide: RedisService, useValue: redis },
         { provide: EmailDispatchService, useValue: emailDispatch },
+        {
+          provide: EnrolmentProvisioningService,
+          useValue: enrolmentProvisioning,
+        },
         { provide: getRepositoryToken(Invitation), useValue: invitationRepo },
         {
           provide: getRepositoryToken(OrganisationMembership),

@@ -31,4 +31,7 @@ export class Invitation extends BaseEntity {
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'invitedByUserId' })
   invitedBy!: User | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  enrolmentId!: string | null;
 }

@@ -50,4 +50,7 @@ export class Standard extends BaseEntity {
     default: StandardStatus.DRAFT,
   })
   status!: StandardStatus;
+
+  @Column({ type: 'jsonb', nullable: true })
+  gatewayCriteria!: Record<string, unknown>[] | null;
 }

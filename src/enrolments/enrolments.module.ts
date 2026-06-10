@@ -3,16 +3,21 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { Apprentice } from '../apprentices/entities/apprentice.entity.js';
 import { AuthModule } from '../auth/auth.module.js';
+import { CommitmentStatementGroup } from '../commitments/entities/commitment-statement-group.entity.js';
+import { CommitmentStatement } from '../commitments/entities/commitment-statement.entity.js';
 import { CompletionPushModule } from '../completion-push/completion-push.module.js';
 import { InvitationsModule } from '../invitations/invitations.module.js';
 import { MessagingModule } from '../messaging/messaging.module.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
+import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
+import { Review } from '../reviews/entities/review.entity.js';
 import { UsersModule } from '../users/users.module.js';
 import { WithdrawalPushModule } from '../withdrawal-push/withdrawal-push.module.js';
 
+import { EnrolmentJourneyService } from './enrolment-journey.service.js';
 import { EnrolmentPipelineService } from './enrolment-pipeline.service.js';
 import { EnrolmentProvisioningService } from './enrolment-provisioning.service.js';
 import { EnrolmentsController } from './enrolments.controller.js';
@@ -36,17 +41,23 @@ import { EpaOutcomeRecord } from './entities/epa-outcome.entity.js';
       Standard,
       Organisation,
       OrganisationMembership,
+      OtjLogEntry,
+      CommitmentStatementGroup,
+      CommitmentStatement,
+      Review,
     ]),
   ],
   controllers: [EnrolmentsController],
   providers: [
     EnrolmentsService,
+    EnrolmentJourneyService,
     EnrolmentPipelineService,
     EnrolmentProvisioningService,
   ],
   exports: [
     TypeOrmModule,
     EnrolmentsService,
+    EnrolmentJourneyService,
     EnrolmentPipelineService,
     EnrolmentProvisioningService,
   ],

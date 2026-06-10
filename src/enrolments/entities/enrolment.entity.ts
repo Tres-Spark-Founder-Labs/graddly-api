@@ -3,6 +3,7 @@ import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 import { Apprentice } from '../../apprentices/entities/apprentice.entity.js';
 import { BaseEntity } from '../../common/entities/base.entity.js';
 import { Organisation } from '../../organisations/entities/organisation.entity.js';
+import { OtjPaceAlertLevel } from '../../otj/enums/otj-pace-alert-level.enum.js';
 import { Standard } from '../../programmes/entities/standard.entity.js';
 import { EnrolmentPipelineState } from '../enums/enrolment-pipeline-state.enum.js';
 import { EnrolmentStatus } from '../enums/enrolment-status.enum.js';
@@ -128,4 +129,21 @@ export class Enrolment extends BaseEntity {
 
   @Column({ type: 'timestamptz', nullable: true })
   pipelineDasConfirmedAt!: Date | null;
+
+  @Column({ type: 'date', nullable: true })
+  epaDate!: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: OtjPaceAlertLevel,
+    enumName: 'otj_pace_alert_level',
+    nullable: true,
+  })
+  otjPaceAlertLevel!: OtjPaceAlertLevel | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  otjPaceAlertedAt!: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  gatewayReadyNotifiedAt!: Date | null;
 }

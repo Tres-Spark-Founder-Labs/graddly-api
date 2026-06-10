@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+import { OtjPaceAlertLevel } from '../../otj/enums/otj-pace-alert-level.enum.js';
 import { EnrolmentPipelineState } from '../enums/enrolment-pipeline-state.enum.js';
 import { EnrolmentStatus } from '../enums/enrolment-status.enum.js';
 
@@ -117,4 +118,17 @@ export class EnrolmentResponseDto {
     description: 'When DAS confirmed the enrolment submission',
   })
   pipelineDasConfirmedAt!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description: 'Confirmed end-point assessment date (YYYY-MM-DD)',
+  })
+  epaDate!: string | null;
+
+  @ApiProperty({
+    enum: OtjPaceAlertLevel,
+    nullable: true,
+    description: 'Latest OTJ smart pace alert level from nightly cron',
+  })
+  otjPaceAlertLevel!: OtjPaceAlertLevel | null;
 }

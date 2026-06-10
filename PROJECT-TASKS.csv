@@ -50,7 +50,7 @@ phase_order,phase,task_id,task,status,timeline,story_points,assignee,depends_on,
 12,L,DAS-006,Levy forecast API from active programmes,Done,Phase L,5,TBD,DAS-002 DOM-003,
 13,M,OTJ-001,OtjLogEntry entity + migration,Done,Phase M,5,TBD,DOM-002,
 13,M,OTJ-002,OTJ CRUD + pagination + filters,Done,Phase M,5,TBD,OTJ-001,
-13,M,OTJ-003,Pace service + nightly cron flags,Partial,Phase M,8,TBD,OTJ-002 CRON-001,"30-day minutes heuristic; PRD EPA % pace + alerts — see PRD-006"
+13,M,OTJ-003,Pace service + nightly cron flags,Done,Phase M,8,TBD,OTJ-002 CRON-001,"EPA % pace vs target + in-app alerts (PRD-006)"
 13,M,OTJ-004,Approve reject bulk + notifications,Done,Phase M,5,TBD,OTJ-002 NOTIF-004,
 14,N,REV-001,Review entity + schedule + overdue,Done,Phase N,5,TBD,DOM-002,
 14,N,REV-002,Calendar list bulk schedule reminder jobs,Partial,Phase N,8,TBD,REV-001 NOTIF-004,"7d/1d reminders; apprentice 48h + intervention queue link missing — see PRD-008 PRD-009"
@@ -86,9 +86,9 @@ phase_order,phase,task_id,task,status,timeline,story_points,assignee,depends_on,
 23,PRD,PRD-003,Enrolment pipeline sub-states (invited → DAS confirmed),Done,PRD MVP,5,TBD,DOM-003,"F1.2.x employer tracking; 01-platform.md flow"
 23,PRD,PRD-004,ILR official XML serializer + live ESFA client,Done,PRD MVP,13,TBD,ILR-003,"Replace noop default; GROWTH(ILR-XML) in code"
 23,PRD,PRD-005,ILR async submit BullMQ + retries,Done,PRD MVP,5,TBD,ILR-003 PRD-004,"Match withdrawal-push pattern"
-23,PRD,PRD-006,OTJ pace alerts per PRD (EPA % + in-app + digest),Not started,PRD MVP,8,TBD,OTJ-003 NOTIF-005,"F3.1.4; replace 30-day minutes heuristic"
+23,PRD,PRD-006,OTJ pace alerts per PRD (EPA % + in-app + digest),Done,PRD MVP,8,TBD,OTJ-003 NOTIF-005,"F3.1.4; EPA % pace + in-app alerts"
 23,PRD,PRD-007,Apprentice EPA evidence pack export API,Not started,PRD MVP,8,TBD,PFL-002 PDF-002,"F3.3.4; distinct from Ofsted EIF pack"
-23,PRD,PRD-008,Programme timeline + gateway checklist + EPA date,Not started,PRD MVP,8,TBD,DOM-004,"F3.2.1 F3.2.2 F3.2.3"
+23,PRD,PRD-008,Programme timeline + gateway checklist + EPA date,Done,PRD MVP,8,TBD,DOM-004,"F3.2.1 F3.2.2 F3.2.3"
 23,PRD,PRD-009,Provider at-risk intervention queue API,Not started,PRD MVP,8,TBD,OTJ-003 REV-001,"F2.2.2; log intervention actions"
 23,PRD,PRD-010,Provider learner cohort dashboard API,Not started,PRD MVP,5,TBD,RPT-002 DOM-004,"F2.2.1; unified columns + export"
 23,PRD,PRD-011,EIF real safeguarding + programme docs inputs,Not started,PRD MVP,5,TBD,EIF-001,"Remove stub percents in eif-score-calculator"

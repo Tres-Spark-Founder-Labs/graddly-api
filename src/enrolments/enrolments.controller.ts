@@ -41,21 +41,26 @@ import { ResponseMessage } from '../common/interceptors/response-message.decorat
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CreateEnrolmentDto } from './dto/create-enrolment.dto.js';
+import { EnrolmentJourneyResponseDto } from './dto/enrolment-journey-response.dto.js';
 import { EnrolmentResponseDto } from './dto/enrolment-response.dto.js';
 import { EpaOutcomeResponseDto } from './dto/epa-outcome-response.dto.js';
 import { RecordEpaOutcomeDto } from './dto/record-epa-outcome.dto.js';
+import { UpdateEnrolmentJourneyDto } from './dto/update-enrolment-journey.dto.js';
 import { UpdateEnrolmentOrganisationLinksDto } from './dto/update-enrolment-organisation-links.dto.js';
 import { UpdateEnrolmentParticipantsDto } from './dto/update-enrolment-participants.dto.js';
+import { EnrolmentJourneyService } from './enrolment-journey.service.js';
 import { EnrolmentsService } from './enrolments.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 
 @ApiTags('Enrolments')
 @ApiExtraModels(
+  EnrolmentJourneyResponseDto,
   EnrolmentResponseDto,
   EpaOutcomeResponseDto,
   PaginationMetaDto,
   RecordEpaOutcomeDto,
+  UpdateEnrolmentJourneyDto,
   UpdateEnrolmentOrganisationLinksDto,
   UpdateEnrolmentParticipantsDto,
 )
@@ -76,7 +81,10 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
   type: ErrorResponseDto,
 })
 export class EnrolmentsController {
-  constructor(private readonly enrolmentsService: EnrolmentsService) {}
+  constructor(
+    private readonly enrolmentsService: EnrolmentsService,
+    private readonly enrolmentJourneyService: EnrolmentJourneyService,
+  ) {}
 
   @Post()
   @ResponseMessage('Enrolment created successfully')
@@ -135,6 +143,69 @@ export class EnrolmentsController {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
     return this.enrolmentsService.findAll(user, query);
+  }
+
+  @Get(':id/journey')
+  @ResponseMessage('Enrolment journey retrieved successfully')
+  @ApiOperation({
+    summary: 'Programme timeline, gateway checklist, and OTJ pace snapshot',
+    description:
+      'Returns chronological milestones, gateway readiness checklist with completion %, EPA countdown, and current OTJ pace vs EPA target. Notifies provider admins once when gateway reaches 100%.',
+  })
+  @ApiOkResponse({
+    description: 'Enrolment journey',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(EnrolmentJourneyResponseDto) },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Enrolment not found',
+    type: ErrorResponseDto,
+  })
+  getJourney(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.enrolmentJourneyService.getJourney(user, id);
+  }
+
+  @Patch(':id/journey')
+  @ResponseMessage('Enrolment journey updated successfully')
+  @ApiOperation({
+    summary: 'Update journey settings (e.g. EPA date)',
+    description:
+      'Provider/tutor sets the confirmed EPA date used for countdown and pace calculations.',
+  })
+  @ApiOkResponse({
+    description: 'Updated enrolment journey',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(EnrolmentJourneyResponseDto) },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Enrolment not found',
+    type: ErrorResponseDto,
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'Validation failed',
+    type: ValidationErrorResponseDto,
+  })
+  updateJourney(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateEnrolmentJourneyDto,
+  ) {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.enrolmentJourneyService.updateJourney(user, id, dto);
   }
 
   @Get(':id')

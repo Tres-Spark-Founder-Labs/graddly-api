@@ -72,7 +72,7 @@ Working checklist to close gaps between the PRD (`docs/prd/`) and this API. Fron
 
 ### Apprentice journey
 
-- [ ] **PRD-008** · Programme timeline + gateway checklist + EPA date  
+- [x] **PRD-008** · Programme timeline + gateway checklist + EPA date  
   - **PRD:** F3.2.1, F3.2.2, F3.2.3  
   - **Gap:** No `epaDate`, milestones, or gateway criteria models.  
   - **Deliver:**  
@@ -81,7 +81,7 @@ Working checklist to close gaps between the PRD (`docs/prd/`) and this API. Fron
     - `GET /enrolments/:id/journey` — timeline milestones + checklist + days-to-EPA.  
     - Notify provider when checklist 100% (F3.2.2).
 
-- [ ] **PRD-006** · OTJ smart pace alerts (PRD-accurate)  
+- [x] **PRD-006** · OTJ smart pace alerts (PRD-accurate)  
   - **PRD:** F3.1.4  
   - **Gap:** `[~]` OTJ-003 uses 30-day approved minutes (`otj-pace.service.ts`), not 15%/30% behind EPA-target pace; no alert notifications.  
   - **Deliver:** Pace calculator vs planned OTJ target by EPA date; persist alert level; create in-app notifications; optional email via existing notification pipeline.

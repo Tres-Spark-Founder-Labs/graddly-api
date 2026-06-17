@@ -23,7 +23,7 @@ Update this table when starting or completing a phase. Status: `not_started` · 
 | 2 | DAS outbound sync | PRD-001, PRD-002 | P0/P1 | 13 | done | feat/prd-phase-2-das-push | 2026-06-09 |
 | 3 | Cross-portal enrolment flow | PRD-003, PRD-018 | P1 | 10 | done | feat/prd-phase-3-enrolment-flow | 2026-06-08 |
 | 4 | Apprentice journey + pace | PRD-008, PRD-006 | P0 | 16 | done | feat/prd-phase-4-journey-pace | 2026-06-10 |
-| 5 | Apprentice exports | PRD-007, PRD-020 | P0/P1 | 13 | not_started | — | — |
+| 5 | Apprentice exports | PRD-007, PRD-020 | P0/P1 | 13 | done | feat/prd-phase-5-apprentice-exports | 2026-06-10 |
 | 6 | Provider operations | PRD-009, PRD-010, PRD-021, PRD-011 | P1 | 23 | not_started | — | — |
 | 7 | FlowPortal funnel | PRD-014, PRD-015, PRD-017 | P0/P1 | 23 | not_started | — | — |
 | 8 | FlowPortal AI programmes | PRD-016 | P0 | 13 | not_started | — | — |

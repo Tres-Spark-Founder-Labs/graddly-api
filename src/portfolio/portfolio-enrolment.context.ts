@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -7,6 +8,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
+import { OrganisationRole } from '../organisations/organisation-role.enum.js';
+
+import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 
 @Injectable()
 export class PortfolioEnrolmentContext {
@@ -32,5 +36,34 @@ export class PortfolioEnrolmentContext {
       );
     }
     return enrolment;
+  }
+
+  async requireEnrolmentForUser(
+    user: AuthenticatedUser,
+    enrolmentId: string,
+  ): Promise<Enrolment> {
+    const organisationId = user.organisationId!;
+    const enrolment = await this.requireEnrolment(organisationId, enrolmentId);
+    if (this.canAccessEnrolment(user, enrolment)) {
+      return enrolment;
+    }
+    throw new ForbiddenException('Insufficient permissions for this enrolment');
+  }
+
+  canAccessEnrolment(user: AuthenticatedUser, enrolment: Enrolment): boolean {
+    if (enrolment.apprenticeUserId === user.id) {
+      return true;
+    }
+    if (enrolment.tutorUserId === user.id) {
+      return true;
+    }
+    if (enrolment.employerManagerUserId === user.id) {
+      return true;
+    }
+    const roles = user.roles ?? [];
+    return (
+      roles.includes(OrganisationRole.OWNER) ||
+      roles.includes(OrganisationRole.ADMIN)
+    );
   }
 }

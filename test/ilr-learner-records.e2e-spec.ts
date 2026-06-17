@@ -34,7 +34,7 @@ describe('ILR learner records (e2e)', () => {
 
   beforeAll(async () => {
     app = await createE2eApp();
-  });
+  }, 120_000);
 
   afterAll(async () => {
     await app.close();

@@ -5,6 +5,8 @@ import * as dotenv from 'dotenv';
 import Redis from 'ioredis';
 import { Client } from 'pg';
 
+import { seedAiProgrammeCatalogue } from './helpers/ai-programme-seed';
+
 dotenv.config({ path: path.resolve(__dirname, '..', '.env.test') });
 
 export default async function globalSetup(): Promise<void> {
@@ -54,6 +56,8 @@ export default async function globalSetup(): Promise<void> {
       ['2025-26', JSON.stringify(config)],
     );
   }
+
+  await seedAiProgrammeCatalogue(pg);
 
   await pg.end();
 

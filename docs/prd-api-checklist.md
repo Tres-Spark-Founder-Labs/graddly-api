@@ -48,10 +48,9 @@ Working checklist to close gaps between the PRD (`docs/prd/`) and this API. Fron
   - **Deliver:** XML serializer; configure http ESFA client; receipt persistence; e2e with mock ESFA.  
   - **Related:** `[~]` ILR-003
 
-- [ ] **PRD-016** · FlowPortal Module C — AI apprenticeship programmes  
+- [x] **PRD-016** · FlowPortal Module C — AI apprenticeship programmes  
   - **PRD:** F4.4.1, F4.4.2, F4.4.3 (Phase 1 Must Have per `09-release-phases.md`)  
-  - **Gap:** No modules, entities, or routes.  
-  - **Deliver (minimum API surface):** Programme catalogue, learner enrolment on AI track, progress/completion records scoped to FlowPortal orgs. Align entity design with `08-data-model.md` before coding.
+  - **Delivered:** `GET /ai-programmes/catalogue`, enrolment, progress/complete; migration `1781100000011`; see [ai-programmes.md](./ai-programmes.md).
 
 - [x] **PRD-007** · Apprentice EPA evidence pack export  
   - **PRD:** F3.3.4  
@@ -270,7 +269,7 @@ Quick reference for sprint planning. **Done** = API supports PRD intent for v1; 
 | F4.3.1 | SME overview | Done | PRD-017 |
 | F4.3.2 | Commitments | Partial | PRD-019 |
 | F4.3.4 | SME concierge | N/A API | Ops/process |
-| F4.4.1–3 | AI programmes | Missing | PRD-016 |
+| F4.4.1–3 | AI programmes | Done | PRD-016 · [ai-programmes.md](./ai-programmes.md) |
 
 ---
 

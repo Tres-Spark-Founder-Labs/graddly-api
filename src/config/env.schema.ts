@@ -4,6 +4,41 @@ import { z } from 'zod';
 
 const NODE_ENVS = ['development', 'test', 'production', 'staging'] as const;
 
+/** Background crons default to enabled in staging/production when unset (PRD-022). */
+export const DEPLOYED_CRON_FLAGS_DEFAULT_TRUE = [
+  'CRON_DAS_SYNC_ENABLED',
+  'CRON_DAS_FUNDING_SYNC_ENABLED',
+  'CRON_OTJ_PACE_ENABLED',
+  'CRON_REVIEW_OVERDUE_ENABLED',
+  'CRON_REVIEW_REMINDERS_ENABLED',
+  'CRON_COMMITMENT_CHASE_ENABLED',
+  'CRON_DIGEST_ENABLED',
+  'CRON_LEVY_EXPIRY_ALERTS_ENABLED',
+  'CRON_LEVY_TRANSFER_STATUS_ENABLED',
+  'CRON_RETENTION_ENABLED',
+] as const;
+
+export function applyDeployedCronDefaults(
+  raw: Record<string, unknown>,
+): Record<string, unknown> {
+  const nodeEnv =
+    typeof raw.NODE_ENV === 'string'
+      ? raw.NODE_ENV
+      : (process.env.NODE_ENV ?? 'development');
+  const deployed = nodeEnv === 'production' || nodeEnv === 'staging';
+  if (!deployed) {
+    return raw;
+  }
+
+  const out = { ...raw };
+  for (const key of DEPLOYED_CRON_FLAGS_DEFAULT_TRUE) {
+    if (out[key] === undefined) {
+      out[key] = 'true';
+    }
+  }
+  return out;
+}
+
 /** Raw process env: strings or undefined (Nest passes a plain record). */
 export const envSchema = z
   .object({

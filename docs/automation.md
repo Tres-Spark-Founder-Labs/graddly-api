@@ -4,7 +4,9 @@ Background jobs for commitment chasers, weekly OTJ digest emails, and apprentice
 
 ## Configuration
 
-| Env var | Default | Purpose |
+In **development/test**, cron enable flags default to `false`. In **staging/production**, unset flags default to `true` (PRD-022). Override any cron with explicit `CRON_*_ENABLED=false`. Full matrix: [secrets-checklist.md](./secrets-checklist.md#production-worker-crons).
+
+| Env var | Dev default | Purpose |
 |---|---|---|
 | `CRON_COMMITMENT_CHASE_ENABLED` | `false` | Daily unsigned commitment chase |
 | `CRON_COMMITMENT_CHASE_SCHEDULE` | `0 6 * * *` | Chase cron expression (06:00 UTC) |

@@ -12,6 +12,8 @@ import { CronLockService } from '../scheduler/cron-lock.service.js';
 import { RETENTION_CRON_NAME } from '../scheduler/scheduler.constants.js';
 
 import { DataRetentionService } from './data-retention.service.js';
+import { RetentionRunTrigger } from './enums/retention-run-trigger.enum.js';
+import { RetentionRunLogService } from './retention-run-log.service.js';
 
 @Injectable()
 export class DataRetentionCronService implements OnModuleInit, OnModuleDestroy {
@@ -22,6 +24,7 @@ export class DataRetentionCronService implements OnModuleInit, OnModuleDestroy {
     private readonly schedulerRegistry: SchedulerRegistry,
     private readonly cronLock: CronLockService,
     private readonly retentionService: DataRetentionService,
+    private readonly runLogService: RetentionRunLogService,
   ) {}
 
   onModuleInit(): void {
@@ -50,6 +53,7 @@ export class DataRetentionCronService implements OnModuleInit, OnModuleDestroy {
   async handleRetentionCron(): Promise<void> {
     await this.cronLock.runExclusive(RETENTION_CRON_NAME, async () => {
       const summary = await this.retentionService.runRetentionJob();
+      await this.runLogService.recordRun(RetentionRunTrigger.CRON, summary);
       this.logger.log(
         `Retention cron: audit=${summary.auditLogsPurged} softDeleted=${summary.softDeletedPurged} notifications=${summary.oldNotificationsPurged}`,
       );

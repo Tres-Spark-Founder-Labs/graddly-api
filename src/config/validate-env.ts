@@ -1,4 +1,8 @@
-import { envSchema, type Env } from './env.schema.js';
+import {
+  applyDeployedCronDefaults,
+  envSchema,
+  type Env,
+} from './env.schema.js';
 
 import type { ZodError } from 'zod';
 
@@ -11,7 +15,7 @@ function formatZodError(error: ZodError): string {
 }
 
 export function parseEnv(raw: Record<string, unknown>): Env {
-  const result = envSchema.safeParse(raw);
+  const result = envSchema.safeParse(applyDeployedCronDefaults(raw));
   if (!result.success) {
     throw new Error(
       `Invalid environment configuration:\n${formatZodError(result.error)}`,

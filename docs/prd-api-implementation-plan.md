@@ -29,9 +29,9 @@ Update this table when starting or completing a phase. Status: `not_started` · 
 | 8 | FlowPortal AI programmes | PRD-016 | P0 | 13 | done | feat/prd-phase-8-ai-programmes | — |
 | 9 | Employer reporting + DAS funding | PRD-012, PRD-013 | P1 | 16 | done | feat/prd-phase-9-employer-reporting | — |
 | 10 | Automation and chasers | PRD-019, PRD-023, PRD-024 | P2/P1 | 11 | done | feat/prd-phase-10-automation | — |
-| 11 | Ops and NFR | PRD-022, GDP-001, PERF-001 | P2 | 8 | not_started | — | — |
+| 11 | Ops and NFR | PRD-022, GDP-001, PERF-001 | P2 | 8 | done | feat/prd-phase-11-ops-nfr | 2026-06-08 |
 
-**Totals:** 24 PRD tasks + 3 ops items · ~164 story points · 11 PR-sized phases
+**Totals:** 24 PRD tasks + 3 ops items · ~164 story points · 11 PR-sized phases · **MVP API plan complete** (Phase 11, 2026-06-08)
 
 ---
 

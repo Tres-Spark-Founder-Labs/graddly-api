@@ -11,10 +11,31 @@ Use this when provisioning or rotating credentials for **staging** and **product
 | Database | `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME` | Use managed Postgres where possible; restrict network access; unique password per environment. See [database-setup.md](./database-setup.md) for migrator vs app roles and RLS. |
 | Redis | `REDIS_HOST`, `REDIS_PORT` | TLS and auth if exposed beyond the private network. Used by KV, sessions, throttling, and BullMQ. |
 | BullMQ key prefix | `BULLMQ_PREFIX` | Optional; default `graddly`. Namespace for job queue keys in Redis. API and worker processes must share the same value. |
-| Cron jobs | `CRON_ENABLED`, `CRON_HEALTH_SCHEDULE` | Crons run in the **worker** process only. Set `CRON_ENABLED=false` to disable. Default health sample: every 5 minutes (`*/5 * * * *`). |
+| Cron jobs | `CRON_ENABLED`, `CRON_HEALTH_SCHEDULE` | Crons run in the **worker** process only. Set `CRON_ENABLED=false` to disable all crons. Default health sample: every 5 minutes (`*/5 * * * *`). |
 | Cron distributed lock | `CRON_LOCK_ENABLED`, `CRON_LOCK_TTL_SECONDS` | When multiple worker replicas run, Redis `SET NX` ensures one instance per tick. Default TTL 240s; set below the cron interval. Disable with `CRON_LOCK_ENABLED=false` only for local debugging. |
-| Digest cron (skeleton) | `CRON_DIGEST_ENABLED`, `CRON_DIGEST_SCHEDULE` | Disabled by default. When enabled in the worker, logs a tick only until Phase M OTJ domain exists. Default schedule: Monday 08:00 UTC (`0 8 * * 1`). |
+| Production worker crons | See table below | When `NODE_ENV` is `staging` or `production`, unset `CRON_*_ENABLED` flags default to **`true`** (override with explicit `false`). In `development`/`test` they default to `false`. See [automation.md](./automation.md) and [gdpr-retention.md](./gdpr-retention.md). |
+| Digest cron | `CRON_DIGEST_ENABLED`, `CRON_DIGEST_SCHEDULE` | Weekly OTJ manager digest. Default schedule: Monday 08:00 UTC (`0 8 * * 1`). |
 | Queue ops (failed jobs) | `QUEUE_OPS_ENABLED`, `QUEUE_OPS_API_KEY` | Internal API at `/api/v1/ops/queues` (list failed jobs, retry, remove). Min **32** characters for the key when enabled in production/staging. Send header `X-Queue-Ops-Api-Key`. |
+| Platform ops | `PLATFORM_OPS_ENABLED`, `PLATFORM_OPS_API_KEY` | GDPR erasure and retention ops APIs. Min **32** characters when enabled in production/staging. Header `X-Platform-Ops-Api-Key`. See [gdpr-retention.md](./gdpr-retention.md). |
+
+### Production worker crons
+
+All schedules run in the **worker** only. Requires `CRON_ENABLED=true` and `CRON_LOCK_ENABLED=true` when running multiple replicas.
+
+| Cron | Enabled flag | Default schedule | Purpose |
+|------|----------------|------------------|---------|
+| DAS levy balance sync | `CRON_DAS_SYNC_ENABLED` | `*/15 * * * *` | 15-minute levy balance refresh (F1.1.1) |
+| DAS funding payments | `CRON_DAS_FUNDING_SYNC_ENABLED` | `0 2 * * *` | Nightly funding payment sync |
+| OTJ pace alerts | `CRON_OTJ_PACE_ENABLED` | `0 1 * * *` | Nightly EPA pace scan |
+| Review overdue | `CRON_REVIEW_OVERDUE_ENABLED` | `0 2 * * *` | Mark overdue reviews |
+| Review reminders | `CRON_REVIEW_REMINDERS_ENABLED` | `0 * * * *` | 48h / 7d / 1d reminders |
+| Commitment chase | `CRON_COMMITMENT_CHASE_ENABLED` | `0 6 * * *` | 7-day unsigned chase |
+| OTJ weekly digest | `CRON_DIGEST_ENABLED` | `0 8 * * 1` | Manager digest email |
+| Levy expiry alerts | `CRON_LEVY_EXPIRY_ALERTS_ENABLED` | `0 8 * * *` | Expiring levy tranches |
+| Levy transfer status | `CRON_LEVY_TRANSFER_STATUS_ENABLED` | `0 3 * * *` | Poll transfer status |
+| GDPR retention | `CRON_RETENTION_ENABLED` | `0 4 * * 0` | Weekly purge — [gdpr-retention.md](./gdpr-retention.md) |
+
+Retention TTL keys (not cron flags): `RETENTION_AUDIT_YEARS`, `RETENTION_SOFT_DELETE_DAYS`, `RETENTION_NOTIFICATION_DAYS`.
 
 ## Strongly recommended
 

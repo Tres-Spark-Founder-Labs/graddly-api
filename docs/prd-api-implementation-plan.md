@@ -25,7 +25,7 @@ Update this table when starting or completing a phase. Status: `not_started` · 
 | 4 | Apprentice journey + pace | PRD-008, PRD-006 | P0 | 16 | done | feat/prd-phase-4-journey-pace | 2026-06-10 |
 | 5 | Apprentice exports | PRD-007, PRD-020 | P0/P1 | 13 | done | feat/prd-phase-5-apprentice-exports | 2026-06-10 |
 | 6 | Provider operations | PRD-009, PRD-010, PRD-021, PRD-011 | P1 | 23 | done | feat/prd-phase-6-provider-ops | 2026-06-10 |
-| 7 | FlowPortal funnel | PRD-014, PRD-015, PRD-017 | P0/P1 | 23 | not_started | — | — |
+| 7 | FlowPortal funnel | PRD-014, PRD-015, PRD-017 | P0/P1 | 23 | done | feat/prd-phase-7-flowportal-funnel | — |
 | 8 | FlowPortal AI programmes | PRD-016 | P0 | 13 | not_started | — | — |
 | 9 | Employer reporting + DAS funding | PRD-012, PRD-013 | P1 | 16 | not_started | — | — |
 | 10 | Automation and chasers | PRD-019, PRD-023, PRD-024 | P2/P1 | 11 | not_started | — | — |

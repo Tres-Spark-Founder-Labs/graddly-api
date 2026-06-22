@@ -27,6 +27,14 @@ export interface IProviderDirectoryContext {
   enrolmentId: string;
 }
 
+export interface IFlowSmeContext {
+  owner: IVerifiedUserFixture;
+  flowOrgId: string;
+  providerOrgId: string;
+  authHeaders: Record<string, string>;
+  enrolmentId: string;
+}
+
 async function seedProgrammeGraph(
   app: INestApplication<App>,
   authHeaders: Record<string, string>,
@@ -200,6 +208,73 @@ export async function createProviderDirectoryContext(
     owner,
     providerOrgId,
     employerOrgId,
+    authHeaders,
+    enrolmentId,
+  };
+}
+
+export async function createFlowSmeContext(
+  app: INestApplication<App>,
+  label: string,
+): Promise<IFlowSmeContext> {
+  const suffix = Date.now();
+  const owner = await createVerifiedUser(app, {
+    email: `rpt-flow-${label}-${suffix}@example.com`,
+  });
+
+  const providerRes = await request(app.getHttpServer())
+    .post('/api/v1/organisations')
+    .set('Authorization', `Bearer ${owner.accessToken}`)
+    .send({
+      ...buildOrgPayload(`RPT Flow Provider ${label} ${suffix}`),
+      portalType: 'provider',
+    })
+    .expect(201);
+  const providerOrgId = (providerRes.body as { data: { id: string } }).data.id;
+
+  const flowRes = await request(app.getHttpServer())
+    .post('/api/v1/organisations')
+    .set('Authorization', `Bearer ${owner.accessToken}`)
+    .send({
+      ...buildOrgPayload(`RPT Flow SME ${label} ${suffix}`),
+      portalType: 'flow',
+    })
+    .expect(201);
+  const flowOrgId = (flowRes.body as { data: { id: string } }).data.id;
+
+  const authHeaders: Record<string, string> = {
+    [ORGANISATION_ID_HEADER]: flowOrgId,
+  };
+  authHeaders['Authorization'] = `Bearer ${owner.accessToken}`;
+
+  const { standardId, apprenticeId } = await seedProgrammeGraph(
+    app,
+    authHeaders,
+    suffix,
+  );
+
+  const enrolmentRes = await request(app.getHttpServer())
+    .post('/api/v1/enrolments')
+    .set(authHeaders)
+    .send({ apprenticeId, standardId, agreedPrice: 16000 })
+    .expect(201);
+  const enrolmentId = (enrolmentRes.body as { data: { id: string } }).data.id;
+
+  await request(app.getHttpServer())
+    .patch(`/api/v1/enrolments/${enrolmentId}/organisation-links`)
+    .set(authHeaders)
+    .send({ providerOrganisationId: providerOrgId })
+    .expect(200);
+
+  await request(app.getHttpServer())
+    .post(`/api/v1/enrolments/${enrolmentId}/activate`)
+    .set(authHeaders)
+    .expect(201);
+
+  return {
+    owner,
+    flowOrgId,
+    providerOrgId,
     authHeaders,
     enrolmentId,
   };

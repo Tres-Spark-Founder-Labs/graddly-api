@@ -34,6 +34,7 @@ import { DasModule } from './das/das.module.js';
 import { EnrolmentPushModule } from './enrolment-push/enrolment-push.module.js';
 import { EnrolmentsModule } from './enrolments/enrolments.module.js';
 import { EsignatureModule } from './esignature/esignature.module.js';
+import { FlowportalRegistrationModule } from './flowportal-registration/flowportal-registration.module.js';
 import { HealthModule } from './health/health.module.js';
 import { IlrModule } from './ilr/ilr.module.js';
 import { InvitationsModule } from './invitations/invitations.module.js';
@@ -102,6 +103,7 @@ import { WithdrawalPushModule } from './withdrawal-push/withdrawal-push.module.j
     StorageModule,
     DasModule,
     LevyExchangeModule,
+    FlowportalRegistrationModule,
     ProgrammesModule,
     ApprenticesModule,
     EnrolmentsModule,

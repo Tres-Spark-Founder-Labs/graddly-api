@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AuthModule } from '../auth/auth.module.js';
@@ -6,6 +6,7 @@ import { CommitmentStatementGroup } from '../commitments/entities/commitment-sta
 import { DasModule } from '../das/das.module.js';
 import { EnrolmentsModule } from '../enrolments/enrolments.module.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
+import { LearnersModule } from '../learners/learners.module.js';
 import { LevyTransfer } from '../levy-exchange/entities/levy-transfer.entity.js';
 import { LevyExchangeModule } from '../levy-exchange/levy-exchange.module.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
@@ -14,6 +15,7 @@ import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { OtjModule } from '../otj/otj.module.js';
 import { PdfModule } from '../pdf/pdf.module.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
+import { Review } from '../reviews/entities/review.entity.js';
 
 import { CommitmentPipelineService } from './commitment-pipeline.service.js';
 import { EmployerDirectoryController } from './employer-directory.controller.js';
@@ -22,6 +24,8 @@ import { LevyRoiReportController } from './levy-roi-report.controller.js';
 import { LevyRoiReportService } from './levy-roi-report.service.js';
 import { OtjProgressMetricsService } from './otj-progress-metrics.service.js';
 import { ReportingPortalService } from './reporting-portal.service.js';
+import { SmeOverviewController } from './sme-overview.controller.js';
+import { SmeOverviewService } from './sme-overview.service.js';
 
 @Module({
   imports: [
@@ -31,6 +35,7 @@ import { ReportingPortalService } from './reporting-portal.service.js';
     PdfModule,
     EnrolmentsModule,
     OtjModule,
+    forwardRef(() => LearnersModule),
     TypeOrmModule.forFeature([
       Enrolment,
       Standard,
@@ -38,21 +43,28 @@ import { ReportingPortalService } from './reporting-portal.service.js';
       OrganisationMembership,
       LevyTransfer,
       OtjLogEntry,
+      Review,
       CommitmentStatementGroup,
     ]),
   ],
-  controllers: [LevyRoiReportController, EmployerDirectoryController],
+  controllers: [
+    LevyRoiReportController,
+    EmployerDirectoryController,
+    SmeOverviewController,
+  ],
   providers: [
     ReportingPortalService,
     OtjProgressMetricsService,
     CommitmentPipelineService,
     LevyRoiReportService,
     EmployerDirectoryService,
+    SmeOverviewService,
   ],
   exports: [
     LevyRoiReportService,
     ReportingPortalService,
     OtjProgressMetricsService,
+    CommitmentPipelineService,
   ],
 })
 export class ReportingModule {}

@@ -31,6 +31,7 @@ Both fields are optional; send `null` to clear a link.
 |---|---|
 | `/api/v1/reporting/levy-roi` | `employer` |
 | `/api/v1/reporting/employer-directory` | `provider` |
+| `/api/v1/reporting/sme-overview` | `flow` |
 
 Requests from other portal types receive `403 Forbidden`.
 
@@ -109,6 +110,23 @@ Paginated list of employers linked on provider-owned enrolments (`employerOrgani
 | `page`, `perPage` | Standard pagination |
 
 Cross-org employer reads use the RLS bootstrap pattern (`app.rls_bootstrap=1`) for referenced organisation IDs only.
+
+## RPT-003 — SME overview (Flow portal)
+
+PRD: F4.3.1
+
+`GET /api/v1/reporting/sme-overview` — requires active `flow` portal organisation.
+
+**Response `data`:**
+
+| Section | Contents |
+|---------|----------|
+| `summary.activeApprenticeCount` | Active enrolments for the org |
+| `summary.pendingOtjApprovalCount` | OTJ log entries in `submitted` status |
+| `summary.reviewsDueThisMonthCount` | Scheduled reviews in current UTC month |
+| `summary.commitmentPipeline` | Counts by pipeline status (`none`, `draft`, `awaitingSignatures`, `signed`, `cancelled`) |
+| `pendingOtjApprovals` | Up to 20 rows: apprentice name, logged date, minutes, enrolment id |
+| `apprentices` | Learner name, programme title, OTJ %, next review date, status badge |
 
 ## Tests
 

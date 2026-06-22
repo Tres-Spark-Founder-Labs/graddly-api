@@ -7,4 +7,5 @@ export enum EmailTemplate {
   MESSAGE_RECEIVED = 'message-received',
   LEVY_EXPIRY_90 = 'levy-expiry-90',
   LEVY_EXPIRY_30 = 'levy-expiry-30',
+  FLOWPORTAL_REGISTRATION_COMPLETE = 'flowportal-registration-complete',
 }

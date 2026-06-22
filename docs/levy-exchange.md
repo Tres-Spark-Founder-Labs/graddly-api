@@ -6,6 +6,33 @@ FlowPortal levy marketplace backend: donor DAS linking, surplus calculator, rule
 
 All authenticated routes require `Authorization: Bearer <token>` and an active organisation (`X-Organisation-Id` optional override).
 
+## Anonymous eligibility check (F4.2.1)
+
+No authentication required. Rate-limited public endpoint for prospective SME employers.
+
+```http
+POST /api/v1/levy-exchange/eligibility/check
+Content-Type: application/json
+
+{
+  "employeeCountBand": "10_49",
+  "sector": "construction",
+  "region": "north_west",
+  "hasDasAccount": false
+}
+```
+
+**Response `data`:**
+
+| Field | Description |
+|-------|-------------|
+| `status` | `eligible` \| `not_eligible` \| `check_with_advisor` |
+| `estimatedFundingBand` | `{ min, max, currency }` from `eligibility-rules.v1.json` |
+| `nextSteps` | Actionable strings for the UI |
+| `beginRegistrationPath` | Present when `eligible` — `/api/v1/flowportal-registration/sessions` |
+
+Rules: `src/levy-exchange/config/eligibility-rules.v1.json`. Existing DAS account → `check_with_advisor`.
+
 ## Module overview
 
 | Slice | Feature | Key tables |

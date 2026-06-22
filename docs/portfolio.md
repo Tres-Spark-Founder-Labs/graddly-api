@@ -59,6 +59,15 @@ Only `draft` evidence can be edited or deleted.
 | `GET` | `/api/v1/portfolio/ksb-heatmap?enrolmentId=` |
 | `PUT` | `/api/v1/portfolio/enrolments/:enrolmentId/ksb-coverage/:ksbDefinitionId` |
 
+### EPA evidence pack
+
+| Method | Path |
+|--------|------|
+| `POST` | `/api/v1/portfolio/epa-pack-jobs` |
+| `GET` | `/api/v1/portfolio/epa-pack-jobs/:id` |
+
+See [epa-evidence-pack.md](./epa-evidence-pack.md).
+
 Heatmap **strength** is derived from **accepted** evidence count per KSB: `0` → none, `1` → low, `2+` → adequate.
 
 Optional Redis cache: `PORTFOLIO_HEATMAP_CACHE_TTL_SECONDS` (default `0` = disabled).

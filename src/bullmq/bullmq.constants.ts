@@ -22,6 +22,9 @@ export const QUEUE_WITHDRAWAL_PUSH = 'withdrawal-push';
 /** Queue for async Ofsted evidence pack ZIP jobs (Phase R). */
 export const QUEUE_EVIDENCE_PACK = 'evidence-pack';
 
+/** Queue for async apprentice EPA evidence pack ZIP jobs (PRD-007). */
+export const QUEUE_EPA_PACK = 'epa-pack';
+
 /** Queue for async ILR ESFA submit jobs. */
 export const QUEUE_ILR_SUBMIT = 'ilr-submit';
 
@@ -51,6 +54,7 @@ export const BULLMQ_QUEUES = [
   QUEUE_DAS_SYNC_DLQ,
   QUEUE_WITHDRAWAL_PUSH,
   QUEUE_EVIDENCE_PACK,
+  QUEUE_EPA_PACK,
   QUEUE_ILR_SUBMIT,
   QUEUE_ILR_SUBMIT_DLQ,
   QUEUE_ENROLMENT_PUSH,

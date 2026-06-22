@@ -13,6 +13,7 @@ import {
   QUEUE_EMAIL,
   QUEUE_ENROLMENT_PUSH,
   QUEUE_ENROLMENT_PUSH_DLQ,
+  QUEUE_EPA_PACK,
   QUEUE_EVIDENCE_PACK,
   QUEUE_ILR_SUBMIT,
   QUEUE_ILR_SUBMIT_DLQ,
@@ -108,6 +109,10 @@ describe('BullmqJobInspectionService', () => {
           useValue: createQueueMock().queue,
         },
         {
+          provide: getQueueToken(QUEUE_EPA_PACK),
+          useValue: createQueueMock().queue,
+        },
+        {
           provide: getQueueToken(QUEUE_ILR_SUBMIT),
           useValue: createQueueMock().queue,
         },
@@ -142,7 +147,7 @@ describe('BullmqJobInspectionService', () => {
     it('returns summaries for all registered queues', async () => {
       const summaries = await service.listQueues();
 
-      expect(summaries).toHaveLength(14);
+      expect(summaries).toHaveLength(15);
       expect(summaries.find((q) => q.name === QUEUE_EMAIL)?.counts.failed).toBe(
         3,
       );

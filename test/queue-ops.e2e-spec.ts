@@ -289,6 +289,7 @@ describe('BullmqOpsController (e2e, Redis integration)', () => {
         'das-sync-dlq',
         'withdrawal-push',
         'evidence-pack',
+        'epa-pack',
         'ilr-submit',
         'ilr-submit-dlq',
         'enrolment-push',
@@ -298,6 +299,6 @@ describe('BullmqOpsController (e2e, Redis integration)', () => {
         'system',
       ]),
     );
-    expect(names).toHaveLength(14);
+    expect(names).toHaveLength(15);
   });
 });

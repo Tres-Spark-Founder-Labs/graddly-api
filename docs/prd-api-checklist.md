@@ -53,7 +53,7 @@ Working checklist to close gaps between the PRD (`docs/prd/`) and this API. Fron
   - **Gap:** No modules, entities, or routes.  
   - **Deliver (minimum API surface):** Programme catalogue, learner enrolment on AI track, progress/completion records scoped to FlowPortal orgs. Align entity design with `08-data-model.md` before coding.
 
-- [ ] **PRD-007** · Apprentice EPA evidence pack export  
+- [x] **PRD-007** · Apprentice EPA evidence pack export  
   - **PRD:** F3.3.4  
   - **Gap:** Provider Ofsted ZIP job exists (`ofsted/evidence-pack-jobs`); not apprentice EPA pack.  
   - **Deliver:** `POST /portfolio/epa-pack-jobs` (or similar) → async PDF/ZIP compiling accepted evidence, KSB summary, reviews, OTJ summary, commitment PDF; poll + download URL.
@@ -136,7 +136,7 @@ Working checklist to close gaps between the PRD (`docs/prd/`) and this API. Fron
 
 ### Apprentice (Portal 3)
 
-- [ ] **PRD-020** · Document library aggregate  
+- [x] **PRD-020** · Document library aggregate  
   - **PRD:** F3.4.3 · F2.2.4  
   - **Deliver:** `GET /learners/me/documents` — signed commitments, review PDFs, evidence items (metadata + download URLs).
 
@@ -256,9 +256,9 @@ Quick reference for sprint planning. **Done** = API supports PRD intent for v1; 
 | F3.2.1–3 | Timeline/gateway/EPA | Missing | PRD-008 |
 | F3.2.4 | Review history | Partial | PRD-024, PRD-020 |
 | F3.3.1–2 | Portfolio/heatmap | Done | — |
-| F3.3.4 | EPA evidence pack | Missing | PRD-007 |
+| F3.3.4 | EPA evidence pack | Done | PRD-007 |
 | F3.4.1–2 | Commitments/messaging | Partial / Done | PRD-019 |
-| F3.4.3 | Document library | Missing | PRD-020 |
+| F3.4.3 | Document library | Done | PRD-020 |
 
 ### Portal 4 — FlowPortal
 

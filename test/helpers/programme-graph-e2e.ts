@@ -4,6 +4,7 @@ import { ORGANISATION_ID_HEADER } from '../../src/common/constants/organisation-
 
 import { createVerifiedUser, type IVerifiedUserFixture } from './e2e-http.js';
 import { buildOrgPayload } from './e2e-organisation.js';
+import { findInvitationAcceptTokenForInvitationId } from './invitation-accept-redis.js';
 
 import type { INestApplication } from '@nestjs/common';
 import type { App } from 'supertest/types';
@@ -119,4 +120,28 @@ export async function createEnrolment(
     .send({ apprenticeId, standardId })
     .expect(201);
   return (res.body as { data: { id: string } }).data.id;
+}
+
+/** Invites an existing verified user into the org and accepts as that user. */
+export async function addVerifiedUserToOrganisation(
+  app: INestApplication<App>,
+  authHeaders: Record<string, string>,
+  user: IVerifiedUserFixture,
+): Promise<void> {
+  const createRes = await request(app.getHttpServer())
+    .post('/api/v1/invitations')
+    .set(authHeaders)
+    .send({ email: user.email, role: 'member' })
+    .expect(201);
+  const invitationId = (createRes.body as { data: { id: string } }).data.id;
+  const acceptToken =
+    await findInvitationAcceptTokenForInvitationId(invitationId);
+  if (!acceptToken) {
+    throw new Error('Invitation accept token not found in Redis');
+  }
+  await request(app.getHttpServer())
+    .post('/api/v1/invitations/accept')
+    .set('Authorization', `Bearer ${user.accessToken}`)
+    .send({ token: acceptToken })
+    .expect(200);
 }

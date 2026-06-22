@@ -37,6 +37,7 @@ import { EsignatureModule } from './esignature/esignature.module.js';
 import { HealthModule } from './health/health.module.js';
 import { IlrModule } from './ilr/ilr.module.js';
 import { InvitationsModule } from './invitations/invitations.module.js';
+import { LearnersModule } from './learners/learners.module.js';
 import { LevyExchangeModule } from './levy-exchange/levy-exchange.module.js';
 import { winstonConfigFactory } from './logger/winston.config.js';
 import { MessagingModule } from './messaging/messaging.module.js';
@@ -96,6 +97,7 @@ import { WithdrawalPushModule } from './withdrawal-push/withdrawal-push.module.j
     ReviewsModule,
     CommitmentsModule,
     PortfolioModule,
+    LearnersModule,
     IlrModule,
     StorageModule,
     DasModule,

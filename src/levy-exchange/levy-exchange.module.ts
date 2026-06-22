@@ -14,6 +14,7 @@ import { StorageModule } from '../storage/storage.module.js';
 
 import { DonorLinksController } from './controllers/donor-links.controller.js';
 import { DonorOAuthController } from './controllers/donor-oauth.controller.js';
+import { EligibilityController } from './controllers/eligibility.controller.js';
 import { MatchApplicationsController } from './controllers/match-applications.controller.js';
 import { MatchingController } from './controllers/matching.controller.js';
 import { RecipientProfileController } from './controllers/recipient-profile.controller.js';
@@ -36,6 +37,7 @@ import { BilateralCoSignOrchestrator } from './services/bilateral-co-sign.orches
 import { DasDonorLinkService } from './services/das-donor-link.service.js';
 import { DasDonorOAuthService } from './services/das-donor-oauth.service.js';
 import { DasDonorSyncService } from './services/das-donor-sync.service.js';
+import { LevyEligibilityService } from './services/levy-eligibility.service.js';
 import { LevyExpiryAlertService } from './services/levy-expiry-alert.service.js';
 import { LevyMatchApplicationService } from './services/levy-match-application.service.js';
 import { LevyMatchingService } from './services/levy-matching.service.js';
@@ -75,6 +77,7 @@ import { TokenEncryptionService } from './services/token-encryption.service.js';
   controllers: [
     DonorLinksController,
     DonorOAuthController,
+    EligibilityController,
     RecipientProfileController,
     TransferPreferencesController,
     SurplusController,
@@ -89,6 +92,7 @@ import { TokenEncryptionService } from './services/token-encryption.service.js';
     DasDonorSyncService,
     LevySurplusService,
     LevyExpiryAlertService,
+    LevyEligibilityService,
     LevyRecipientProfileService,
     LevyTransferPreferenceService,
     LevyMatchingService,

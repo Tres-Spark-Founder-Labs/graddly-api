@@ -311,6 +311,8 @@ export const envSchema = z
       .optional()
       .default('true')
       .transform((v) => v !== 'false'),
+
+    COMPANIES_HOUSE_API_KEY: z.string().optional().default(''),
   })
   .superRefine((data, ctx) => {
     const deployed =

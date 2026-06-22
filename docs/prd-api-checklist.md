@@ -60,14 +60,12 @@ Working checklist to close gaps between the PRD (`docs/prd/`) and this API. Fron
 
 ### FlowPortal onboarding
 
-- [ ] **PRD-014** · Levy eligibility checker (anonymous)  
+- [x] **PRD-014** · Levy eligibility checker (anonymous)  
   - **PRD:** F4.2.1  
-  - **Gap:** No public endpoint.  
   - **Deliver:** `POST /levy-exchange/eligibility/check` (no auth) — size, sector, region, DAS account flag → eligible / not eligible / advisor + estimated funding band.
 
-- [ ] **PRD-015** · ESFA registration wizard API  
+- [x] **PRD-015** · ESFA registration wizard API  
   - **PRD:** F4.2.2  
-  - **Gap:** No multi-step wizard or progress persistence.  
   - **Deliver:** Wizard session entity; step endpoints (Companies House verify, PAYE, DAS creation status, bank details, consent); resume token; confirmation email hook.
 
 ### Apprentice journey
@@ -130,7 +128,7 @@ Working checklist to close gaps between the PRD (`docs/prd/`) and this API. Fron
 
 ### FlowPortal (Portal 4)
 
-- [ ] **PRD-017** · SME dashboard aggregate  
+- [x] **PRD-017** · SME dashboard aggregate  
   - **PRD:** F4.3.1  
   - **Deliver:** `GET /reporting/sme-overview` — active count, pending OTJ approvals, reviews due, commitment pipeline counts; apprentice list with OTJ %.
 
@@ -265,11 +263,11 @@ Quick reference for sprint planning. **Done** = API supports PRD intent for v1; 
 | PRD | Feature | API status | Checklist |
 |-----|---------|------------|-----------|
 | F4.1.1–2 | Donor DAS + surplus | Done | Live DAS config |
-| F4.2.1 | Eligibility checker | Missing | PRD-014 |
-| F4.2.2 | Registration wizard | Missing | PRD-015 |
+| F4.2.1 | Eligibility checker | Done | PRD-014 |
+| F4.2.2 | Registration wizard | Done | PRD-015 |
 | F4.2.3 | Matching | Done | Assisted mode OK |
 | F4.2.4 | Onboarding concierge | N/A API | Ops/process |
-| F4.3.1 | SME overview | Partial | PRD-017 |
+| F4.3.1 | SME overview | Done | PRD-017 |
 | F4.3.2 | Commitments | Partial | PRD-019 |
 | F4.3.4 | SME concierge | N/A API | Ops/process |
 | F4.4.1–3 | AI programmes | Missing | PRD-016 |

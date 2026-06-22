@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "eligibleEmployeeBands": ["1_9", "10_49", "50_249"],
+  "sectorAllowList": ["*"],
+  "regionAllowList": ["*"],
+  "fundingBands": {
+    "default": { "min": 3000, "max": 27000, "currency": "GBP" },
+    "bySector": {
+      "construction": { "min": 5000, "max": 27000, "currency": "GBP" },
+      "healthcare": { "min": 4000, "max": 27000, "currency": "GBP" },
+      "digital": { "min": 3500, "max": 27000, "currency": "GBP" }
+    }
+  },
+  "nextSteps": {
+    "eligible": [
+      "Begin ESFA employer registration to set up your Digital Apprenticeship Service account.",
+      "Prepare your PAYE reference and company bank details.",
+      "Explore levy transfer opportunities once registered."
+    ],
+    "not_eligible": [
+      "Employers with 250 or more UK employees typically fund apprenticeships via the apprenticeship levy.",
+      "Contact an apprenticeship training provider for guidance on direct funding routes."
+    ],
+    "check_with_advisor": [
+      "You indicated an existing DAS account — an advisor can confirm your funding route.",
+      "Review your current apprenticeship commitments before applying for levy transfers."
+    ]
+  },
+  "beginRegistrationPath": "/api/v1/flowportal-registration/sessions"
+}

@@ -40,19 +40,36 @@ export async function signupUser(
  * Completes email verification for an existing unverified user.
  * Uses Redis value lookup by user id (safe when e2e suites run in parallel).
  */
+async function waitForEmailVerificationToken(
+  userId: string,
+  attempts = 25,
+  delayMs = 40,
+): Promise<string | null> {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const token = await findEmailVerificationTokenForUserId(userId);
+    if (token) {
+      return token;
+    }
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, delayMs);
+    });
+  }
+  return null;
+}
+
 export async function verifyUserEmail(
   app: INestApplication<App>,
   email: string,
 ): Promise<{ accessToken: string; refreshToken: string }> {
   const userId = await getUserIdByEmail(email);
-  let token = await findEmailVerificationTokenForUserId(userId);
+  let token = await waitForEmailVerificationToken(userId);
 
   if (!token) {
     await request(app.getHttpServer())
       .post('/api/v1/auth/resend-verification')
       .send({ email })
       .expect(204);
-    token = await findEmailVerificationTokenForUserId(userId);
+    token = await waitForEmailVerificationToken(userId);
   }
 
   if (!token) {
@@ -61,9 +78,26 @@ export async function verifyUserEmail(
     );
   }
 
-  const res = await request(app.getHttpServer())
-    .post('/api/v1/auth/verify-email')
-    .send({ token });
+  const verify = async (verificationToken: string) =>
+    request(app.getHttpServer())
+      .post('/api/v1/auth/verify-email')
+      .send({ token: verificationToken });
+
+  let res = await verify(token);
+
+  if (res.status !== 200) {
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/resend-verification')
+      .send({ email })
+      .expect(204);
+    const refreshedToken = await waitForEmailVerificationToken(userId);
+    if (!refreshedToken) {
+      throw new Error(
+        `Expected email verification token in Redis for user ${userId}`,
+      );
+    }
+    res = await verify(refreshedToken);
+  }
 
   if (res.status !== 200) {
     throw new Error(

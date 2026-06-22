@@ -11,8 +11,15 @@ import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 import { v4 as uuidV4 } from 'uuid';
 
-import { setCurrentUserId } from '../common/context/correlation-id-context.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
+import {
+  setCurrentUserId,
+  getRlsBootstrap,
+  setRlsBootstrap,
+} from '../common/context/correlation-id-context.js';
+import {
+  clearLastKnownUserIdForGuc,
+  setLastKnownUserIdForGuc,
+} from '../database/apply-tenant-gucs.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailVerificationEmail } from '../email/payloads/email-verification.email.js';
 import { PasswordResetEmail } from '../email/payloads/password-reset.email.js';
@@ -194,14 +201,22 @@ export class AuthService {
     }
 
     await this.redis.del(`${EMAIL_VERIFY_PREFIX}${token}`);
-    await this.usersService.markEmailVerified(userId);
 
-    const user = await this.usersService.findById(userId);
-    if (!user.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
+    const previousBootstrap = getRlsBootstrap();
+    setRlsBootstrap(true);
+    clearLastKnownUserIdForGuc();
+    try {
+      await this.usersService.markEmailVerified(userId);
+
+      const user = await this.usersService.findById(userId);
+      if (!user.isActive) {
+        throw new UnauthorizedException('Account is deactivated');
+      }
+
+      return this.generateTokens(user);
+    } finally {
+      setRlsBootstrap(previousBootstrap);
     }
-
-    return this.generateTokens(user);
   }
 
   /** Always completes; does not reveal whether the email exists. */

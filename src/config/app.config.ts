@@ -195,5 +195,8 @@ export default registerAs('app', () => {
         payloadFormat: e.ILR_ESFA_PAYLOAD_FORMAT,
       },
     },
+    flowportalRegistration: {
+      companiesHouseApiKey: e.COMPANIES_HOUSE_API_KEY,
+    },
   };
 });

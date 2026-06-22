@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import * as dotenv from 'dotenv';
+import Redis from 'ioredis';
 import { Client } from 'pg';
 
 dotenv.config({ path: path.resolve(__dirname, '..', '.env.test') });
@@ -55,4 +56,13 @@ export default async function globalSetup(): Promise<void> {
   }
 
   await pg.end();
+
+  const redis = new Redis({
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || '6379', 10),
+    password: process.env.REDIS_PASSWORD || undefined,
+  });
+
+  await redis.flushall();
+  await redis.quit();
 }

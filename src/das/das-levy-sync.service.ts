@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 
 import { DasHttpClient } from './das-http.client.js';
+import { DasLevyMonthlyService } from './das-levy-monthly.service.js';
 import { DasLevyBalanceResponseDto } from './dto/das-levy-balance-response.dto.js';
 import { DasLevyBalance } from './entities/das-levy-balance.entity.js';
 import { DasSyncStatus } from './enums/das-sync-status.enum.js';
@@ -17,6 +18,7 @@ import { DasSyncStatus } from './enums/das-sync-status.enum.js';
 export class DasLevySyncService {
   constructor(
     private readonly client: DasHttpClient,
+    private readonly monthlyService: DasLevyMonthlyService,
     @InjectRepository(DasLevyBalance)
     private readonly levyRepo: Repository<DasLevyBalance>,
     @InjectRepository(Organisation)
@@ -52,6 +54,16 @@ export class DasLevySyncService {
         ...payload.raw,
         requestedByUserId: requestedByUserId ?? null,
       };
+      record.utilisationSegments = this.monthlyService.buildUtilisationSegments(
+        payload.raw,
+        payload.balance,
+        payload.currency ?? 'GBP',
+      );
+      await this.monthlyService.upsertFromRawPayload(
+        organisationId,
+        payload.raw,
+        payload.currency ?? 'GBP',
+      );
     } catch (error) {
       record.lastSyncStatus = DasSyncStatus.FAILED;
       record.lastErrorMessage = this.toMessage(error);
@@ -99,6 +111,7 @@ export class DasLevySyncService {
       balance: null,
       currency: null,
       rawPayload: null,
+      utilisationSegments: null,
     });
   }
 

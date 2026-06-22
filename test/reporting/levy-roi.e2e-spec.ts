@@ -1,6 +1,13 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
+import {
+  setCurrentOrganisationId,
+  setCurrentUserId,
+} from '../../src/common/context/correlation-id-context.js';
+import { DasHttpClient } from '../../src/das/das-http.client.js';
+import { DasLevySyncService } from '../../src/das/das-levy-sync.service.js';
+import { setLastKnownUserIdForGuc } from '../../src/database/apply-tenant-gucs.js';
 import { PdfJobStatus } from '../../src/pdf/enums/pdf-job-status.enum.js';
 import { PdfJobTemplate } from '../../src/pdf/enums/pdf-job-template.enum.js';
 import { noopStorageObjects } from '../../src/storage/providers/noop-storage.store.js';
@@ -36,6 +43,23 @@ describe('LevyRoiReportController (e2e)', () => {
   it('GET /reporting/levy-roi returns summary for employer org', async () => {
     const ctx = await createEmployerReportingContext(app, 'summary');
 
+    const client = app.get(DasHttpClient);
+    jest.spyOn(client, 'fetchLevyBalance').mockResolvedValue({
+      accountId: 'das-account-roi',
+      balance: '10000.00',
+      currency: 'GBP',
+      raw: {
+        monthlyContributions: [{ month: '2025-12', amount: 2000 }],
+        transactions: [{ month: '2025-12', spend: 750 }],
+      },
+    });
+
+    const syncService = app.get(DasLevySyncService);
+    setCurrentOrganisationId(ctx.employerOrgId);
+    setCurrentUserId(ctx.owner.userId);
+    setLastKnownUserIdForGuc(ctx.owner.userId);
+    await syncService.syncOrganisation(ctx.employerOrgId, ctx.owner.userId);
+
     const res = await request(app.getHttpServer())
       .get('/api/v1/reporting/levy-roi')
       .set(ctx.authHeaders)
@@ -45,6 +69,11 @@ describe('LevyRoiReportController (e2e)', () => {
     expectLevyRoiReportResource(res.body.data);
     expect(res.body.data.organisationId).toBe(ctx.employerOrgId);
     expect(res.body.data.activeApprenticeCount).toBeGreaterThanOrEqual(1);
+    expect(res.body.data.monthlyContributions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ month: '2025-12', amount: 2000 }),
+      ]),
+    );
   });
 
   it('GET /reporting/levy-roi/breakdown returns provider rows', async () => {

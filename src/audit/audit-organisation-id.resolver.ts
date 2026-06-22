@@ -125,6 +125,8 @@ export function resolveAuditOrganisationId(
     entityType === 'apprentices' ||
     entityType === 'enrolments' ||
     entityType === 'das_levy_balances' ||
+    entityType === 'das_levy_monthly_entries' ||
+    entityType === 'das_funding_payments' ||
     entityType === 'das_donor_links' ||
     entityType === 'das_donor_oauth_tokens' ||
     entityType === 'das_levy_tranches' ||

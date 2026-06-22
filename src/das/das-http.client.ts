@@ -8,6 +8,8 @@ import type {
   IDasCompletionNotificationResult,
   IDasEnrolmentSubmissionRequest,
   IDasEnrolmentSubmissionResult,
+  IDasFundingPaymentPayload,
+  IDasFundingPaymentsQuery,
   IDasLevyBalancePayload,
   IDasTransferConsentRequest,
   IDasTransferConsentResult,
@@ -75,6 +77,117 @@ export class DasHttpClient {
       ]),
       balance: this.pickNumericString(raw, ['balance', 'levyBalance']),
       currency: this.pickString(raw, ['currency']) ?? 'GBP',
+      raw,
+    };
+  }
+
+  async fetchFundingPayments(
+    ukprn: string,
+    query: IDasFundingPaymentsQuery = {},
+    accessToken?: string,
+  ): Promise<IDasFundingPaymentPayload[]> {
+    const baseUrl = this.config.get<string>('app.das.baseUrl');
+    const fundingPaymentsPath = this.config.get<string>(
+      'app.das.fundingPaymentsPath',
+    );
+    const timeoutMs = this.config.get<number>('app.das.timeoutMs', 10_000);
+
+    if (!baseUrl || !fundingPaymentsPath) {
+      throw new InternalServerErrorException(
+        'DAS funding payments path configuration missing',
+      );
+    }
+
+    const token = accessToken ?? (await this.oauth.getAccessToken());
+    const url = new URL(fundingPaymentsPath, baseUrl);
+    url.searchParams.set('ukprn', ukprn);
+    if (query.from) {
+      url.searchParams.set('from', query.from);
+    }
+    if (query.to) {
+      url.searchParams.set('to', query.to);
+    }
+
+    const headers = new Headers();
+    headers.set('Authorization', `Bearer ${token}`);
+    headers.set('Accept', 'application/json');
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    let res: Response;
+    try {
+      res = await fetch(url.toString(), {
+        method: 'GET',
+        headers,
+        signal: controller.signal,
+      });
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `DAS funding payments request failed: ${this.toMessage(error)}`,
+      );
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    if (!res.ok) {
+      const payload = await this.safeReadBody(res);
+      throw new InternalServerErrorException(
+        `DAS funding payments request failed (${res.status}): ${payload}`,
+      );
+    }
+
+    const body = (await res.json()) as Record<string, unknown> | unknown[];
+    const rows = Array.isArray(body)
+      ? body
+      : [
+          ...toUnknownArray(body.payments),
+          ...toUnknownArray(body.fundingPayments),
+        ];
+
+    return rows
+      .map((item) => this.parseFundingPaymentItem(item))
+      .filter((item): item is IDasFundingPaymentPayload => item !== null);
+  }
+
+  private parseFundingPaymentItem(
+    item: unknown,
+  ): IDasFundingPaymentPayload | null {
+    if (!item || typeof item !== 'object') {
+      return null;
+    }
+
+    const raw = item as Record<string, unknown>;
+    const externalReference =
+      this.pickString(raw, [
+        'externalReference',
+        'reference',
+        'paymentReference',
+        'id',
+      ]) ?? null;
+    const paymentDate =
+      this.pickString(raw, ['paymentDate', 'date', 'paidOn']) ?? null;
+    const amount = this.pickNumericString(raw, ['amount', 'paymentAmount']);
+    if (!externalReference || !paymentDate || !amount) {
+      return null;
+    }
+
+    return {
+      externalReference,
+      paymentDate: paymentDate.slice(0, 10),
+      amount,
+      currency: this.pickString(raw, ['currency']) ?? 'GBP',
+      fundingPeriod: this.pickString(raw, ['fundingPeriod', 'period']),
+      clawbackNotice: this.pickString(raw, [
+        'clawbackNotice',
+        'clawback',
+        'clawbackReason',
+      ]),
+      learnerRef: this.pickString(raw, [
+        'learnerRef',
+        'learnerReference',
+        'learnerId',
+        'uln',
+      ]),
       raw,
     };
   }
@@ -357,4 +470,8 @@ export class DasHttpClient {
   private toMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
   }
+}
+
+function toUnknownArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
 }

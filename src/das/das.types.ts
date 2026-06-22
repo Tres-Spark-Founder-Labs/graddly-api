@@ -53,3 +53,19 @@ export interface IDasCompletionNotificationResult {
   status: string | null;
   raw: Record<string, unknown>;
 }
+
+export interface IDasFundingPaymentPayload {
+  externalReference: string;
+  paymentDate: string;
+  amount: string;
+  currency: string;
+  fundingPeriod: string | null;
+  clawbackNotice: string | null;
+  learnerRef: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface IDasFundingPaymentsQuery {
+  from?: string;
+  to?: string;
+}

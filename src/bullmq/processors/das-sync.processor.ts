@@ -7,7 +7,11 @@ import {
   setCurrentUserId,
 } from '../../common/context/correlation-id-context.js';
 import { DAS_DLQ_JOB_DEAD_LETTER } from '../../das/das-dlq.constants.js';
-import { DAS_JOB_SYNC_ORGANISATION } from '../../das/das-job.constants.js';
+import { DasFundingSyncService } from '../../das/das-funding-sync.service.js';
+import {
+  DAS_JOB_SYNC_FUNDING_PAYMENTS,
+  DAS_JOB_SYNC_ORGANISATION,
+} from '../../das/das-job.constants.js';
 import { DasLevySyncService } from '../../das/das-levy-sync.service.js';
 import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
 import { QUEUE_DAS_SYNC, QUEUE_DAS_SYNC_DLQ } from '../bullmq.constants.js';
@@ -20,13 +24,17 @@ export class DasSyncProcessor extends WorkerHost {
 
   constructor(
     private readonly dasSyncService: DasLevySyncService,
+    private readonly fundingSyncService: DasFundingSyncService,
     @InjectQueue(QUEUE_DAS_SYNC_DLQ) private readonly dlqQueue: Queue,
   ) {
     super();
   }
 
   async process(job: Job<IDasSyncJobPayload>): Promise<void> {
-    if (job.name !== DAS_JOB_SYNC_ORGANISATION) {
+    if (
+      job.name !== DAS_JOB_SYNC_ORGANISATION &&
+      job.name !== DAS_JOB_SYNC_FUNDING_PAYMENTS
+    ) {
       this.logger.warn(
         `Unknown job name "${job.name}" on ${QUEUE_DAS_SYNC} queue (job ${job.id})`,
       );
@@ -39,6 +47,14 @@ export class DasSyncProcessor extends WorkerHost {
     setLastKnownUserIdForGuc(requestedByUserId ?? 'system-das-sync');
 
     try {
+      if (job.name === DAS_JOB_SYNC_FUNDING_PAYMENTS) {
+        await this.fundingSyncService.syncOrganisation(
+          organisationId,
+          requestedByUserId,
+        );
+        return;
+      }
+
       await this.dasSyncService.syncOrganisation(
         organisationId,
         requestedByUserId,

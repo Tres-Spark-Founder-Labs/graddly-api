@@ -7,6 +7,11 @@ export function expectLevyRoiReportResource(data: unknown): void {
       completionCount: expect.any(Number),
       epaPassRate: null,
       monthlyContributions: expect.any(Array),
+      fundingSummary: expect.objectContaining({
+        totalReceived: expect.any(Number),
+        pendingClawbackCount: expect.any(Number),
+        currency: expect.any(String),
+      }),
       forecast: expect.objectContaining({
         activeEnrolmentCount: expect.any(Number),
         projectedMonthlySpend: expect.any(Number),

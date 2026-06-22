@@ -16,6 +16,7 @@ import { RedisModule } from '../redis/redis.module.js';
 import { ReviewsModule } from '../reviews/reviews.module.js';
 
 import { CronLockService } from './cron-lock.service.js';
+import { DasFundingSyncCronService } from './das-funding-sync-cron.service.js';
 import { DasSyncCronService } from './das-sync-cron.service.js';
 import { DigestCronService } from './digest-cron.service.js';
 import { HealthCronService } from './health-cron.service.js';
@@ -49,6 +50,7 @@ import { ReviewRemindersCronService } from './review-reminders-cron.service.js';
     HealthCronService,
     DigestCronService,
     DasSyncCronService,
+    DasFundingSyncCronService,
     OtjPaceCronService,
     ReviewOverdueCronService,
     ReviewRemindersCronService,

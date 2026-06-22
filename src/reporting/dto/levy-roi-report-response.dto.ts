@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import { LevyRoiFundingSummaryDto } from '../../das/dto/das-funding-payment-response.dto.js';
 import { LevySurplusResponseDto } from '../../levy-exchange/dto/levy-surplus-response.dto.js';
 
 export class LevyRoiForecastSliceDto {
@@ -108,6 +109,9 @@ export class LevyRoiReportResponseDto {
       'Placeholder until DAS monthly contribution history is available',
   })
   monthlyContributions!: LevyRoiMonthlyContributionDto[];
+
+  @ApiProperty({ type: LevyRoiFundingSummaryDto })
+  fundingSummary!: LevyRoiFundingSummaryDto;
 
   @ApiProperty({
     format: 'date-time',

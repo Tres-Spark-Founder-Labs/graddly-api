@@ -19,11 +19,17 @@ import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
+import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
+import { DasFundingSyncService } from './das-funding-sync.service.js';
 import { DasLevyForecastService } from './das-levy-forecast.service.js';
 import { DasLevySyncService } from './das-levy-sync.service.js';
 import { DasSyncDispatchService } from './das-sync-dispatch.service.js';
+import {
+  DasFundingPaymentResponseDto,
+  ListDasFundingPaymentsQueryDto,
+} from './dto/das-funding-payment-response.dto.js';
 import { DasLevyBalanceResponseDto } from './dto/das-levy-balance-response.dto.js';
 import { DasLevyForecastResponseDto } from './dto/das-levy-forecast-response.dto.js';
 import { DasSyncResponseDto } from './dto/das-sync-response.dto.js';
@@ -35,6 +41,7 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
   DasSyncResponseDto,
   DasLevyBalanceResponseDto,
   DasLevyForecastResponseDto,
+  DasFundingPaymentResponseDto,
 )
 @Controller({ path: 'das', version: '1' })
 @UseGuards(JwtAuthGuard, ActiveOrganisationGuard)
@@ -57,6 +64,7 @@ export class DasController {
     private readonly dispatch: DasSyncDispatchService,
     private readonly levySyncService: DasLevySyncService,
     private readonly levyForecastService: DasLevyForecastService,
+    private readonly fundingSyncService: DasFundingSyncService,
   ) {}
 
   @Post('sync')
@@ -129,6 +137,51 @@ export class DasController {
     return this.levyForecastService.forecastForOrganisation(
       user.organisationId!,
       Number.isNaN(parsed) ? 12 : parsed,
+    );
+  }
+
+  @Get('funding-payments')
+  @ResponseMessage('DAS funding payments retrieved successfully')
+  @ApiOperation({
+    summary: 'List persisted DAS funding payment confirmations',
+    description:
+      'PRD F1.1 / PRD-013 — Returns funding payments synced from the daily DAS batch for the active organisation. ' +
+      'Optional from/to date filters; paginated.',
+  })
+  @ApiOkResponse({
+    description: 'Paginated funding payments',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(DasFundingPaymentResponseDto) },
+        },
+      },
+    },
+  })
+  async listFundingPayments(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ListDasFundingPaymentsQueryDto,
+  ) {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    const result = await this.fundingSyncService.listPayments(
+      user.organisationId!,
+      query,
+    );
+    return new PaginatedResult(
+      result.items.map((row) => ({
+        id: row.id,
+        paymentDate: row.paymentDate,
+        amount: Number(row.amount),
+        currency: row.currency,
+        fundingPeriod: row.fundingPeriod,
+        clawbackNotice: row.clawbackNotice,
+        externalReference: row.externalReference,
+        enrolmentId: row.enrolmentId,
+      })),
+      result.meta,
     );
   }
 }

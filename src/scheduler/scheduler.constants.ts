@@ -7,6 +7,9 @@ export const DIGEST_CRON_NAME = 'digest-weekly-otj';
 /** 15-minute DAS levy sync cron (Phase L). */
 export const DAS_SYNC_CRON_NAME = 'das-levy-sync';
 
+/** Daily DAS funding payment sync cron. */
+export const DAS_FUNDING_SYNC_CRON_NAME = 'das-funding-sync';
+
 /** Nightly OTJ pace update cron. */
 export const OTJ_PACE_CRON_NAME = 'otj-pace-nightly';
 

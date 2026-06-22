@@ -54,6 +54,12 @@ export interface ILevyRoiReportContent {
     epaPassRate: number | null;
     estimatedProductivityUplift: number;
     monthlyContributions: Array<{ month: string; amount: number }>;
+    utilisationSegments?: {
+      used: number;
+      expiringWithin90Days: number;
+      available: number;
+      currency: string;
+    } | null;
   };
   breakdownByProvider: Array<{
     label: string;

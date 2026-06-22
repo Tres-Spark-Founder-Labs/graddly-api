@@ -174,6 +174,17 @@ export class PdfKitPdfRenderer implements IPdfRenderer {
         }
       }
 
+      if (summary.utilisationSegments) {
+        doc.moveDown().fontSize(16).text('Utilisation segments');
+        const segments = summary.utilisationSegments;
+        doc.fontSize(11);
+        doc.text(`Used: ${segments.currency} ${segments.used}`);
+        doc.text(
+          `Expiring within 90 days: ${segments.currency} ${segments.expiringWithin90Days}`,
+        );
+        doc.text(`Available: ${segments.currency} ${segments.available}`);
+      }
+
       const renderBreakdownTable = (
         title: string,
         rows: ILevyRoiReportContent['breakdownByProvider'],

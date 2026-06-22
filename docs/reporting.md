@@ -30,6 +30,7 @@ Both fields are optional; send `null` to clear a link.
 | Endpoint prefix | Required `portalType` on active org |
 |---|---|
 | `/api/v1/reporting/levy-roi` | `employer` |
+| `/api/v1/reporting/levy-utilisation` | `employer` |
 | `/api/v1/reporting/employer-directory` | `provider` |
 | `/api/v1/reporting/sme-overview` | `flow` |
 
@@ -62,7 +63,8 @@ Poll PDF jobs via `GET /api/v1/pdf/jobs/:jobId` (same flow as other PDF exports)
 | `averageCostPerCompletion` | Mean `agreedPrice` on completed enrolments | |
 | `epaPassRate` | **null** | Stub until EPA entity exists |
 | `estimatedProductivityUplift` | `completionCount × 5000` | v1 estimate (GBP) |
-| `monthlyContributions` | `[]` | Stub until DAS monthly history lands |
+| `monthlyContributions` | `das_levy_monthly_entries` (last 12 months from levy sync) | `{ month, amount }` series |
+| `fundingSummary` | `das_funding_payments` | `totalReceived`, `lastPaymentDate`, `pendingClawbackCount` — see [das-funding-sync.md](./das-funding-sync.md) |
 
 ### OTJ in breakdown
 
@@ -78,8 +80,24 @@ The `20` hours/month constant aligns with the OTJ 20% rule baseline documented i
 ### Known stubs
 
 - EPA pass rate
-- Monthly contribution history (PDF shows placeholder section when empty)
 - Scheduled email delivery and year-on-year history (out of scope)
+
+## RPT-004 — Levy utilisation (PRD-012 / F1.1.3)
+
+`GET /api/v1/reporting/levy-utilisation` — employer portal only.
+
+**Response `data`:**
+
+| Field | Source |
+|---|---|
+| `segments` | `das_levy_balances.utilisationSegments` (used / expiring within 90d / available) |
+| `monthlySeries` | Last 12 months from `das_levy_monthly_entries` (`contributions` + `spend` per month) |
+| `forecast` | `DasLevyForecastService` |
+| `costPerApprentice` | Breakdown rows from levy ROI service (by standard + provider) |
+
+Monthly entries and segments are populated on each successful `DasLevySyncService.syncOrganisation` from tolerant keys in the DAS balance `raw` payload (`monthlyContributions`, `transactions`, `tranches`, etc.).
+
+Levy ROI PDF export includes monthly contributions and utilisation segment breakdown when data is present.
 
 ## RPT-002 — Employer directory
 
@@ -125,6 +143,7 @@ PRD: F4.3.1
 | `summary.pendingOtjApprovalCount` | OTJ log entries in `submitted` status |
 | `summary.reviewsDueThisMonthCount` | Scheduled reviews in current UTC month |
 | `summary.commitmentPipeline` | Counts by pipeline status (`none`, `draft`, `awaitingSignatures`, `signed`, `cancelled`) |
+| `summary.fundingClaimStatus` | `synced` / `no_payments` / `clawback_pending` from latest DAS funding payments |
 | `pendingOtjApprovals` | Up to 20 rows: apprentice name, logged date, minutes, enrolment id |
 | `apprentices` | Learner name, programme title, OTJ %, next review date, status badge |
 
@@ -132,5 +151,7 @@ PRD: F4.3.1
 
 ```bash
 yarn test reporting
-yarn test:e2e reporting
+yarn test das-levy-history das-funding-sync levy-utilisation
+yarn test:e2e test/reporting/
+yarn test:e2e test/das-funding-sync.e2e-spec.ts
 ```

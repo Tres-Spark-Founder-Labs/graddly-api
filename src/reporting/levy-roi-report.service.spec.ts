@@ -2,8 +2,11 @@ import { ForbiddenException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { DasFundingSyncService } from '../das/das-funding-sync.service.js';
 import { DasLevyForecastService } from '../das/das-levy-forecast.service.js';
+import { DasLevyMonthlyService } from '../das/das-levy-monthly.service.js';
 import { DasLevySyncService } from '../das/das-levy-sync.service.js';
+import { DasLevyBalance } from '../das/entities/das-levy-balance.entity.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
 import { LevyTransfer } from '../levy-exchange/entities/levy-transfer.entity.js';
@@ -30,6 +33,13 @@ describe('LevyRoiReportService', () => {
   const forecastService = {
     forecastForOrganisation: jest.fn(),
   };
+  const monthlyService = {
+    listLast12Months: jest.fn(),
+    toMonthlyContributionDtos: jest.fn(),
+  };
+  const fundingSyncService = {
+    getFundingSummary: jest.fn(),
+  };
   const surplusService = {
     getSurplus: jest.fn(),
   };
@@ -48,6 +58,8 @@ describe('LevyRoiReportService', () => {
         LevyRoiReportService,
         { provide: ReportingPortalService, useValue: portalService },
         { provide: DasLevySyncService, useValue: dasSyncService },
+        { provide: DasLevyMonthlyService, useValue: monthlyService },
+        { provide: DasFundingSyncService, useValue: fundingSyncService },
         { provide: DasLevyForecastService, useValue: forecastService },
         { provide: LevySurplusService, useValue: surplusService },
         { provide: OtjProgressMetricsService, useValue: otjMetricsService },
@@ -67,6 +79,10 @@ describe('LevyRoiReportService', () => {
         {
           provide: getRepositoryToken(LevyTransfer),
           useValue: { find: transferFind },
+        },
+        {
+          provide: getRepositoryToken(DasLevyBalance),
+          useValue: { findOne: jest.fn() },
         },
       ],
     }).compile();
@@ -96,6 +112,18 @@ describe('LevyRoiReportService', () => {
       { status: EnrolmentStatus.COMPLETED, agreedPrice: '18000' },
     ]);
     transferFind.mockResolvedValue([{ amount: '5000.00' }]);
+    monthlyService.listLast12Months.mockResolvedValue([
+      { month: new Date('2025-01-01'), contributions: '2000', spend: '500' },
+    ]);
+    monthlyService.toMonthlyContributionDtos.mockReturnValue([
+      { month: '2025-01', amount: 2000, spend: 500 },
+    ]);
+    fundingSyncService.getFundingSummary.mockResolvedValue({
+      totalReceived: 1500,
+      lastPaymentDate: '2026-01-15',
+      pendingClawbackCount: 0,
+      currency: 'GBP',
+    });
 
     const summary = await service.getSummary('org-employer');
 
@@ -105,7 +133,10 @@ describe('LevyRoiReportService', () => {
     expect(summary.epaPassRate).toBeNull();
     expect(summary.estimatedProductivityUplift).toBe(5000);
     expect(summary.totalLevySpendToDate).toBe(105000);
-    expect(summary.monthlyContributions).toEqual([]);
+    expect(summary.monthlyContributions).toEqual([
+      { month: '2025-01', amount: 2000 },
+    ]);
+    expect(summary.fundingSummary.totalReceived).toBe(1500);
   });
 
   it('rejects non-employer portal organisations via portal service', async () => {
@@ -141,6 +172,8 @@ describe('LevyRoiReportService', () => {
         LevyRoiReportService,
         { provide: ReportingPortalService, useValue: portalService },
         { provide: DasLevySyncService, useValue: dasSyncService },
+        { provide: DasLevyMonthlyService, useValue: monthlyService },
+        { provide: DasFundingSyncService, useValue: fundingSyncService },
         { provide: DasLevyForecastService, useValue: forecastService },
         { provide: LevySurplusService, useValue: surplusService },
         { provide: OtjProgressMetricsService, useValue: otjMetricsService },
@@ -160,6 +193,10 @@ describe('LevyRoiReportService', () => {
         {
           provide: getRepositoryToken(LevyTransfer),
           useValue: { find: transferFind },
+        },
+        {
+          provide: getRepositoryToken(DasLevyBalance),
+          useValue: { findOne: jest.fn() },
         },
       ],
     }).compile();
@@ -224,6 +261,8 @@ describe('LevyRoiReportService', () => {
         LevyRoiReportService,
         { provide: ReportingPortalService, useValue: portalService },
         { provide: DasLevySyncService, useValue: dasSyncService },
+        { provide: DasLevyMonthlyService, useValue: monthlyService },
+        { provide: DasFundingSyncService, useValue: fundingSyncService },
         { provide: DasLevyForecastService, useValue: forecastService },
         { provide: LevySurplusService, useValue: surplusService },
         { provide: OtjProgressMetricsService, useValue: otjMetricsService },
@@ -243,6 +282,10 @@ describe('LevyRoiReportService', () => {
         {
           provide: getRepositoryToken(LevyTransfer),
           useValue: { find: transferFind },
+        },
+        {
+          provide: getRepositoryToken(DasLevyBalance),
+          useValue: { findOne: jest.fn() },
         },
       ],
     }).compile();

@@ -136,10 +136,9 @@ Working checklist to close gaps between the PRD (`docs/prd/`) and this API. Fron
   - **PRD:** F3.4.3 · F2.2.4  
   - **Deliver:** `GET /learners/me/documents` — signed commitments, review PDFs, evidence items (metadata + download URLs).
 
-- [ ] **PRD-024** · Apprentice review 48h reminder  
+- [x] **PRD-024** · Apprentice review 48h reminder  
   - **PRD:** F3.2.4  
-  - **Gap:** `[~]` REV-002 — 7d/1d only (`ReviewReminderKind`).  
-  - **Deliver:** Add `48h` kind + cron dispatch to apprentice.
+  - **Deliver:** `48h` on `ReviewReminderKind`; hourly cron; apprentice-only in-app + email within ±1h of 48h before `scheduledAt`.
 
 ### ESFA (continued)
 
@@ -160,13 +159,13 @@ Working checklist to close gaps between the PRD (`docs/prd/`) and this API. Fron
 
 ## P2 — Automation, reminders, ops
 
-- [ ] **PRD-019** · Commitment unsigned chase (7-day)  
+- [x] **PRD-019** · Commitment unsigned chase (7-day)  
   - **PRD:** F1.3.x, F3.4.1, F4.3.2  
-  - **Deliver:** Cron scans unsigned parties; email + in-app notification per role.
+  - **Deliver:** `commitment_chase_dispatches` + daily cron; email + in-app per pending signer; first-signer notify on PDF ready.
 
-- [ ] **PRD-023** · Weekly OTJ digest email content  
+- [x] **PRD-023** · Weekly OTJ digest email content  
   - **PRD:** F3.1.4 (7-day no-log nudge) · `[~]` NOTIF-005 skeleton  
-  - **Deliver:** Wire `digest.processor.ts` to compile per-org/per-apprentice summary; enqueue from `digest-cron.service.ts`.
+  - **Deliver:** `OtjDigestService` wired through digest cron → BullMQ → processor; `otj-weekly-digest` email per manager.
 
 - [ ] **PRD-022** · Production cron defaults + documentation  
   - **PRD:** F1.1.1 (15m DAS), NFR background jobs  
@@ -227,7 +226,7 @@ Quick reference for sprint planning. **Done** = API supports PRD intent for v1; 
 | F1.1.2 | Expiry alerts | Partial | Crons exist; enable in prod |
 | F1.1.3 | Utilisation chart | Done | PRD-012 |
 | F1.2.1–5 | Apprentice tracking | Partial | PRD-003, PRD-010 |
-| F1.3.1–3 | Commitments | Partial | PRD-019 |
+| F1.3.1–3 | Commitments | Done | PRD-019 |
 
 ### Portal 2 — Provider
 
@@ -250,7 +249,7 @@ Quick reference for sprint planning. **Done** = API supports PRD intent for v1; 
 | F3.1.1–3 | OTJ log/history | Done | — |
 | F3.1.4 | Smart pace alerts | Partial | PRD-006, PRD-023 |
 | F3.2.1–3 | Timeline/gateway/EPA | Missing | PRD-008 |
-| F3.2.4 | Review history | Partial | PRD-024, PRD-020 |
+| F3.2.4 | Review history | Done | PRD-024, PRD-020 |
 | F3.3.1–2 | Portfolio/heatmap | Done | — |
 | F3.3.4 | EPA evidence pack | Done | PRD-007 |
 | F3.4.1–2 | Commitments/messaging | Partial / Done | PRD-019 |

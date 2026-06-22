@@ -1,19 +1,16 @@
 import { ConfigService } from '@nestjs/config';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
 
-import { DigestDispatchService } from '../notifications/digest-dispatch.service.js';
-import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
+import { CommitmentChaseService } from '../commitments/commitment-chase.service.js';
 
+import { CommitmentChaseCronService } from './commitment-chase-cron.service.js';
 import { CronLockService } from './cron-lock.service.js';
-import { DigestCronService } from './digest-cron.service.js';
-import { DIGEST_CRON_NAME } from './scheduler.constants.js';
+import { COMMITMENT_CHASE_CRON_NAME } from './scheduler.constants.js';
 
-describe('DigestCronService', () => {
-  let service: DigestCronService;
-  let digestDispatch: { enqueueWeeklyOtjDigest: jest.Mock };
-  let otjLogRepo: { createQueryBuilder: jest.Mock };
+describe('CommitmentChaseCronService', () => {
+  let service: CommitmentChaseCronService;
+  let chaseService: { sendDueChases: jest.Mock };
   let schedulerRegistry: jest.Mocked<
     Pick<
       SchedulerRegistry,
@@ -24,21 +21,7 @@ describe('DigestCronService', () => {
 
   beforeEach(async () => {
     cronJobs.clear();
-    digestDispatch = {
-      enqueueWeeklyOtjDigest: jest.fn().mockResolvedValue(undefined),
-    };
-    const qb = {
-      select: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getRawMany: jest
-        .fn()
-        .mockResolvedValue([
-          { organisationId: 'org-1' },
-          { organisationId: 'org-2' },
-        ]),
-    };
-    otjLogRepo = { createQueryBuilder: jest.fn(() => qb) };
+    chaseService = { sendDueChases: jest.fn().mockResolvedValue(2) };
     schedulerRegistry = {
       addCronJob: jest.fn((name: string, job: { stop: jest.Mock }) => {
         cronJobs.set(name, job);
@@ -52,14 +35,15 @@ describe('DigestCronService', () => {
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [
-        DigestCronService,
+        CommitmentChaseCronService,
         {
           provide: ConfigService,
           useValue: {
             get: jest.fn((key: string, defaultValue?: unknown) => {
               if (key === 'app.cron.enabled') return true;
-              if (key === 'app.cron.digestEnabled') return true;
-              if (key === 'app.cron.digestSchedule') return '0 8 * * 1';
+              if (key === 'app.cron.commitmentChaseEnabled') return true;
+              if (key === 'app.cron.commitmentChaseSchedule')
+                return '0 6 * * *';
               return defaultValue;
             }),
           },
@@ -76,32 +60,26 @@ describe('DigestCronService', () => {
             ),
           },
         },
-        { provide: DigestDispatchService, useValue: digestDispatch },
-        { provide: getRepositoryToken(OtjLogEntry), useValue: otjLogRepo },
+        { provide: CommitmentChaseService, useValue: chaseService },
       ],
     }).compile();
 
-    service = moduleRef.get(DigestCronService);
+    service = moduleRef.get(CommitmentChaseCronService);
   });
 
   afterEach(() => {
     service.onModuleDestroy();
   });
 
-  it('enqueues digest jobs for orgs with pending OTJ entries', async () => {
-    await service.handleDigestCron();
-
-    expect(digestDispatch.enqueueWeeklyOtjDigest).toHaveBeenCalledTimes(2);
-    expect(digestDispatch.enqueueWeeklyOtjDigest).toHaveBeenCalledWith({
-      organisationId: 'org-1',
-    });
+  it('delegates to CommitmentChaseService', async () => {
+    await service.handleCommitmentChaseCron();
+    expect(chaseService.sendDueChases).toHaveBeenCalled();
   });
 
-  it('registers the digest cron when enabled', () => {
+  it('registers cron when enabled', () => {
     service.onModuleInit();
-
     expect(schedulerRegistry.addCronJob).toHaveBeenCalledWith(
-      DIGEST_CRON_NAME,
+      COMMITMENT_CHASE_CRON_NAME,
       expect.objectContaining({}),
     );
   });

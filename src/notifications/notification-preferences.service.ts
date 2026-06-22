@@ -30,7 +30,6 @@ export class NotificationPreferencesService {
     private readonly preferenceRepo: Repository<NotificationPreference>,
   ) {}
 
-  /** Ensures global (organisationId null) defaults exist for all type/channel pairs. */
   async ensureDefaults(userId: string): Promise<void> {
     for (const type of DEFAULT_TYPES) {
       for (const channel of DEFAULT_CHANNELS) {
@@ -57,5 +56,25 @@ export class NotificationPreferencesService {
         await this.preferenceRepo.save(preference);
       }
     }
+  }
+
+  async isChannelEnabled(
+    userId: string,
+    type: NotificationType,
+    channel: NotificationChannel,
+  ): Promise<boolean> {
+    await this.ensureDefaults(userId);
+
+    const preference = await this.preferenceRepo.findOne({
+      where: {
+        user: { id: userId },
+        organisation: IsNull(),
+        channel,
+        type,
+        isDeleted: false,
+      },
+    });
+
+    return preference?.enabled ?? true;
   }
 }

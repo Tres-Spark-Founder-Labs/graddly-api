@@ -27,7 +27,7 @@ phase_order,phase,task_id,task,status,timeline,story_points,assignee,depends_on,
 7,G,NOTIF-002,In-app notification APIs,Done,Phase G,3,TBD,NOTIF-001,
 7,G,NOTIF-003,Resend transactional send path + template config,Done,Phase G,5,TBD,NOTIF-001,"Was SendGrid in original plan; Resend + noop implemented"
 7,G,NOTIF-004,BullMQ worker dispatches email,Done,Phase G,5,TBD,NOTIF-003 BMQ-001,
-7,G,NOTIF-005,Digest queue skeleton,Partial,Phase G,3,TBD,NOTIF-004,"Cron + processor log-only; weekly OTJ digest content not wired"
+7,G,NOTIF-005,Digest queue skeleton,Done,Phase G,3,TBD,NOTIF-004,"Weekly OTJ digest wired via OtjDigestService"
 8,H,STO-001,StorageModule S3 config,Done,Phase H,3,TBD,,"S3 + noop providers"
 8,H,STO-002,Presigned upload/download + org/learner paths,Done,Phase H,5,TBD,STO-001,
 8,H,STO-003,File validation mime + 25MB cap,Done,Phase H,3,TBD,STO-002,
@@ -53,7 +53,7 @@ phase_order,phase,task_id,task,status,timeline,story_points,assignee,depends_on,
 13,M,OTJ-003,Pace service + nightly cron flags,Done,Phase M,8,TBD,OTJ-002 CRON-001,"EPA % pace vs target + in-app alerts (PRD-006)"
 13,M,OTJ-004,Approve reject bulk + notifications,Done,Phase M,5,TBD,OTJ-002 NOTIF-004,
 14,N,REV-001,Review entity + schedule + overdue,Done,Phase N,5,TBD,DOM-002,
-14,N,REV-002,Calendar list bulk schedule reminder jobs,Partial,Phase N,8,TBD,REV-001 NOTIF-004,"7d/1d reminders; apprentice 48h + intervention queue link missing — see PRD-008 PRD-009"
+14,N,REV-002,Calendar list bulk schedule reminder jobs,Done,Phase N,8,TBD,REV-001 NOTIF-004,"7d/1d + apprentice 48h reminders"
 14,N,REV-003,Review record + co-sign + PDF snapshot,Done,Phase N,8,TBD,REV-002 ESIG-002,
 15,O,COM-001,CommitmentStatement versioning + status machine,Done,Phase O,5,TBD,DOM-002,
 15,O,COM-002,Tripartite signing + ESignature + PDF storage,Done,Phase O,8,TBD,COM-001 ESIG-002,
@@ -99,9 +99,9 @@ phase_order,phase,task_id,task,status,timeline,story_points,assignee,depends_on,
 23,PRD,PRD-016,FlowPortal Module C — AI apprenticeship programmes API,Done,PRD MVP,13,TBD,DOM-001,"F4.4.1–4.4.3; feat/prd-phase-8-ai-programmes"
 23,PRD,PRD-017,SME dashboard aggregate API,Done,PRD MVP,5,TBD,OTJ-004 COM-002,"F4.3.1 pending approvals + reviews due"
 23,PRD,PRD-018,Auto-provision apprentice user on enrolment,Done,PRD MVP,5,TBD,INV-002 DOM-004,"01-platform.md §2.4"
-23,PRD,PRD-019,Commitment unsigned chase reminders (7-day),Not started,PRD MVP,3,TBD,COM-002 NOTIF-004,"F1.3.x F3.4.1 F4.3.2"
+23,PRD,PRD-019,Commitment unsigned chase reminders (7-day),Done,PRD MVP,3,TBD,COM-002 NOTIF-004,"F1.3.x F3.4.1 F4.3.2"
 23,PRD,PRD-020,Apprentice document library aggregate API,Done,PRD MVP,5,TBD,COM-002 REV-003 PFL-002,"F3.4.3 F2.2.4"
 23,PRD,PRD-021,Individual learner profile aggregate API,Done,PRD MVP,5,TBD,PRD-010,"F2.2.4 single-call profile"
 23,PRD,PRD-022,Production cron defaults + env documentation,Not started,PRD MVP,3,TBD,CRON-001,"15m DAS sync; nightly pace; review reminders"
-23,PRD,PRD-023,Weekly OTJ digest email content (wire NOTIF-005),Not started,PRD MVP,5,TBD,NOTIF-005 PRD-006,"Replace digest skeleton"
-23,PRD,PRD-024,Apprentice review 48h reminder,Not started,PRD MVP,3,TBD,REV-002,"F3.2.4"
+23,PRD,PRD-023,Weekly OTJ digest email content (wire NOTIF-005),Done,PRD MVP,5,TBD,NOTIF-005 PRD-006,"Replace digest skeleton"
+23,PRD,PRD-024,Apprentice review 48h reminder,Done,PRD MVP,3,TBD,REV-002,"F3.2.4"

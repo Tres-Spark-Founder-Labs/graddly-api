@@ -4,17 +4,21 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { TerminusModule } from '@nestjs/terminus';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { CommitmentsModule } from '../commitments/commitments.module.js';
 import { DasModule } from '../das/das.module.js';
 import { DataRetentionCronService } from '../data-retention/data-retention-cron.service.js';
 import { DataRetentionModule } from '../data-retention/data-retention.module.js';
 import { RedisHealthIndicator } from '../health/redis-health.indicator.js';
 import { LevyTransfer } from '../levy-exchange/entities/levy-transfer.entity.js';
 import { LevyExchangeModule } from '../levy-exchange/levy-exchange.module.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
+import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { OtjModule } from '../otj/otj.module.js';
 import { RedisModule } from '../redis/redis.module.js';
 import { ReviewsModule } from '../reviews/reviews.module.js';
 
+import { CommitmentChaseCronService } from './commitment-chase-cron.service.js';
 import { CronLockService } from './cron-lock.service.js';
 import { DasFundingSyncCronService } from './das-funding-sync-cron.service.js';
 import { DasSyncCronService } from './das-sync-cron.service.js';
@@ -42,7 +46,9 @@ import { ReviewRemindersCronService } from './review-reminders-cron.service.js';
     ReviewsModule,
     LevyExchangeModule,
     DataRetentionModule,
-    TypeOrmModule.forFeature([Organisation, LevyTransfer]),
+    CommitmentsModule,
+    NotificationsModule,
+    TypeOrmModule.forFeature([Organisation, LevyTransfer, OtjLogEntry]),
   ],
   providers: [
     RedisHealthIndicator,
@@ -54,6 +60,7 @@ import { ReviewRemindersCronService } from './review-reminders-cron.service.js';
     OtjPaceCronService,
     ReviewOverdueCronService,
     ReviewRemindersCronService,
+    CommitmentChaseCronService,
     LevyExpiryAlertsCronService,
     LevyTransferStatusCronService,
     DataRetentionCronService,

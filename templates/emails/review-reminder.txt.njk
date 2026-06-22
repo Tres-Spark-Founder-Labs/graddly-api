@@ -1,5 +1,5 @@
 Hi {{ firstName }},
 
-This is a reminder that {{ reviewTitle }} is scheduled for {{ scheduledAt }} (in {{ daysAhead }} day(s)).
+This is a reminder that {{ reviewTitle }} is scheduled for {{ scheduledAt }}{% if hoursAhead %} (in {{ hoursAhead }} hour(s)){% elif daysAhead %} (in {{ daysAhead }} day(s)){% endif %}.
 
 Please sign in to {{ appName }} to prepare or complete the review.

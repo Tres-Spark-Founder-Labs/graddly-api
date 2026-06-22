@@ -148,6 +148,7 @@ export function resolveAuditOrganisationId(
     entityType === 'commitment_statement_groups' ||
     entityType === 'commitment_statements' ||
     entityType === 'commitment_signatures' ||
+    entityType === 'commitment_chase_dispatches' ||
     entityType === 'ksb_definitions' ||
     entityType === 'ks_evidence_items' ||
     entityType === 'ks_evidence_ksb_mappings' ||

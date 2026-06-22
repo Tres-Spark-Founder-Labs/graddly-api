@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Job } from 'bullmq';
 
 import { PdfGenerationProcessor } from '../../bullmq/processors/pdf-generation.processor.js';
+import { CommitmentChaseService } from '../../commitments/commitment-chase.service.js';
 import { CommitmentSignature } from '../../commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatement } from '../../commitments/entities/commitment-statement.entity.js';
 import { LevyTransfer } from '../../levy-exchange/entities/levy-transfer.entity.js';
@@ -97,6 +98,10 @@ describe('PdfGenerationProcessor', () => {
         {
           provide: LevyRoiReportService,
           useValue: { buildPdfContent: jest.fn() },
+        },
+        {
+          provide: CommitmentChaseService,
+          useValue: { notifyFirstSigner: jest.fn() },
         },
       ],
     }).compile();

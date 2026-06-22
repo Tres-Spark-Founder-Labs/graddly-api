@@ -61,6 +61,8 @@ export default registerAs('app', () => {
       reviewOverdueSchedule: e.CRON_REVIEW_OVERDUE_SCHEDULE,
       reviewRemindersEnabled: e.CRON_REVIEW_REMINDERS_ENABLED,
       reviewRemindersSchedule: e.CRON_REVIEW_REMINDERS_SCHEDULE,
+      commitmentChaseEnabled: e.CRON_COMMITMENT_CHASE_ENABLED,
+      commitmentChaseSchedule: e.CRON_COMMITMENT_CHASE_SCHEDULE,
       levyExpiryAlertsEnabled: e.CRON_LEVY_EXPIRY_ALERTS_ENABLED,
       levyExpiryAlertsSchedule: e.CRON_LEVY_EXPIRY_ALERTS_SCHEDULE,
       levyTransferStatusEnabled: e.CRON_LEVY_TRANSFER_STATUS_ENABLED,

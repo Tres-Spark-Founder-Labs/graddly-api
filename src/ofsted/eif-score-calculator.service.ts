@@ -12,17 +12,15 @@ import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { OtjLogStatus } from '../otj/enums/otj-log-status.enum.js';
 import { KsEvidenceItem } from '../portfolio/entities/ks-evidence-item.entity.js';
 import { KsEvidenceStatus } from '../portfolio/enums/ks-evidence-status.enum.js';
-import { Programme } from '../programmes/entities/programme.entity.js';
 import { Review } from '../reviews/entities/review.entity.js';
 import { ReviewStatus } from '../reviews/enums/review-status.enum.js';
 
 import { loadEifCriteriaConfig } from './eif-criteria.config.js';
 import { percentToEifRag, shouldShowEifAlert } from './eif-rag.util.js';
+import { ProgrammeDocumentsService } from './programme-documents.service.js';
+import { SafeguardingChecklistService } from './safeguarding-checklist.service.js';
 
 import type { EifCriterionScoreDto } from './dto/eif-scores-response.dto.js';
-
-const SAFEGUARDING_STUB_PERCENT = 70;
-const PROGRAMME_DOCS_STUB_PERCENT = 75;
 
 @Injectable()
 export class EifScoreCalculatorService {
@@ -39,8 +37,8 @@ export class EifScoreCalculatorService {
     private readonly ilrRepo: Repository<IlrLearnerRecord>,
     @InjectRepository(KsEvidenceItem)
     private readonly evidenceRepo: Repository<KsEvidenceItem>,
-    @InjectRepository(Programme)
-    private readonly programmeRepo: Repository<Programme>,
+    private readonly safeguardingChecklist: SafeguardingChecklistService,
+    private readonly programmeDocuments: ProgrammeDocumentsService,
   ) {}
 
   async calculate(organisationId: string): Promise<{
@@ -56,13 +54,15 @@ export class EifScoreCalculatorService {
       ilrPercent,
       portfolioPercent,
       programmePercent,
+      safeguardingPercent,
     ] = await Promise.all([
       this.otjOnTrackPercent(organisationId),
       this.reviewsCompletedPercent(organisationId),
       this.commitmentsSignedPercent(organisationId),
       this.ilrValidatedPercent(organisationId),
       this.portfolioAcceptedPercent(organisationId),
-      this.programmeDocsPercent(organisationId),
+      this.programmeDocuments.coveragePercent(organisationId),
+      this.safeguardingChecklist.completionPercent(organisationId),
     ]);
 
     const metricPercents: Record<string, number> = {
@@ -73,7 +73,7 @@ export class EifScoreCalculatorService {
       portfolio: portfolioPercent,
     };
     metricPercents['programme_docs'] = programmePercent;
-    metricPercents['safeguarding_stub'] = SAFEGUARDING_STUB_PERCENT;
+    metricPercents['safeguarding'] = safeguardingPercent;
 
     const criteria = loadEifCriteriaConfig().criteria.map((c) => {
       const percent = Math.round(metricPercents[c.metric] ?? 0);
@@ -214,13 +214,5 @@ export class EifScoreCalculatorService {
       if (count > 0) withAccepted += 1;
     }
     return this.ratioPercent(withAccepted, enrolmentIds.length);
-  }
-
-  private async programmeDocsPercent(organisationId: string): Promise<number> {
-    const count = await this.programmeRepo.count({
-      where: { organisationId, isDeleted: false },
-    });
-    if (count === 0) return PROGRAMME_DOCS_STUB_PERCENT;
-    return Math.min(100, 60 + count * 5);
   }
 }

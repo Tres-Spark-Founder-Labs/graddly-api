@@ -90,6 +90,19 @@ export class LearnerDocumentsService {
     return { enrolments: groups };
   }
 
+  async listForEnrolment(
+    organisationId: string,
+    enrolmentId: string,
+  ): Promise<LearnerDocumentItemDto[]> {
+    const rawItems = await this.collectDocuments(organisationId, enrolmentId);
+    const items = await this.attachDownloadUrls(organisationId, rawItems);
+    items.sort(
+      (a, b) =>
+        new Date(b.documentAt).getTime() - new Date(a.documentAt).getTime(),
+    );
+    return items;
+  }
+
   private async collectDocuments(
     organisationId: string,
     enrolmentId: string,

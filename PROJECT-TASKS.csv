@@ -64,7 +64,7 @@ phase_order,phase,task_id,task,status,timeline,story_points,assignee,depends_on,
 17,Q,ILR-001,ILR mapping config layer versioned,Done,Phase Q,8,TBD,DOM-002,
 17,Q,ILR-002,Build ILR row + validation engine,Done,Phase Q,8,TBD,ILR-001,
 17,Q,ILR-003,ESFA submit + receipt + amendment,Done,Phase Q,8,TBD,ILR-002,"Async BullMQ submit + ILR XML serializer + http ESFA client"
-18,R,EIF-001,EIF score service + Redis cache 1h,Partial,Phase R,8,TBD,OTJ-003 REV-003 COM-001 ILR-002,"safeguarding_stub + programme_docs_stub fixed percents — see PRD-011"
+18,R,EIF-001,EIF score service + Redis cache 1h,Done,Phase R,8,TBD,OTJ-003 REV-003 COM-001 ILR-002,"Real safeguarding + programme docs metrics (PRD-011)"
 18,R,EIF-002,QIP CRUD,Done,Phase R,5,TBD,EIF-001,
 18,R,EIF-003,Evidence pack ZIP async job,Done,Phase R,8,TBD,EIF-002 STO-002 PDF-002,"Provider Ofsted pack; not apprentice EPA pack"
 19,S,LEX-001,Donor DAS link + OAuth consent entities,Done,Phase S,8,TBD,DAS-001 ORG-001,
@@ -89,9 +89,9 @@ phase_order,phase,task_id,task,status,timeline,story_points,assignee,depends_on,
 23,PRD,PRD-006,OTJ pace alerts per PRD (EPA % + in-app + digest),Done,PRD MVP,8,TBD,OTJ-003 NOTIF-005,"F3.1.4; EPA % pace + in-app alerts"
 23,PRD,PRD-007,Apprentice EPA evidence pack export API,Done,PRD MVP,8,TBD,PFL-002 PDF-002,"F3.3.4; distinct from Ofsted EIF pack"
 23,PRD,PRD-008,Programme timeline + gateway checklist + EPA date,Done,PRD MVP,8,TBD,DOM-004,"F3.2.1 F3.2.2 F3.2.3"
-23,PRD,PRD-009,Provider at-risk intervention queue API,Not started,PRD MVP,8,TBD,OTJ-003 REV-001,"F2.2.2; log intervention actions"
-23,PRD,PRD-010,Provider learner cohort dashboard API,Not started,PRD MVP,5,TBD,RPT-002 DOM-004,"F2.2.1; unified columns + export"
-23,PRD,PRD-011,EIF real safeguarding + programme docs inputs,Not started,PRD MVP,5,TBD,EIF-001,"Remove stub percents in eif-score-calculator"
+23,PRD,PRD-009,Provider at-risk intervention queue API,Done,PRD MVP,8,TBD,OTJ-003 REV-001,"F2.2.2; log intervention actions"
+23,PRD,PRD-010,Provider learner cohort dashboard API,Done,PRD MVP,5,TBD,RPT-002 DOM-004,"F2.2.1; unified columns + export"
+23,PRD,PRD-011,EIF real safeguarding + programme docs inputs,Done,PRD MVP,5,TBD,EIF-001,"Remove stub percents in eif-score-calculator"
 23,PRD,PRD-012,Levy utilisation history + cost-per-apprentice APIs,Not started,PRD MVP,8,TBD,DAS-002 RPT-001,"F1.1.3 monthly contribution/spend series"
 23,PRD,PRD-013,DAS funding payment confirmation daily sync,Not started,PRD MVP,8,TBD,DAS-001,"07-integrations.md §8.1"
 23,PRD,PRD-014,FlowPortal levy eligibility checker (anonymous),Not started,PRD MVP,5,TBD,LEX-003,"F4.2.1"
@@ -101,7 +101,7 @@ phase_order,phase,task_id,task,status,timeline,story_points,assignee,depends_on,
 23,PRD,PRD-018,Auto-provision apprentice user on enrolment,Done,PRD MVP,5,TBD,INV-002 DOM-004,"01-platform.md §2.4"
 23,PRD,PRD-019,Commitment unsigned chase reminders (7-day),Not started,PRD MVP,3,TBD,COM-002 NOTIF-004,"F1.3.x F3.4.1 F4.3.2"
 23,PRD,PRD-020,Apprentice document library aggregate API,Done,PRD MVP,5,TBD,COM-002 REV-003 PFL-002,"F3.4.3 F2.2.4"
-23,PRD,PRD-021,Individual learner profile aggregate API,Not started,PRD MVP,5,TBD,PRD-010,"F2.2.4 single-call profile"
+23,PRD,PRD-021,Individual learner profile aggregate API,Done,PRD MVP,5,TBD,PRD-010,"F2.2.4 single-call profile"
 23,PRD,PRD-022,Production cron defaults + env documentation,Not started,PRD MVP,3,TBD,CRON-001,"15m DAS sync; nightly pace; review reminders"
 23,PRD,PRD-023,Weekly OTJ digest email content (wire NOTIF-005),Not started,PRD MVP,5,TBD,NOTIF-005 PRD-006,"Replace digest skeleton"
 23,PRD,PRD-024,Apprentice review 48h reminder,Not started,PRD MVP,3,TBD,REV-002,"F3.2.4"

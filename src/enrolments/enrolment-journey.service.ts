@@ -62,6 +62,12 @@ export class EnrolmentJourneyService {
     return journey;
   }
 
+  /** Provider ops: gateway % without side effects (no gateway-ready notification). */
+  async getGatewayCompletionPercent(enrolment: Enrolment): Promise<number> {
+    const journey = await this.buildJourney(enrolment);
+    return journey.gatewayCompletionPercent;
+  }
+
   async updateJourney(
     user: AuthenticatedUser,
     enrolmentId: string,

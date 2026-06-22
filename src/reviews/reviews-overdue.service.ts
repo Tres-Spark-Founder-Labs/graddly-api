@@ -14,8 +14,8 @@ export class ReviewsOverdueService {
 
   /** Flags overdue reviews without user audit context (cron-safe). */
   async flagOverdueReviews(): Promise<number> {
-    const startOfToday = new Date();
-    startOfToday.setUTCHours(0, 0, 0, 0);
+    const overdueThreshold = new Date();
+    overdueThreshold.setUTCDate(overdueThreshold.getUTCDate() - 3);
 
     const result = await this.repo
       .createQueryBuilder()
@@ -27,7 +27,7 @@ export class ReviewsOverdueService {
       })
       .where('"status" = :status', { status: ReviewStatus.SCHEDULED })
       .andWhere('"isOverdue" = false')
-      .andWhere('"scheduledAt" < :startOfToday', { startOfToday })
+      .andWhere('"scheduledAt" < :overdueThreshold', { overdueThreshold })
       .andWhere('"isDeleted" = false')
       .execute();
 

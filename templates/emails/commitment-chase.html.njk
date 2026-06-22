@@ -1,0 +1,10 @@
+{% extends "layouts/base.html.njk" %}
+
+{% block title %}Commitment signature reminder{% endblock %}
+
+{% block content %}
+<p>Hi {{ firstName }},</p>
+<p>Your signature is still required on commitment statement v{{ statementVersion }} ({{ partyLabel }}).</p>
+<p>This reminder was sent because the statement has been unsigned for {{ daysUnsigned }} days.</p>
+<p>Please sign in to {{ appName }} to complete your commitment.</p>
+{% endblock %}

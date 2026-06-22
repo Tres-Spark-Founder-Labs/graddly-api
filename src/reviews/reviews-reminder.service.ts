@@ -33,8 +33,19 @@ export class ReviewsReminderService {
 
   async sendDueReminders(): Promise<number> {
     let sent = 0;
-    sent += await this.sendForKind(ReviewReminderKind.SEVEN_DAYS, 7);
-    sent += await this.sendForKind(ReviewReminderKind.ONE_DAY, 1);
+    const utcHour = new Date().getUTCHours();
+
+    if (utcHour === 7) {
+      sent += await this.sendForKind(ReviewReminderKind.SEVEN_DAYS, 7);
+      sent += await this.sendForKind(ReviewReminderKind.ONE_DAY, 1);
+    }
+
+    sent += await this.sendForHourOffset(
+      ReviewReminderKind.FORTY_EIGHT_HOURS,
+      48,
+      1,
+    );
+
     return sent;
   }
 
@@ -56,15 +67,58 @@ export class ReviewsReminderService {
       },
     });
 
+    return this.dispatchForReviews(reviews, kind, { daysAhead });
+  }
+
+  private async sendForHourOffset(
+    kind: ReviewReminderKind,
+    hoursAhead: number,
+    toleranceHours: number,
+  ): Promise<number> {
+    const now = Date.now();
+    const windowStart = new Date(
+      now + (hoursAhead - toleranceHours) * 60 * 60 * 1000,
+    );
+    const windowEnd = new Date(
+      now + (hoursAhead + toleranceHours) * 60 * 60 * 1000,
+    );
+
+    const reviews = await this.reviewRepo.find({
+      where: {
+        status: ReviewStatus.SCHEDULED,
+        isDeleted: false,
+        scheduledAt: Between(windowStart, windowEnd),
+      },
+    });
+
+    return this.dispatchForReviews(reviews, kind, { hoursAhead });
+  }
+
+  private async dispatchForReviews(
+    reviews: Review[],
+    kind: ReviewReminderKind,
+    timing: { daysAhead?: number; hoursAhead?: number },
+  ): Promise<number> {
     let sent = 0;
     for (const review of reviews) {
       const existing = await this.dispatchRepo.findOne({
         where: { reviewId: review.id, reminderKind: kind },
       });
-      if (existing) continue;
+      if (existing) {
+        continue;
+      }
 
       try {
-        await this.notifySigners(review, kind, daysAhead);
+        if (kind === ReviewReminderKind.FORTY_EIGHT_HOURS) {
+          await this.notifyApprenticeOnly(
+            review,
+            kind,
+            timing.hoursAhead ?? 48,
+          );
+        } else {
+          await this.notifySigners(review, kind, timing.daysAhead ?? 0);
+        }
+
         await this.dispatchRepo.save(
           this.dispatchRepo.create({
             reviewId: review.id,
@@ -79,6 +133,7 @@ export class ReviewsReminderService {
         );
       }
     }
+
     return sent;
   }
 
@@ -98,7 +153,9 @@ export class ReviewsReminderService {
 
     for (const signerId of userIds) {
       const signer = users.find((u) => u.id === signerId);
-      if (!signer) continue;
+      if (!signer) {
+        continue;
+      }
 
       await this.notificationsService.createForUser({
         userId: signer.id,
@@ -119,11 +176,54 @@ export class ReviewsReminderService {
               reviewTitle: title,
               scheduledAt: scheduledLabel,
               daysAhead,
+              hoursAhead: null,
               appName: this.config.get<string>('app.email.appName', 'Graddly'),
             },
           ),
         );
       }
+    }
+  }
+
+  private async notifyApprenticeOnly(
+    review: Review,
+    kind: ReviewReminderKind,
+    hoursAhead: number,
+  ): Promise<void> {
+    const apprentice = await this.userRepo.findOne({
+      where: { id: review.apprenticeUserId, isDeleted: false },
+    });
+    if (!apprentice) {
+      return;
+    }
+
+    const scheduledLabel = review.scheduledAt.toISOString();
+    const title = review.title ?? `Review on ${scheduledLabel.slice(0, 10)}`;
+
+    await this.notificationsService.createForUser({
+      userId: apprentice.id,
+      organisationId: review.organisationId,
+      type: NotificationType.REVIEW,
+      title: `Review reminder (${kind})`,
+      body: `${title} is scheduled in ${hoursAhead} hour(s).`,
+      metadata: { reviewId: review.id, reminderKind: kind },
+    });
+
+    if (apprentice.email) {
+      await this.emailDispatchService.enqueue(
+        new SerializedEmailPayload(
+          EmailTemplate.REVIEW_REMINDER,
+          apprentice.email,
+          {
+            firstName: apprentice.firstName,
+            reviewTitle: title,
+            scheduledAt: scheduledLabel.slice(0, 10),
+            daysAhead: null,
+            hoursAhead,
+            appName: this.config.get<string>('app.email.appName', 'Graddly'),
+          },
+        ),
+      );
     }
   }
 

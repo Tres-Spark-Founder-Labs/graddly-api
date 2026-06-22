@@ -2,6 +2,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Job } from 'bullmq';
 
 import { PdfGenerationProcessor } from '../../src/bullmq/processors/pdf-generation.processor.js';
+import { CommitmentChaseService } from '../../src/commitments/commitment-chase.service.js';
 import { CommitmentSignature } from '../../src/commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatement } from '../../src/commitments/entities/commitment-statement.entity.js';
 import { LevyTransfer } from '../../src/levy-exchange/entities/levy-transfer.entity.js';
@@ -29,6 +30,7 @@ export async function processPdfJobInApp(
     app.get(StorageService),
     app.get(StorageKeyBuilder),
     app.get(LevyRoiReportService),
+    app.get(CommitmentChaseService),
     app.get<Repository<PdfGenerationJob>>(getRepositoryToken(PdfGenerationJob)),
     app.get<Repository<Review>>(getRepositoryToken(Review)),
     app.get<Repository<ReviewRecord>>(getRepositoryToken(ReviewRecord)),

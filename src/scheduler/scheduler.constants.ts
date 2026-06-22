@@ -16,8 +16,11 @@ export const OTJ_PACE_CRON_NAME = 'otj-pace-nightly';
 /** Nightly review overdue flag cron. */
 export const REVIEW_OVERDUE_CRON_NAME = 'review-overdue-nightly';
 
-/** Daily review reminder cron (7d and 1d). */
-export const REVIEW_REMINDERS_CRON_NAME = 'review-reminders-daily';
+/** Daily review reminder cron (7d, 1d, and hourly 48h apprentice). */
+export const REVIEW_REMINDERS_CRON_NAME = 'review-reminders';
+
+/** Daily commitment unsigned chase cron. */
+export const COMMITMENT_CHASE_CRON_NAME = 'commitment-chase';
 
 /** Daily levy transfer DAS status sync cron. */
 export const LEVY_TRANSFER_STATUS_CRON_NAME = 'levy-transfer-status-daily';

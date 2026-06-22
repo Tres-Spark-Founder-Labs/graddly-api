@@ -1,0 +1,14 @@
+{% extends "layouts/base.html.njk" %}
+
+{% block title %}Weekly OTJ digest{% endblock %}
+
+{% block content %}
+<p>Hi {{ firstName }},</p>
+<p>You have <strong>{{ pendingCount }}</strong> pending OTJ approval(s) awaiting your review.</p>
+<ul>
+  {% for entry in entries %}
+  <li>{{ entry.apprenticeName }} — {{ entry.activityName }} ({{ entry.minutes }} min, {{ entry.loggedDate }})</li>
+  {% endfor %}
+</ul>
+<p>Please sign in to {{ appName }} to approve or reject these entries.</p>
+{% endblock %}

@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Job } from 'bullmq';
 import { Repository } from 'typeorm';
 
+import { CommitmentChaseService } from '../../commitments/commitment-chase.service.js';
 import { CommitmentSignature } from '../../commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatement } from '../../commitments/entities/commitment-statement.entity.js';
 import { CommitmentSignatureStatus } from '../../commitments/enums/commitment-signature-status.enum.js';
@@ -52,6 +53,7 @@ export class PdfGenerationProcessor extends WorkerHost {
     private readonly storage: StorageService,
     private readonly keyBuilder: StorageKeyBuilder,
     private readonly levyRoiReportService: LevyRoiReportService,
+    private readonly commitmentChaseService: CommitmentChaseService,
     @InjectRepository(PdfGenerationJob)
     private readonly jobRepo: Repository<PdfGenerationJob>,
     @InjectRepository(Review)
@@ -167,6 +169,10 @@ export class PdfGenerationProcessor extends WorkerHost {
       }
       if (template === PdfJobTemplate.COMMITMENT_SNAPSHOT && statementId) {
         await this.prepareCommitmentSigning(organisationId, statementId);
+        await this.commitmentChaseService.notifyFirstSigner(
+          organisationId,
+          statementId,
+        );
       }
       if (template === PdfJobTemplate.LEVY_TRANSFER_AGREEMENT && transferId) {
         await this.prepareLevyTransferSigning(transferId);

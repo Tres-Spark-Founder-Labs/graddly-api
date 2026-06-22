@@ -235,7 +235,14 @@ export const envSchema = z
       .optional()
       .default('false')
       .transform((v) => v === 'true'),
-    CRON_REVIEW_REMINDERS_SCHEDULE: z.string().min(1).default('0 7 * * *'),
+    CRON_REVIEW_REMINDERS_SCHEDULE: z.string().min(1).default('0 * * * *'),
+
+    CRON_COMMITMENT_CHASE_ENABLED: z
+      .string()
+      .optional()
+      .default('false')
+      .transform((v) => v === 'true'),
+    CRON_COMMITMENT_CHASE_SCHEDULE: z.string().min(1).default('0 6 * * *'),
 
     CRON_LEVY_EXPIRY_ALERTS_ENABLED: z
       .string()

@@ -4,6 +4,6 @@
 
 {% block content %}
 <p>Hi {{ firstName }},</p>
-<p>This is a reminder that <strong>{{ reviewTitle }}</strong> is scheduled for {{ scheduledAt }} (in {{ daysAhead }} day(s)).</p>
+<p>This is a reminder that <strong>{{ reviewTitle }}</strong> is scheduled for {{ scheduledAt }}{% if hoursAhead %} (in {{ hoursAhead }} hour(s)){% elif daysAhead %} (in {{ daysAhead }} day(s)){% endif %}.</p>
 <p>Please sign in to {{ appName }} to prepare or complete the review.</p>
 {% endblock %}

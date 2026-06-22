@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { CommitmentsModule } from '../commitments/commitments.module.js';
 import { CommitmentSignature } from '../commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatement } from '../commitments/entities/commitment-statement.entity.js';
 import { CompletionPushModule } from '../completion-push/completion-push.module.js';
@@ -54,6 +55,7 @@ import { SystemPingProcessor } from './processors/system-ping.processor.js';
     OfstedModule,
     PortfolioModule,
     ReportingModule,
+    CommitmentsModule,
     TypeOrmModule.forFeature([
       EvidencePackJob,
       EpaPackJob,

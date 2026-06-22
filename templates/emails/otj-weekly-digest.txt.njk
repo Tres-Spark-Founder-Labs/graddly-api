@@ -1,0 +1,9 @@
+Hi {{ firstName }},
+
+You have {{ pendingCount }} pending OTJ approval(s) awaiting your review.
+
+{% for entry in entries %}
+- {{ entry.apprenticeName }} — {{ entry.activityName }} ({{ entry.minutes }} min, {{ entry.loggedDate }})
+{% endfor %}
+
+Please sign in to {{ appName }} to approve or reject these entries.

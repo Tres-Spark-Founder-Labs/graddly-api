@@ -33,7 +33,7 @@ export class ReviewRemindersCronService
 
     const expression = this.config.get<string>(
       'app.cron.reviewRemindersSchedule',
-      '0 7 * * *',
+      '0 * * * *',
     );
     const job = new CronJob(expression, () => {
       void this.handleReviewRemindersCron();

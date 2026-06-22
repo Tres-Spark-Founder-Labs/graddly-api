@@ -82,6 +82,27 @@ describe('DataRetentionService', () => {
     expect(cutoff.getUTCFullYear()).toBe(expected.getUTCFullYear());
   });
 
+  it('runs purge when force is true even if cron is disabled', async () => {
+    mockBatchDelete(auditRepo);
+    for (const repo of [
+      notificationRepo,
+      messageRepo,
+      messageThreadRepo,
+      invitationRepo,
+    ]) {
+      mockBatchDelete(repo);
+    }
+    mockBatchDelete(notificationRepo);
+
+    const summary = await service.runRetentionJob({ force: true });
+    expect(summary).toEqual({
+      auditLogsPurged: 0,
+      softDeletedPurged: 0,
+      oldNotificationsPurged: 0,
+    });
+    expect(auditRepo.createQueryBuilder).toHaveBeenCalled();
+  });
+
   it('returns zero summary when retention cron is disabled', async () => {
     const summary = await service.runRetentionJob();
     expect(summary).toEqual({

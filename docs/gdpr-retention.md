@@ -23,6 +23,25 @@ Runs in the **worker** process only (`SchedulerModule`).
 
 Implementation: [`src/data-retention/`](../src/data-retention/).
 
+## Platform ops API (GDP-001)
+
+When `PLATFORM_OPS_ENABLED=true` and `PLATFORM_OPS_API_KEY` is set (min 32 chars in staging/production):
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/platform/retention/runs` | Paginated retention run history |
+| `POST` | `/api/v1/platform/retention/run` | Run purge immediately (ignores `CRON_RETENTION_ENABLED`) |
+
+```bash
+curl "$BASE_URL/api/v1/platform/retention/runs?page=1&perPage=20" \
+  -H "X-Platform-Ops-Api-Key: $PLATFORM_OPS_API_KEY"
+
+curl -X POST "$BASE_URL/api/v1/platform/retention/run" \
+  -H "X-Platform-Ops-Api-Key: $PLATFORM_OPS_API_KEY"
+```
+
+Automated weekly runs are also recorded when `CRON_RETENTION_ENABLED=true` in the worker.
+
 ## What is / isn't purged
 
 **Purged:**
@@ -69,4 +88,5 @@ curl -X POST "$BASE_URL/api/v1/platform/gdpr/erasure" \
 yarn test data-retention
 yarn test erasure
 yarn test:e2e platform-gdpr
+yarn test:e2e platform-retention
 ```

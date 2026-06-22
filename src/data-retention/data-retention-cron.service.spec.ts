@@ -7,12 +7,15 @@ import { RETENTION_CRON_NAME } from '../scheduler/scheduler.constants.js';
 
 import { DataRetentionCronService } from './data-retention-cron.service.js';
 import { DataRetentionService } from './data-retention.service.js';
+import { RetentionRunTrigger } from './enums/retention-run-trigger.enum.js';
+import { RetentionRunLogService } from './retention-run-log.service.js';
 
 describe('DataRetentionCronService', () => {
   let service: DataRetentionCronService;
   let retentionService: jest.Mocked<
     Pick<DataRetentionService, 'runRetentionJob'>
   >;
+  let runLogService: jest.Mocked<Pick<RetentionRunLogService, 'recordRun'>>;
   let schedulerRegistry: jest.Mocked<
     Pick<
       SchedulerRegistry,
@@ -24,6 +27,7 @@ describe('DataRetentionCronService', () => {
   beforeEach(async () => {
     cronJobs.clear();
     retentionService = { runRetentionJob: jest.fn() };
+    runLogService = { recordRun: jest.fn().mockResolvedValue({ id: 'log-1' }) };
     schedulerRegistry = {
       addCronJob: jest.fn((name: string, job: { stop: jest.Mock }) => {
         cronJobs.set(name, job);
@@ -62,6 +66,7 @@ describe('DataRetentionCronService', () => {
           },
         },
         { provide: DataRetentionService, useValue: retentionService },
+        { provide: RetentionRunLogService, useValue: runLogService },
       ],
     }).compile();
 
@@ -83,6 +88,14 @@ describe('DataRetentionCronService', () => {
       await service.handleRetentionCron();
 
       expect(retentionService.runRetentionJob).toHaveBeenCalled();
+      expect(runLogService.recordRun).toHaveBeenCalledWith(
+        RetentionRunTrigger.CRON,
+        expect.objectContaining({
+          auditLogsPurged: 1,
+          softDeletedPurged: 2,
+          oldNotificationsPurged: 3,
+        }),
+      );
     });
   });
 
@@ -114,6 +127,10 @@ describe('DataRetentionCronService', () => {
           { provide: SchedulerRegistry, useValue: { addCronJob } },
           { provide: CronLockService, useValue: { runExclusive: jest.fn() } },
           { provide: DataRetentionService, useValue: retentionService },
+          {
+            provide: RetentionRunLogService,
+            useValue: { recordRun: jest.fn() },
+          },
         ],
       }).compile();
 

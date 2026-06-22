@@ -8,6 +8,8 @@ import { Message } from '../messaging/entities/message.entity.js';
 import { Notification } from '../notifications/entities/notification.entity.js';
 
 import { DataRetentionService } from './data-retention.service.js';
+import { RetentionRunLog } from './entities/retention-run-log.entity.js';
+import { RetentionRunLogService } from './retention-run-log.service.js';
 
 @Module({
   imports: [
@@ -17,9 +19,10 @@ import { DataRetentionService } from './data-retention.service.js';
       MessageThread,
       Message,
       Invitation,
+      RetentionRunLog,
     ]),
   ],
-  providers: [DataRetentionService],
-  exports: [DataRetentionService],
+  providers: [DataRetentionService, RetentionRunLogService],
+  exports: [DataRetentionService, RetentionRunLogService],
 })
 export class DataRetentionModule {}

@@ -72,6 +72,10 @@ Thresholds (from PRD §7.1):
 
 Optional manual `workflow_dispatch` job only — not blocking PR CI. Run smoke against staging before major releases.
 
+## Sign-off (PERF-001)
+
+Record staging k6 results in [`load/k6/results/`](../load/k6/results/) (see [`2026-06-08-smoke.md`](../load/k6/results/2026-06-08-smoke.md)). Ops completes the staging run and fills the summary table before production release.
+
 ## EXPLAIN notes
 
 When investigating slow queries, use `EXPLAIN (ANALYZE, BUFFERS)` on staging with production-like row counts. Prefer index additions only after confirming sequential scans on listed paths.

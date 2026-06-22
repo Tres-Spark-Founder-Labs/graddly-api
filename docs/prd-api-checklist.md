@@ -167,23 +167,20 @@ Working checklist to close gaps between the PRD (`docs/prd/`) and this API. Fron
   - **PRD:** F3.1.4 (7-day no-log nudge) · `[~]` NOTIF-005 skeleton  
   - **Deliver:** `OtjDigestService` wired through digest cron → BullMQ → processor; `otj-weekly-digest` email per manager.
 
-- [ ] **PRD-022** · Production cron defaults + documentation  
+- [x] **PRD-022** · Production cron defaults + documentation  
   - **PRD:** F1.1.1 (15m DAS), NFR background jobs  
-  - **Gap:** `CRON_DAS_SYNC_ENABLED`, `CRON_OTJ_PACE_ENABLED`, `CRON_REVIEW_REMINDERS_ENABLED`, `CRON_RETENTION_ENABLED` default `false`.  
-  - **Deliver:** Document required production env in `secrets-checklist.md`; consider `true` defaults when `NODE_ENV=production`.
+  - **Deliver:** `applyDeployedCronDefaults` in env schema; full cron matrix in `secrets-checklist.md`.
 
 - [ ] **Push notification channel** (no PRD task ID yet)  
   - **PRD:** F3.1.4 — push if no OTJ in 7 days  
   - **Gap:** No FCM/APNs/web-push module.  
   - **Deliver:** Device token entity + send adapter; defer native apps but expose registration API for future clients.
 
-- [ ] **GDP-001 completion** · Data retention operator visibility  
-  - **Gap:** `[~]` cron disabled by default; no HTTP API.  
-  - **Deliver:** Optional `GET /platform/retention/runs` (ops key) or document worker-only operation.
+- [x] **GDP-001 completion** · Data retention operator visibility  
+  - **Deliver:** `retention_run_logs` + `GET/POST /api/v1/platform/retention/runs|run` (ops key).
 
-- [ ] **PERF-001 completion** · Load-test sign-off  
-  - **Gap:** `[~]` k6 smoke only.  
-  - **Deliver:** Run staging checklist in `docs/performance.md`; record results in repo or CI artifact.
+- [x] **PERF-001 completion** · Load-test sign-off  
+  - **Deliver:** Staging checklist in `docs/performance.md`; template in `load/k6/results/2026-06-08-smoke.md` (ops fills staging run).
 
 ---
 

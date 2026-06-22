@@ -27,6 +27,6 @@ import { PlatformOpsApiKeyGuard } from './platform-ops-api-key.guard.js';
   ],
   controllers: [PlatformGdprController],
   providers: [ErasureService, PlatformOpsApiKeyGuard],
-  exports: [ErasureService],
+  exports: [ErasureService, PlatformOpsApiKeyGuard],
 })
 export class PlatformGdprModule {}

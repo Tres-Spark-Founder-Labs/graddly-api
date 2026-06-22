@@ -39,8 +39,10 @@ export class DataRetentionService {
     return this.config.get<boolean>('app.cron.retentionEnabled', false);
   }
 
-  async runRetentionJob(): Promise<RetentionRunSummary> {
-    if (!this.isEnabled()) {
+  async runRetentionJob(options?: {
+    force?: boolean;
+  }): Promise<RetentionRunSummary> {
+    if (!options?.force && !this.isEnabled()) {
       this.logger.debug('Retention cron disabled; skipping');
       return {
         auditLogsPurged: 0,
@@ -69,9 +71,14 @@ export class DataRetentionService {
   async purgeExpiredAuditLogs(): Promise<number> {
     const years = this.config.get<number>('app.retention.auditYears', 7);
     const cutoff = this.yearsAgo(years);
-    return this.batchDelete(this.auditRepo, 'audit', 'createdAt < :cutoff', {
-      cutoff,
-    });
+    return this.batchDelete(
+      this.auditRepo,
+      'audit',
+      'audit.createdAt < :cutoff',
+      {
+        cutoff,
+      },
+    );
   }
 
   async purgeSoftDeletedRecords(ttlDays: number): Promise<number> {

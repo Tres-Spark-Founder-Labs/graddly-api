@@ -53,6 +53,8 @@ export default registerAs('app', () => {
       digestSchedule: e.CRON_DIGEST_SCHEDULE,
       dasSyncEnabled: e.CRON_DAS_SYNC_ENABLED,
       dasSyncSchedule: e.CRON_DAS_SYNC_SCHEDULE,
+      dasFundingSyncEnabled: e.CRON_DAS_FUNDING_SYNC_ENABLED,
+      dasFundingSyncSchedule: e.CRON_DAS_FUNDING_SYNC_SCHEDULE,
       otjPaceEnabled: e.CRON_OTJ_PACE_ENABLED,
       otjPaceSchedule: e.CRON_OTJ_PACE_SCHEDULE,
       reviewOverdueEnabled: e.CRON_REVIEW_OVERDUE_ENABLED,
@@ -155,6 +157,7 @@ export default registerAs('app', () => {
       transferStatusPath: e.DAS_LEVY_TRANSFER_STATUS_PATH,
       enrolmentSubmitPath: e.DAS_ENROLMENT_SUBMIT_PATH,
       completionNotifyPath: e.DAS_COMPLETION_NOTIFY_PATH,
+      fundingPaymentsPath: e.DAS_FUNDING_PAYMENTS_PATH,
       timeoutMs: e.DAS_TIMEOUT_MS,
     },
     levyExchange: {

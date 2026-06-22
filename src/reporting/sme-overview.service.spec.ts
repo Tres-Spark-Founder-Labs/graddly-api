@@ -2,6 +2,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { DasFundingSyncService } from '../das/das-funding-sync.service.js';
 import { LearnerMetricsService } from '../learners/learner-metrics.service.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
@@ -9,6 +10,7 @@ import { Review } from '../reviews/entities/review.entity.js';
 
 import { CommitmentPipelineService } from './commitment-pipeline.service.js';
 import { CommitmentPipelineStatus } from './enums/commitment-pipeline-status.enum.js';
+import { FundingClaimStatus } from './enums/funding-claim-status.enum.js';
 import { OtjProgressMetricsService } from './otj-progress-metrics.service.js';
 import { ReportingPortalService } from './reporting-portal.service.js';
 import { SmeOverviewService } from './sme-overview.service.js';
@@ -29,6 +31,10 @@ describe('SmeOverviewService', () => {
   const pipelineService = {
     countByPipelineStatus: jest.fn(),
   };
+  const fundingSyncService = {
+    getFundingSummary: jest.fn(),
+    deriveFundingClaimStatus: jest.fn(),
+  };
   const otjLogRepo = {
     findAndCount: jest.fn(),
   };
@@ -45,6 +51,7 @@ describe('SmeOverviewService', () => {
         { provide: LearnerMetricsService, useValue: learnerMetrics },
         { provide: OtjProgressMetricsService, useValue: otjMetrics },
         { provide: CommitmentPipelineService, useValue: pipelineService },
+        { provide: DasFundingSyncService, useValue: fundingSyncService },
         { provide: getRepositoryToken(OtjLogEntry), useValue: otjLogRepo },
         { provide: getRepositoryToken(Review), useValue: reviewRepo },
       ],
@@ -54,6 +61,13 @@ describe('SmeOverviewService', () => {
     portalService.assertPortalType.mockResolvedValue({
       portalType: PortalType.FLOW,
     });
+    fundingSyncService.getFundingSummary.mockResolvedValue({
+      totalReceived: 0,
+      lastPaymentDate: null,
+      pendingClawbackCount: 0,
+      currency: 'GBP',
+    });
+    fundingSyncService.deriveFundingClaimStatus.mockReturnValue('no_payments');
   });
 
   it('requires Flow portal type', async () => {
@@ -97,6 +111,9 @@ describe('SmeOverviewService', () => {
     );
     expect(result.summary.activeApprenticeCount).toBe(1);
     expect(result.summary.reviewsDueThisMonthCount).toBe(2);
+    expect(result.summary.fundingClaimStatus).toBe(
+      FundingClaimStatus.NO_PAYMENTS,
+    );
     expect(result.apprentices[0]?.learnerName).toBe('Alex Apprentice');
     expect(result.apprentices[0]?.otjPercent).toBe(55.5);
   });

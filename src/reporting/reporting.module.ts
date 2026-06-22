@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module.js';
 import { CommitmentStatementGroup } from '../commitments/entities/commitment-statement-group.entity.js';
 import { DasModule } from '../das/das.module.js';
+import { DasLevyBalance } from '../das/entities/das-levy-balance.entity.js';
 import { EnrolmentsModule } from '../enrolments/enrolments.module.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { LearnersModule } from '../learners/learners.module.js';
@@ -22,6 +23,8 @@ import { EmployerDirectoryController } from './employer-directory.controller.js'
 import { EmployerDirectoryService } from './employer-directory.service.js';
 import { LevyRoiReportController } from './levy-roi-report.controller.js';
 import { LevyRoiReportService } from './levy-roi-report.service.js';
+import { LevyUtilisationController } from './levy-utilisation.controller.js';
+import { LevyUtilisationService } from './levy-utilisation.service.js';
 import { OtjProgressMetricsService } from './otj-progress-metrics.service.js';
 import { ReportingPortalService } from './reporting-portal.service.js';
 import { SmeOverviewController } from './sme-overview.controller.js';
@@ -45,10 +48,12 @@ import { SmeOverviewService } from './sme-overview.service.js';
       OtjLogEntry,
       Review,
       CommitmentStatementGroup,
+      DasLevyBalance,
     ]),
   ],
   controllers: [
     LevyRoiReportController,
+    LevyUtilisationController,
     EmployerDirectoryController,
     SmeOverviewController,
   ],
@@ -57,6 +62,7 @@ import { SmeOverviewService } from './sme-overview.service.js';
     OtjProgressMetricsService,
     CommitmentPipelineService,
     LevyRoiReportService,
+    LevyUtilisationService,
     EmployerDirectoryService,
     SmeOverviewService,
   ],

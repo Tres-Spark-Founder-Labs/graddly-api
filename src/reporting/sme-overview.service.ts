@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
 
+import { DasFundingSyncService } from '../das/das-funding-sync.service.js';
 import { LearnerMetricsService } from '../learners/learner-metrics.service.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
@@ -11,6 +12,7 @@ import { ReviewStatus } from '../reviews/enums/review-status.enum.js';
 
 import { CommitmentPipelineService } from './commitment-pipeline.service.js';
 import { CommitmentPipelineStatus } from './enums/commitment-pipeline-status.enum.js';
+import { FundingClaimStatus } from './enums/funding-claim-status.enum.js';
 import { OtjProgressMetricsService } from './otj-progress-metrics.service.js';
 import { ReportingPortalService } from './reporting-portal.service.js';
 
@@ -25,6 +27,7 @@ export class SmeOverviewService {
     private readonly learnerMetrics: LearnerMetricsService,
     private readonly otjMetrics: OtjProgressMetricsService,
     private readonly pipelineService: CommitmentPipelineService,
+    private readonly fundingSyncService: DasFundingSyncService,
     @InjectRepository(OtjLogEntry)
     private readonly otjLogRepo: Repository<OtjLogEntry>,
     @InjectRepository(Review)
@@ -38,17 +41,23 @@ export class SmeOverviewService {
       await this.learnerMetrics.loadActiveEnrolments(organisationId);
     const enrolmentIds = enrolments.map((e) => e.id);
 
-    const [pendingOtj, reviewsDueCount, pipelineCounts, contexts] =
-      await Promise.all([
-        this.loadPendingOtjApprovals(organisationId),
-        this.countReviewsDueThisMonth(organisationId),
-        this.pipelineService.countByPipelineStatus(organisationId),
-        Promise.all(
-          enrolments.map((enrolment) =>
-            this.learnerMetrics.buildContext(enrolment, organisationId),
-          ),
+    const [
+      pendingOtj,
+      reviewsDueCount,
+      pipelineCounts,
+      fundingSummary,
+      contexts,
+    ] = await Promise.all([
+      this.loadPendingOtjApprovals(organisationId),
+      this.countReviewsDueThisMonth(organisationId),
+      this.pipelineService.countByPipelineStatus(organisationId),
+      this.fundingSyncService.getFundingSummary(organisationId),
+      Promise.all(
+        enrolments.map((enrolment) =>
+          this.learnerMetrics.buildContext(enrolment, organisationId),
         ),
-      ]);
+      ),
+    ]);
 
     const apprentices = await Promise.all(
       contexts.map(async (ctx) => {
@@ -76,6 +85,7 @@ export class SmeOverviewService {
         pendingOtjApprovalCount: pendingOtj.total,
         reviewsDueThisMonthCount: reviewsDueCount,
         commitmentPipeline: this.mapPipelineCounts(pipelineCounts),
+        fundingClaimStatus: this.mapFundingClaimStatus(fundingSummary),
       },
       pendingOtjApprovals: pendingOtj.items,
       apprentices,
@@ -131,6 +141,19 @@ export class SmeOverviewService {
         isDeleted: false,
       },
     });
+  }
+
+  private mapFundingClaimStatus(
+    summary: Awaited<ReturnType<DasFundingSyncService['getFundingSummary']>>,
+  ): FundingClaimStatus {
+    const status = this.fundingSyncService.deriveFundingClaimStatus(summary);
+    if (status === 'clawback_pending') {
+      return FundingClaimStatus.CLAWBACK_PENDING;
+    }
+    if (status === 'no_payments') {
+      return FundingClaimStatus.NO_PAYMENTS;
+    }
+    return FundingClaimStatus.SYNCED;
   }
 
   private mapPipelineCounts(

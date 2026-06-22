@@ -27,7 +27,7 @@ Update this table when starting or completing a phase. Status: `not_started` · 
 | 6 | Provider operations | PRD-009, PRD-010, PRD-021, PRD-011 | P1 | 23 | done | feat/prd-phase-6-provider-ops | 2026-06-10 |
 | 7 | FlowPortal funnel | PRD-014, PRD-015, PRD-017 | P0/P1 | 23 | done | feat/prd-phase-7-flowportal-funnel | — |
 | 8 | FlowPortal AI programmes | PRD-016 | P0 | 13 | done | feat/prd-phase-8-ai-programmes | — |
-| 9 | Employer reporting + DAS funding | PRD-012, PRD-013 | P1 | 16 | not_started | — | — |
+| 9 | Employer reporting + DAS funding | PRD-012, PRD-013 | P1 | 16 | done | feat/prd-phase-9-employer-reporting | — |
 | 10 | Automation and chasers | PRD-019, PRD-023, PRD-024 | P2/P1 | 11 | not_started | — | — |
 | 11 | Ops and NFR | PRD-022, GDP-001, PERF-001 | P2 | 8 | not_started | — | — |
 

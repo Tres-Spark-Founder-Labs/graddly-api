@@ -4,6 +4,8 @@ import { BaseEntity } from '../../common/entities/base.entity.js';
 import { Organisation } from '../../organisations/entities/organisation.entity.js';
 import { DasSyncStatus } from '../enums/das-sync-status.enum.js';
 
+import type { IDasUtilisationSegments } from '../types/das-utilisation-segments.types.js';
+
 @Entity('das_levy_balances')
 @Index('UQ_das_levy_balances_active_org', ['organisationId'], {
   unique: true,
@@ -45,4 +47,7 @@ export class DasLevyBalance extends BaseEntity {
 
   @Column({ type: 'jsonb', nullable: true })
   rawPayload!: Record<string, unknown> | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  utilisationSegments!: IDasUtilisationSegments | null;
 }

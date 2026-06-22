@@ -72,7 +72,7 @@ phase_order,phase,task_id,task,status,timeline,story_points,assignee,depends_on,
 19,S,LEX-003,Rule-based matching API v1,Done,Phase S,8,TBD,LEX-002,"Assisted mode aligns with PRD Phase 1"
 19,S,LEX-004,Transfer docs e-sign + DAS transfer create,Partial,Phase S,8,TBD,LEX-003 ESIG-002 DAS-005,"E-sign + transfer flow done; live DAS transfer submit needs config"
 20,T,MSG-001,Direct messaging threads + attachments,Done,Phase T,8,TBD,DOM-002 STO-003 NOTIF-003,
-20,T,RPT-001,Levy ROI reporting endpoints + PDF reuse,Partial,Phase T,5,TBD,DAS-006 PDF-002,"Built early (PRD Phase 2); stub EPA pass rate + spend proxy — see PRD-012"
+20,T,RPT-001,Levy ROI reporting endpoints + PDF reuse,Partial,Phase T,5,TBD,DAS-006 PDF-002,"EPA pass rate stub remains; monthly contributions + funding summary wired (PRD-012/013)"
 20,T,RPT-002,Employer directory metrics API,Done,Phase T,5,TBD,DOM-004 OTJ-003,
 21,U,SEC-001,Helmet + CSP baseline review,Done,Phase U,3,TBD,,"configure-helmet.ts + docs/security-headers.md"
 21,U,GDP-001,Data retention scheduled jobs,Partial,Phase U,5,TBD,,"Cron + service exist; CRON_RETENTION_ENABLED=false; no operator API"
@@ -92,8 +92,8 @@ phase_order,phase,task_id,task,status,timeline,story_points,assignee,depends_on,
 23,PRD,PRD-009,Provider at-risk intervention queue API,Done,PRD MVP,8,TBD,OTJ-003 REV-001,"F2.2.2; log intervention actions"
 23,PRD,PRD-010,Provider learner cohort dashboard API,Done,PRD MVP,5,TBD,RPT-002 DOM-004,"F2.2.1; unified columns + export"
 23,PRD,PRD-011,EIF real safeguarding + programme docs inputs,Done,PRD MVP,5,TBD,EIF-001,"Remove stub percents in eif-score-calculator"
-23,PRD,PRD-012,Levy utilisation history + cost-per-apprentice APIs,Not started,PRD MVP,8,TBD,DAS-002 RPT-001,"F1.1.3 monthly contribution/spend series"
-23,PRD,PRD-013,DAS funding payment confirmation daily sync,Not started,PRD MVP,8,TBD,DAS-001,"07-integrations.md §8.1"
+23,PRD,PRD-012,Levy utilisation history + cost-per-apprentice APIs,Done,PRD MVP,8,TBD,DAS-002 RPT-001,"F1.1.3 monthly contribution/spend series"
+23,PRD,PRD-013,DAS funding payment confirmation daily sync,Done,PRD MVP,8,TBD,DAS-001,"07-integrations.md §8.1"
 23,PRD,PRD-014,FlowPortal levy eligibility checker (anonymous),Done,PRD MVP,5,TBD,LEX-003,"F4.2.1"
 23,PRD,PRD-015,FlowPortal ESFA registration wizard API,Done,PRD MVP,13,TBD,PRD-014,"F4.2.2; multi-step progress + Companies House"
 23,PRD,PRD-016,FlowPortal Module C — AI apprenticeship programmes API,Done,PRD MVP,13,TBD,DOM-001,"F4.4.1–4.4.3; feat/prd-phase-8-ai-programmes"

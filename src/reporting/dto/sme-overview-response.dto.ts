@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+import { FundingClaimStatus } from '../enums/funding-claim-status.enum.js';
+
 export class SmeCommitmentPipelineCountsDto {
   @ApiProperty({ example: 2 })
   none!: number;
@@ -29,6 +31,14 @@ export class SmeOverviewSummaryDto {
 
   @ApiProperty({ type: SmeCommitmentPipelineCountsDto })
   commitmentPipeline!: SmeCommitmentPipelineCountsDto;
+
+  @ApiProperty({
+    enum: FundingClaimStatus,
+    description:
+      'Lightweight funding claim status from latest DAS payment sync',
+    example: FundingClaimStatus.SYNCED,
+  })
+  fundingClaimStatus!: FundingClaimStatus;
 }
 
 export class SmePendingOtjApprovalDto {

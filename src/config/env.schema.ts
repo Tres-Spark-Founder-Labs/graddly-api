@@ -188,6 +188,10 @@ export const envSchema = z
       .string()
       .min(1)
       .default('/api/apprenticeships/completions'),
+    DAS_FUNDING_PAYMENTS_PATH: z
+      .string()
+      .min(1)
+      .default('/api/funding/payments'),
     DAS_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60000).default(10000),
 
     DAS_DONOR_OAUTH_AUTHORIZE_URL: z.string().url().optional().default(''),
@@ -204,6 +208,13 @@ export const envSchema = z
       .default('false')
       .transform((v) => v === 'true'),
     CRON_DAS_SYNC_SCHEDULE: z.string().min(1).default('*/15 * * * *'),
+
+    CRON_DAS_FUNDING_SYNC_ENABLED: z
+      .string()
+      .optional()
+      .default('false')
+      .transform((v) => v === 'true'),
+    CRON_DAS_FUNDING_SYNC_SCHEDULE: z.string().min(1).default('0 2 * * *'),
 
     CRON_OTJ_PACE_ENABLED: z
       .string()

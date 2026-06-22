@@ -110,10 +110,9 @@ Working checklist to close gaps between the PRD (`docs/prd/`) and this API. Fron
 
 ### Employer (Portal 1)
 
-- [ ] **PRD-012** · Levy utilisation history + cost-per-apprentice  
+- [x] **PRD-012** · Levy utilisation history + cost-per-apprentice  
   - **PRD:** F1.1.3  
-  - **Gap:** Forecast exists (`GET /das/levy-forecast`); no monthly contribution/spend series or cost-per-apprentice table.  
-  - **Deliver:** Persist DAS transaction/contribution history on sync; `GET /reporting/levy-utilisation` with 12-month series + segments (used / expiring / available) + cost table.
+  - **Deliver:** `das_levy_monthly_entries` + `utilisationSegments` on levy sync; `GET /reporting/levy-utilisation` (12-month series, segments, cost-per-apprentice, forecast); `monthlyContributions` on `GET /reporting/levy-roi` + PDF segment section.
 
 - [x] **PRD-003** · Enrolment pipeline sub-states  
   - **PRD:** F1.2.x · `01-platform.md` §2.4  
@@ -153,9 +152,9 @@ Working checklist to close gaps between the PRD (`docs/prd/`) and this API. Fron
   - **Gap:** `[~]` ILR-003 — synchronous submit in v1.  
   - **Deliver:** `ilr-submit` queue + processor + DLQ; idempotent submit/amend.
 
-- [ ] **PRD-013** · DAS funding payment confirmation sync  
+- [x] **PRD-013** · DAS funding payment confirmation sync  
   - **PRD:** `07-integrations.md` §8.1 — daily batch  
-  - **Deliver:** Daily cron + `das_funding_payments` table; expose summary on SME/employer reporting APIs.
+  - **Deliver:** `das_funding_payments` table; daily cron (`CRON_DAS_FUNDING_SYNC_*`) + BullMQ job; `GET /das/funding-payments`; `fundingSummary` on levy ROI + `fundingClaimStatus` on SME overview.
 
 ---
 
@@ -226,7 +225,7 @@ Quick reference for sprint planning. **Done** = API supports PRD intent for v1; 
 |-----|---------|------------|-----------|
 | F1.1.1 | Real-time levy balance | Partial | PRD-022, live DAS |
 | F1.1.2 | Expiry alerts | Partial | Crons exist; enable in prod |
-| F1.1.3 | Utilisation chart | Partial | PRD-012 |
+| F1.1.3 | Utilisation chart | Done | PRD-012 |
 | F1.2.1–5 | Apprentice tracking | Partial | PRD-003, PRD-010 |
 | F1.3.1–3 | Commitments | Partial | PRD-019 |
 

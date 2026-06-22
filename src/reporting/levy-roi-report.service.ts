@@ -6,8 +6,11 @@ import {
   getRlsBootstrap,
   setRlsBootstrap,
 } from '../common/context/correlation-id-context.js';
+import { DasFundingSyncService } from '../das/das-funding-sync.service.js';
 import { DasLevyForecastService } from '../das/das-levy-forecast.service.js';
+import { DasLevyMonthlyService } from '../das/das-levy-monthly.service.js';
 import { DasLevySyncService } from '../das/das-levy-sync.service.js';
+import { DasLevyBalance } from '../das/entities/das-levy-balance.entity.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
 import { LevyTransfer } from '../levy-exchange/entities/levy-transfer.entity.js';
@@ -39,10 +42,14 @@ export class LevyRoiReportService {
   constructor(
     private readonly portalService: ReportingPortalService,
     private readonly dasSyncService: DasLevySyncService,
+    private readonly monthlyService: DasLevyMonthlyService,
+    private readonly fundingSyncService: DasFundingSyncService,
     private readonly forecastService: DasLevyForecastService,
     private readonly surplusService: LevySurplusService,
     private readonly otjMetricsService: OtjProgressMetricsService,
     private readonly pdfDispatch: PdfDispatchService,
+    @InjectRepository(DasLevyBalance)
+    private readonly levyBalanceRepo: Repository<DasLevyBalance>,
     @InjectRepository(Enrolment)
     private readonly enrolmentRepo: Repository<Enrolment>,
     @InjectRepository(Standard)
@@ -59,16 +66,25 @@ export class LevyRoiReportService {
       PortalType.EMPLOYER,
     );
 
-    const [balance, forecast, surplusSummary, enrolments, transferTotal] =
-      await Promise.all([
-        this.dasSyncService.getLatestForOrganisation(organisationId),
-        this.forecastService.forecastForOrganisation(organisationId),
-        this.surplusService.getSurplus(organisationId),
-        this.enrolmentRepo.find({
-          where: { organisationId, isDeleted: false },
-        }),
-        this.sumConfirmedTransfers(organisationId),
-      ]);
+    const [
+      balance,
+      forecast,
+      surplusSummary,
+      enrolments,
+      transferTotal,
+      monthlyEntries,
+      fundingSummary,
+    ] = await Promise.all([
+      this.dasSyncService.getLatestForOrganisation(organisationId),
+      this.forecastService.forecastForOrganisation(organisationId),
+      this.surplusService.getSurplus(organisationId),
+      this.enrolmentRepo.find({
+        where: { organisationId, isDeleted: false },
+      }),
+      this.sumConfirmedTransfers(organisationId),
+      this.monthlyService.listLast12Months(organisationId),
+      this.fundingSyncService.getFundingSummary(organisationId),
+    ]);
 
     const activeEnrolments = enrolments.filter(
       (e) => e.status === EnrolmentStatus.ACTIVE,
@@ -106,7 +122,10 @@ export class LevyRoiReportService {
       epaPassRate: null,
       estimatedProductivityUplift:
         completedEnrolments.length * PRODUCTIVITY_UPLIFT_FACTOR,
-      monthlyContributions: [],
+      monthlyContributions: this.monthlyService
+        .toMonthlyContributionDtos(monthlyEntries)
+        .map((row) => ({ month: row.month, amount: row.amount })),
+      fundingSummary,
       generatedAt: new Date().toISOString(),
     };
   }
@@ -164,18 +183,38 @@ export class LevyRoiReportService {
   async buildPdfContent(
     organisationId: string,
   ): Promise<ILevyRoiReportContent> {
-    const [organisation, summary, providerBreakdown, standardBreakdown] =
-      await Promise.all([
-        this.loadOrganisationWithBootstrap(organisationId),
-        this.getSummary(organisationId),
-        this.getBreakdown(organisationId, LevyRoiBreakdownGroup.PROVIDER),
-        this.getBreakdown(organisationId, LevyRoiBreakdownGroup.STANDARD),
-      ]);
+    const [
+      organisation,
+      summary,
+      providerBreakdown,
+      standardBreakdown,
+      balance,
+    ] = await Promise.all([
+      this.loadOrganisationWithBootstrap(organisationId),
+      this.getSummary(organisationId),
+      this.getBreakdown(organisationId, LevyRoiBreakdownGroup.PROVIDER),
+      this.getBreakdown(organisationId, LevyRoiBreakdownGroup.STANDARD),
+      this.levyBalanceRepo.findOne({
+        where: { organisationId, isDeleted: false },
+      }),
+    ]);
 
     return {
       organisationName: organisation.name,
       logoUrl: organisation.logoUrl,
-      summary,
+      summary: {
+        totalLevySpendToDate: summary.totalLevySpendToDate,
+        availableBalance: summary.availableBalance,
+        currency: summary.currency,
+        utilisationPercent: summary.utilisationPercent,
+        activeApprenticeCount: summary.activeApprenticeCount,
+        completionCount: summary.completionCount,
+        averageCostPerCompletion: summary.averageCostPerCompletion,
+        epaPassRate: summary.epaPassRate,
+        estimatedProductivityUplift: summary.estimatedProductivityUplift,
+        monthlyContributions: summary.monthlyContributions,
+        utilisationSegments: balance?.utilisationSegments ?? null,
+      },
       breakdownByProvider: providerBreakdown,
       breakdownByStandard: standardBreakdown,
       generatedAt: new Date().toISOString(),

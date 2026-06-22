@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 
 import { DasHttpClient } from './das-http.client.js';
+import { DasLevyMonthlyService } from './das-levy-monthly.service.js';
 import { DasLevySyncService } from './das-levy-sync.service.js';
 import { DasLevyBalance } from './entities/das-levy-balance.entity.js';
 import { DasSyncStatus } from './enums/das-sync-status.enum.js';
@@ -17,12 +18,21 @@ describe('DasLevySyncService', () => {
   const levyCreate = jest.fn();
   const levySave = jest.fn();
   const orgFindOne = jest.fn();
+  const upsertFromRawPayload = jest.fn();
+  const buildUtilisationSegments = jest.fn();
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         DasLevySyncService,
         { provide: DasHttpClient, useValue: { fetchLevyBalance } },
+        {
+          provide: DasLevyMonthlyService,
+          useValue: {
+            upsertFromRawPayload,
+            buildUtilisationSegments,
+          },
+        },
         {
           provide: getRepositoryToken(DasLevyBalance),
           useValue: {
@@ -50,8 +60,15 @@ describe('DasLevySyncService', () => {
       accountId: 'acc-1',
       balance: '99.20',
       currency: 'GBP',
-      raw: {},
+      raw: { monthlyContributions: [{ month: '2025-01', amount: 1000 }] },
     });
+    buildUtilisationSegments.mockReturnValue({
+      used: 0,
+      expiringWithin90Days: 0,
+      available: 99.2,
+      currency: 'GBP',
+    });
+    upsertFromRawPayload.mockResolvedValue(undefined);
     levySave.mockImplementation((value: DasLevyBalance) =>
       Promise.resolve(value),
     );
@@ -59,6 +76,8 @@ describe('DasLevySyncService', () => {
     const result = await service.syncOrganisation('org-1', 'user-1');
     expect(result.lastSyncStatus).toBe(DasSyncStatus.SUCCESS);
     expect(result.balance).toBe('99.20');
+    expect(upsertFromRawPayload).toHaveBeenCalled();
+    expect(buildUtilisationSegments).toHaveBeenCalled();
   });
 
   it('returns latest levy balance for organisation', async () => {

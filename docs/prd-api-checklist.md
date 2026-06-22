@@ -92,21 +92,21 @@ Working checklist to close gaps between the PRD (`docs/prd/`) and this API. Fron
 
 ### Provider (Portal 2)
 
-- [ ] **PRD-009** · At-risk intervention queue  
+- [x] **PRD-009** · At-risk intervention queue  
   - **PRD:** F2.2.2  
   - **Gap:** No queue entity or endpoints.  
   - **Deliver:** `GET /learners/intervention-queue` (severity sort); `POST .../:enrolmentId/interventions` (contact made / review scheduled / employer notified / escalated); wire overdue reviews + OTJ off_track.
 
-- [ ] **PRD-010** · Learner cohort dashboard API  
+- [x] **PRD-010** · Learner cohort dashboard API  
   - **PRD:** F2.2.1  
   - **Gap:** `[~]` `employer-directory` + raw `enrolments` list — not unified learner table.  
   - **Deliver:** `GET /learners/cohort` — columns: name, employer, standard, start, OTJ %, next review, EPA date, status badge, tutor; filters; CSV export endpoint.
 
-- [ ] **PRD-021** · Individual learner profile (aggregate)  
+- [x] **PRD-021** · Individual learner profile (aggregate)  
   - **PRD:** F2.2.4  
   - **Deliver:** `GET /learners/:enrolmentId/profile` — personal, employer, standard, tutor, reviews, OTJ, document refs, message thread IDs, break-in-learning actions.
 
-- [ ] **PRD-011** · EIF real inputs (remove stubs)  
+- [x] **PRD-011** · EIF real inputs (remove stubs)  
   - **PRD:** F2.1.1  
   - **Gap:** `[~]` EIF-001 — `safeguarding_stub` (70%) and `programme_docs_stub` (75%) in `eif-score-calculator.service.ts`.  
   - **Deliver:** Real safeguarding + programme document coverage metrics; update `eif-criteria.v1.json`.

@@ -12,6 +12,8 @@ All routes require `Authorization: Bearer <token>` and an active organisation (`
 |----------------|---------|
 | `src/ofsted/config/eif-criteria.v1.json` | Versioned catalogue of 7 EIF criterion slugs + labels (not tenant-scoped) |
 | `qip_actions` | Quality Improvement Plan actions per organisation (RLS-scoped) |
+| `safeguarding_checklist_items` | Org safeguarding checklist for EIF safeguarding criterion |
+| `programme_documents` | Required EIF programme uploads per programme |
 | `evidence_pack_jobs` | Async ZIP export jobs per organisation |
 
 ### EIF criterion slugs (v1)
@@ -51,7 +53,30 @@ Jobs run on the BullMQ `evidence-pack` queue in the **worker** process (`yarn st
 
 **Cache:** Redis key `eif:scores:{organisationId}` with TTL `EIF_SCORE_CACHE_TTL_SECONDS` (default `3600`; `0` disables caching). Response field `cached: true` on cache hits. Invalidated when OTJ approve/reject, review completion, commitment fully signed, ILR validate, or KSB evidence accept changes underlying data.
 
-**v1 scoring:** stub weighting from live domain signals (OTJ pace, reviews, commitments, ILR validation, portfolio evidence, programme count). Safeguarding and programme-doc criteria use placeholder constants until dedicated modules exist.
+**v1 scoring:** live domain signals (OTJ pace, reviews, commitments, ILR validation, portfolio evidence, programme document coverage, safeguarding checklist completion).
+
+| Metric key | Source |
+|------------|--------|
+| `programme_docs` | % of required document types filled across **active** programmes |
+| `safeguarding` | % of org safeguarding checklist items marked complete |
+
+### Safeguarding checklist
+
+Auto-seeded on first access (4 items). Mark complete via PATCH.
+
+```http
+GET /api/v1/ofsted/safeguarding-checklist
+PATCH /api/v1/ofsted/safeguarding-checklist/:slug
+```
+
+### Programme documents
+
+One document per required type per programme (`curriculum_map`, `assessment_strategy`, `industry_engagement`).
+
+```http
+GET /api/v1/programmes/:programmeId/documents
+POST /api/v1/programmes/:programmeId/documents
+```
 
 ### List EIF criteria
 

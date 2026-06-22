@@ -49,6 +49,10 @@ import { ReportingPortalService } from './reporting-portal.service.js';
     LevyRoiReportService,
     EmployerDirectoryService,
   ],
-  exports: [LevyRoiReportService],
+  exports: [
+    LevyRoiReportService,
+    ReportingPortalService,
+    OtjProgressMetricsService,
+  ],
 })
 export class ReportingModule {}

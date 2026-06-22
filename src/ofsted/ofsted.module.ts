@@ -19,13 +19,19 @@ import { EifScoreCalculatorService } from './eif-score-calculator.service.js';
 import { EifScoreService } from './eif-score.service.js';
 import { EifScoresController } from './eif-scores.controller.js';
 import { EvidencePackJob } from './entities/evidence-pack-job.entity.js';
+import { ProgrammeDocument } from './entities/programme-document.entity.js';
 import { QipAction } from './entities/qip-action.entity.js';
+import { SafeguardingChecklistItem } from './entities/safeguarding-checklist-item.entity.js';
 import { EvidencePackBuilderService } from './evidence-pack-builder.service.js';
 import { EvidencePackDispatchService } from './evidence-pack-dispatch.service.js';
 import { EvidencePackJobsController } from './evidence-pack-jobs.controller.js';
 import { EvidencePackJobsService } from './evidence-pack-jobs.service.js';
+import { ProgrammeDocumentsController } from './programme-documents.controller.js';
+import { ProgrammeDocumentsService } from './programme-documents.service.js';
 import { QipActionsController } from './qip-actions.controller.js';
 import { QipActionsService } from './qip-actions.service.js';
+import { SafeguardingChecklistController } from './safeguarding-checklist.controller.js';
+import { SafeguardingChecklistService } from './safeguarding-checklist.service.js';
 
 @Module({
   imports: [
@@ -35,6 +41,8 @@ import { QipActionsService } from './qip-actions.service.js';
     TypeOrmModule.forFeature([
       QipAction,
       EvidencePackJob,
+      SafeguardingChecklistItem,
+      ProgrammeDocument,
       OrganisationMembership,
       Enrolment,
       OtjLogEntry,
@@ -50,12 +58,16 @@ import { QipActionsService } from './qip-actions.service.js';
     EifScoresController,
     QipActionsController,
     EvidencePackJobsController,
+    SafeguardingChecklistController,
+    ProgrammeDocumentsController,
   ],
   providers: [
     EifScoreCacheService,
     EifScoreCalculatorService,
     EifScoreService,
     QipActionsService,
+    SafeguardingChecklistService,
+    ProgrammeDocumentsService,
     EvidencePackDispatchService,
     EvidencePackJobsService,
     EvidencePackBuilderService,

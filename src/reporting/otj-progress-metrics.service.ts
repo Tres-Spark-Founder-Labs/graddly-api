@@ -90,4 +90,30 @@ export class OtjProgressMetricsService {
     const percent = (approvedMinutes / expectedMinutes) * 100;
     return Number(Math.min(percent, 100).toFixed(2));
   }
+
+  async percentForEnrolment(
+    organisationId: string,
+    enrolment: Pick<Enrolment, 'id' | 'plannedDurationMonths'>,
+  ): Promise<number | null> {
+    const approvedMinutes = await this.approvedMinutesForEnrolment(
+      organisationId,
+      enrolment.id,
+    );
+    return this.computePercentForEnrolment(enrolment, approvedMinutes);
+  }
+
+  async approvedMinutesForEnrolment(
+    organisationId: string,
+    enrolmentId: string,
+  ): Promise<number> {
+    const result = await this.otjLogRepo
+      .createQueryBuilder('entry')
+      .select('COALESCE(SUM(entry.minutes), 0)', 'total')
+      .where('entry.organisationId = :organisationId', { organisationId })
+      .andWhere('entry.enrolmentId = :enrolmentId', { enrolmentId })
+      .andWhere('entry.status = :status', { status: OtjLogStatus.APPROVED })
+      .andWhere('entry.isDeleted = false')
+      .getRawOne<{ total: string }>();
+    return Number(result?.total ?? 0);
+  }
 }

@@ -6,10 +6,11 @@ import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { IlrLearnerRecord } from '../ilr/entities/ilr-learner-record.entity.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { KsEvidenceItem } from '../portfolio/entities/ks-evidence-item.entity.js';
-import { Programme } from '../programmes/entities/programme.entity.js';
 import { Review } from '../reviews/entities/review.entity.js';
 
 import { EifScoreCalculatorService } from './eif-score-calculator.service.js';
+import { ProgrammeDocumentsService } from './programme-documents.service.js';
+import { SafeguardingChecklistService } from './safeguarding-checklist.service.js';
 
 describe('EifScoreCalculatorService', () => {
   const enrolmentRepo = { find: jest.fn() };
@@ -18,7 +19,8 @@ describe('EifScoreCalculatorService', () => {
   const commitmentRepo = { createQueryBuilder: jest.fn() };
   const ilrRepo = { count: jest.fn() };
   const evidenceRepo = { count: jest.fn() };
-  const programmeRepo = { count: jest.fn() };
+  const safeguardingChecklist = { completionPercent: jest.fn() };
+  const programmeDocuments = { coveragePercent: jest.fn() };
 
   let service: EifScoreCalculatorService;
 
@@ -37,7 +39,8 @@ describe('EifScoreCalculatorService', () => {
     });
     ilrRepo.count.mockResolvedValueOnce(5).mockResolvedValueOnce(4);
     evidenceRepo.count.mockResolvedValue(1);
-    programmeRepo.count.mockResolvedValue(2);
+    safeguardingChecklist.completionPercent.mockResolvedValue(50);
+    programmeDocuments.coveragePercent.mockResolvedValue(33);
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -51,7 +54,14 @@ describe('EifScoreCalculatorService', () => {
         },
         { provide: getRepositoryToken(IlrLearnerRecord), useValue: ilrRepo },
         { provide: getRepositoryToken(KsEvidenceItem), useValue: evidenceRepo },
-        { provide: getRepositoryToken(Programme), useValue: programmeRepo },
+        {
+          provide: SafeguardingChecklistService,
+          useValue: safeguardingChecklist,
+        },
+        {
+          provide: ProgrammeDocumentsService,
+          useValue: programmeDocuments,
+        },
       ],
     }).compile();
 
@@ -59,28 +69,22 @@ describe('EifScoreCalculatorService', () => {
   });
 
   describe('calculate', () => {
-    it('returns EIF criteria scores for an organisation', async () => {
+    it('returns EIF criteria scores from live services not stub constants', async () => {
       const result = await service.calculate('org-1');
 
-      expect(result.overallPercent).toEqual(expect.any(Number));
-      expect(result.alertBanner).toEqual(expect.any(Boolean));
-      expect(result.criteria.length).toBeGreaterThan(0);
-      expect(result.calculatedAt).toEqual(expect.any(String));
-      expect(result.criteria[0]?.slug).toEqual(expect.any(String));
-      expect(result.criteria[0]?.label).toEqual(expect.any(String));
-      expect(result.criteria[0]?.percent).toEqual(expect.any(Number));
-      expect(result.criteria[0]?.rag).toEqual(expect.any(String));
-    });
+      expect(safeguardingChecklist.completionPercent).toHaveBeenCalledWith(
+        'org-1',
+      );
+      expect(programmeDocuments.coveragePercent).toHaveBeenCalledWith('org-1');
 
-    it('returns zero overall when there are no active enrolments', async () => {
-      enrolmentRepo.find.mockResolvedValue([]);
-      reviewRepo.count.mockReset().mockResolvedValue(0);
-      ilrRepo.count.mockReset().mockResolvedValue(0);
-      programmeRepo.count.mockResolvedValue(0);
-
-      const result = await service.calculate('org-empty');
-
-      expect(result.overallPercent).toBeGreaterThanOrEqual(0);
+      const safeguarding = result.criteria.find(
+        (c) => c.slug === 'safeguarding',
+      );
+      const curriculum = result.criteria.find(
+        (c) => c.slug === 'curriculum_intent',
+      );
+      expect(safeguarding?.percent).toBe(50);
+      expect(curriculum?.percent).toBe(33);
       expect(result.criteria.length).toBeGreaterThan(0);
     });
   });

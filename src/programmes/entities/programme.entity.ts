@@ -9,6 +9,7 @@ import {
 
 import { BaseEntity } from '../../common/entities/base.entity.js';
 import { Organisation } from '../../organisations/entities/organisation.entity.js';
+import { ProgrammeDeliveryType } from '../enums/programme-delivery-type.enum.js';
 import { ProgrammeStatus } from '../enums/programme-status.enum.js';
 
 import type { Standard } from './standard.entity.js';
@@ -42,6 +43,14 @@ export class Programme extends BaseEntity {
     default: ProgrammeStatus.DRAFT,
   })
   status!: ProgrammeStatus;
+
+  @Column({
+    type: 'enum',
+    enum: ProgrammeDeliveryType,
+    enumName: 'programme_delivery_type',
+    default: ProgrammeDeliveryType.EMPLOYER_LED,
+  })
+  deliveryType!: ProgrammeDeliveryType;
 
   @OneToMany('Standard', 'programme')
   standards!: Standard[];

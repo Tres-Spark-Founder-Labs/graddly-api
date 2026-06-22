@@ -11,6 +11,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { SentryModule } from '@sentry/nestjs/setup';
 import { WinstonModule } from 'nest-winston';
 
+import { AiProgrammesModule } from './ai-programmes/ai-programmes.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { ApprenticesModule } from './apprentices/apprentices.module.js';
@@ -104,6 +105,7 @@ import { WithdrawalPushModule } from './withdrawal-push/withdrawal-push.module.j
     DasModule,
     LevyExchangeModule,
     FlowportalRegistrationModule,
+    AiProgrammesModule,
     ProgrammesModule,
     ApprenticesModule,
     EnrolmentsModule,

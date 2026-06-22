@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+import { ProgrammeDeliveryType } from '../enums/programme-delivery-type.enum.js';
 import { ProgrammeStatus } from '../enums/programme-status.enum.js';
 
 export class ProgrammeResponseDto {
@@ -20,4 +21,11 @@ export class ProgrammeResponseDto {
 
   @ApiProperty({ enum: ProgrammeStatus })
   status!: ProgrammeStatus;
+
+  @ApiProperty({
+    enum: ProgrammeDeliveryType,
+    default: ProgrammeDeliveryType.EMPLOYER_LED,
+    required: false,
+  })
+  deliveryType?: ProgrammeDeliveryType;
 }

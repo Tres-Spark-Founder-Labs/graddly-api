@@ -11,9 +11,9 @@
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "start": "concurrently -k -n api,worker -c blue,magenta \"nest start\" \"nest start --entryFile worker\"",
-    "start:dev": "concurrently -k -n api,worker -c blue,magenta \"nest start --watch\" \"nest start --watch --entryFile worker\"",
-    "start:debug": "concurrently -k -n api,worker -c blue,magenta \"nest start --debug --watch\" \"nest start --debug --watch --entryFile worker\"",
+    "start": "nest build && concurrently -k -n api,worker -c blue,magenta \"node --enable-source-maps dist/src/main.js\" \"node --enable-source-maps dist/src/worker.js\"",
+    "start:dev": "nest build && concurrently -k -n build,api,worker -c yellow,blue,magenta \"nest build --watch\" \"node --watch --enable-source-maps dist/src/main.js\" \"node --watch --enable-source-maps dist/src/worker.js\"",
+    "start:debug": "nest build && concurrently -k -n build,api,worker -c yellow,blue,magenta \"nest build --watch\" \"node --watch --enable-source-maps --inspect=9229 dist/src/main.js\" \"node --watch --enable-source-maps --inspect=9230 dist/src/worker.js\"",
     "start:prod": "concurrently -k -n api,worker \"node dist/src/main.js\" \"node dist/src/worker.js\"",
     "start:api": "nest start",
     "start:api:dev": "nest start --watch",

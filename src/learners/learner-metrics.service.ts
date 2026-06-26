@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
+import { ApprenticeStatus } from '../apprentices/enums/apprentice-status.enum.js';
 import {
   getRlsBootstrap,
   setRlsBootstrap,
@@ -101,7 +102,7 @@ export class LearnerMetricsService {
     });
 
     const statusBadge = deriveLearnerStatusBadge({
-      apprenticeStatus: enrolment.apprentice.status,
+      apprenticeStatus: enrolment.apprentice?.status ?? ApprenticeStatus.ACTIVE,
       enrolmentStatus: enrolment.status,
       otjPaceAlertLevel: otjLevel,
       gatewayCompletionPercent,

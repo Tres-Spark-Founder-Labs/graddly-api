@@ -45,6 +45,10 @@ import {
   LearnerDocumentsEnrolmentGroupDto,
   LearnerDocumentsResponseDto,
 } from './dto/learner-documents-response.dto.js';
+import {
+  LearnerMeSummaryOtjPaceDto,
+  LearnerMeSummaryResponseDto,
+} from './dto/learner-me-summary-response.dto.js';
 import { LearnerProfileResponseDto } from './dto/learner-profile-response.dto.js';
 import {
   InterventionActionResponseDto,
@@ -64,6 +68,7 @@ import {
   LearnerCohortService,
 } from './learner-cohort.service.js';
 import { LearnerDocumentsService } from './learner-documents.service.js';
+import { LearnerMeSummaryService } from './learner-me-summary.service.js';
 import { LearnerProfileService } from './learner-profile.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
@@ -91,6 +96,8 @@ function isCsvCohortResult(
   InterventionActionResponseDto,
   CreateInterventionActionDto,
   LearnerProfileResponseDto,
+  LearnerMeSummaryResponseDto,
+  LearnerMeSummaryOtjPaceDto,
   ListInterventionQueueQueryDto,
 )
 @Controller({ path: 'learners', version: '1' })
@@ -117,6 +124,7 @@ export class LearnersController {
     private readonly interventionQueueService: InterventionQueueService,
     private readonly interventionActionsService: InterventionActionsService,
     private readonly profileService: LearnerProfileService,
+    private readonly meSummaryService: LearnerMeSummaryService,
   ) {}
 
   @Get('me/documents')
@@ -146,6 +154,32 @@ export class LearnersController {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
     return this.documentsService.listMyDocuments(user, query);
+  }
+
+  @Get('me/summary')
+  @ResponseMessage('Learner summary retrieved successfully')
+  @ApiOperation({
+    summary: 'Apprentice dashboard summary',
+    description:
+      'Returns the active enrolment, OTJ pace snapshot, next scheduled review, EPA countdown, and alert level ' +
+      'for the authenticated apprentice user. Requires an active provider organisation ' +
+      '(apprentices are scoped to their training provider org).',
+  })
+  @ApiOkResponse({
+    description: 'Learner dashboard summary',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(LearnerMeSummaryResponseDto) },
+      },
+    },
+  })
+  getMySummary(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<LearnerMeSummaryResponseDto> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.meSummaryService.getSummary(user);
   }
 
   @Get('cohort')

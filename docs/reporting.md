@@ -25,6 +25,12 @@ Cross-portal reporting relies on counterpart org IDs on each enrolment:
 
 Both fields are optional; send `null` to clear a link.
 
+### Resolve counterpart employer (provider portal)
+
+`GET /api/v1/enrolments/counterpart-organisations/lookup?ukprn=12345678`
+
+Provider-only. Resolves a single **employer** organisation by exact UKPRN for enrolment linking (PRD F2.4.1). This is not a directory browse — use `GET /reporting/employer-directory` for employers already linked on enrolments.
+
 ## Portal requirements
 
 | Endpoint prefix | Required `portalType` on active org |

@@ -87,7 +87,7 @@ describe('InvitationsService', () => {
       save: jest.fn(),
     };
     const transactionInvitationRepo = {
-      softRemove: jest.fn(),
+      save: jest.fn(),
     };
 
     invitationRepo = {
@@ -99,6 +99,13 @@ describe('InvitationsService', () => {
         ...x,
       })),
       softRemove: jest.fn(),
+      createQueryBuilder: jest.fn(() => ({
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 0 }),
+      })),
       manager: {
         transaction: jest.fn(async (fn: (m: unknown) => Promise<void>) => {
           await fn({
@@ -293,16 +300,20 @@ describe('InvitationsService', () => {
   });
 
   describe('revoke', () => {
-    it('soft-removes invitation and clears accept tokens', async () => {
-      invitationRepo.findOne.mockResolvedValue({
+    it('marks invitation deleted and clears accept tokens', async () => {
+      const invitation = {
         id: 'inv-1',
         organisation: { id: 'org-1' },
         isDeleted: false,
-      });
+        deletedAt: null,
+      };
+      invitationRepo.findOne.mockResolvedValue(invitation);
 
       await service.revoke(baseUser({ organisationId: 'org-1' }), 'inv-1');
 
-      expect(invitationRepo.softRemove).toHaveBeenCalled();
+      expect(invitation.isDeleted).toBe(true);
+      expect(invitation.deletedAt).toBeInstanceOf(Date);
+      expect(invitationRepo.save).toHaveBeenCalledWith(invitation);
     });
   });
 

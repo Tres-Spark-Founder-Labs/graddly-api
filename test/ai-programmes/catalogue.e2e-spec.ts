@@ -6,7 +6,7 @@ import { createE2eApp } from '../helpers/e2e-app.js';
 import { expectSuccessEnvelope } from '../helpers/e2e-response-contracts.js';
 import {
   createEmployerReportingContext,
-  createFlowSmeContext,
+  createFlowOrgContext,
 } from '../helpers/reporting-e2e.js';
 
 import type { App } from 'supertest/types';
@@ -23,7 +23,7 @@ describe('AiProgrammeCatalogueController (e2e)', () => {
   });
 
   it('GET /ai-programmes/catalogue lists seeded AI programmes for Flow org', async () => {
-    const ctx = await createFlowSmeContext(app, 'catalogue');
+    const ctx = await createFlowOrgContext(app, 'catalogue');
 
     const res = await request(app.getHttpServer())
       .get('/api/v1/ai-programmes/catalogue')
@@ -41,7 +41,7 @@ describe('AiProgrammeCatalogueController (e2e)', () => {
   });
 
   it('GET /ai-programmes/catalogue/:programmeId returns module outline', async () => {
-    const ctx = await createFlowSmeContext(app, 'catalogue-detail');
+    const ctx = await createFlowOrgContext(app, 'catalogue-detail');
     const programmeId = AI_PROGRAMME_CATALOGUE_SEED.programmes[0].id;
 
     const res = await request(app.getHttpServer())

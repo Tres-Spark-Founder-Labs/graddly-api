@@ -95,6 +95,48 @@ export class CommitmentPipelineService {
       },
     });
 
+    return this.countPipelineForEnrolments(organisationId, enrolments, counts);
+  }
+
+  async countByPipelineStatusForEmployer(
+    employerOrganisationId: string,
+  ): Promise<Record<CommitmentPipelineStatus, number>> {
+    const counts = this.emptyCounts();
+    const enrolments = await this.enrolmentRepo.find({
+      where: {
+        employerOrganisationId,
+        status: EnrolmentStatus.ACTIVE,
+        isDeleted: false,
+      },
+    });
+
+    if (enrolments.length === 0) {
+      return counts;
+    }
+
+    const providerOrgIds = [
+      ...new Set(enrolments.map((e) => e.organisationId)),
+    ];
+
+    for (const providerOrgId of providerOrgIds) {
+      const orgEnrolments = enrolments.filter(
+        (e) => e.organisationId === providerOrgId,
+      );
+      await this.countPipelineForEnrolments(
+        providerOrgId,
+        orgEnrolments,
+        counts,
+      );
+    }
+
+    return counts;
+  }
+
+  private async countPipelineForEnrolments(
+    organisationId: string,
+    enrolments: Enrolment[],
+    counts: Record<CommitmentPipelineStatus, number>,
+  ): Promise<Record<CommitmentPipelineStatus, number>> {
     if (enrolments.length === 0) {
       return counts;
     }

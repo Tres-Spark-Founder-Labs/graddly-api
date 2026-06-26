@@ -65,6 +65,7 @@ import { WithdrawalPushModule } from './withdrawal-push/withdrawal-push.module.j
       isGlobal: true,
       validate: validateEnv,
       load: [appConfig, databaseConfig],
+      ...(process.env.NODE_ENV === 'test' ? { envFilePath: '.env.test' } : {}),
     }),
     SentryModule.forRoot(),
     typeOrmForRoot({ migrationsRun: true }),

@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   UseGuards,
+  Headers,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -29,7 +30,10 @@ import {
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { ActiveOrganisationGuard } from '../auth/guards/active-organisation.guard.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers.js';
+import {
+  ORGANISATION_ID_HEADER,
+  PORTAL_TYPE_HEADER,
+} from '../common/constants/organisation-headers.js';
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import {
   ErrorResponseDto,
@@ -38,12 +42,17 @@ import {
 import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
+import { parsePortalType } from '../common/utils/parse-portal-type.util.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
+import { CounterpartOrganisationLookupResponseDto } from './dto/counterpart-organisation-lookup-response.dto.js';
 import { CreateEnrolmentDto } from './dto/create-enrolment.dto.js';
 import { EnrolmentJourneyResponseDto } from './dto/enrolment-journey-response.dto.js';
+import { EnrolmentParticipantOptionsResponseDto } from './dto/enrolment-participant-options-response.dto.js';
 import { EnrolmentResponseDto } from './dto/enrolment-response.dto.js';
 import { EpaOutcomeResponseDto } from './dto/epa-outcome-response.dto.js';
+import { LookupCounterpartOrganisationQueryDto } from './dto/lookup-counterpart-organisation-query.dto.js';
+import { ParticipantUserOptionDto } from './dto/participant-user-option.dto.js';
 import { RecordEpaOutcomeDto } from './dto/record-epa-outcome.dto.js';
 import { UpdateEnrolmentJourneyDto } from './dto/update-enrolment-journey.dto.js';
 import { UpdateEnrolmentOrganisationLinksDto } from './dto/update-enrolment-organisation-links.dto.js';
@@ -55,9 +64,13 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
 
 @ApiTags('Enrolments')
 @ApiExtraModels(
+  CounterpartOrganisationLookupResponseDto,
   EnrolmentJourneyResponseDto,
+  EnrolmentParticipantOptionsResponseDto,
   EnrolmentResponseDto,
   EpaOutcomeResponseDto,
+  LookupCounterpartOrganisationQueryDto,
+  ParticipantUserOptionDto,
   PaginationMetaDto,
   RecordEpaOutcomeDto,
   UpdateEnrolmentJourneyDto,
@@ -70,6 +83,12 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
 @ApiHeader({
   name: ORGANISATION_ID_HEADER,
   description: 'Active organisation UUID (optional override)',
+  required: false,
+})
+@ApiHeader({
+  name: PORTAL_TYPE_HEADER,
+  description:
+    'Portal context for list scoping: provider (default) filters by organisationId; employer by employerOrganisationId; apprentice by apprenticeUserId.',
   required: false,
 })
 @ApiUnauthorizedResponse({
@@ -122,7 +141,12 @@ export class EnrolmentsController {
 
   @Get()
   @ResponseMessage('Enrolments retrieved successfully')
-  @ApiOperation({ summary: 'List enrolments in the active organisation' })
+  @ApiOperation({
+    summary: 'List enrolments scoped to the active portal',
+    description:
+      'Provider (default): enrolments owned by the active organisation. Employer: enrolments linked via employerOrganisationId. ' +
+      'Apprentice: enrolments where apprenticeUserId matches the authenticated user. Pass X-Portal-Type to override org portalType.',
+  })
   @ApiOkResponse({
     description: 'Paginated enrolments',
     schema: {
@@ -139,10 +163,56 @@ export class EnrolmentsController {
   findAll(
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: PaginationQueryDto,
+    @Headers(PORTAL_TYPE_HEADER) rawPortalType?: string,
   ) {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
-    return this.enrolmentsService.findAll(user, query);
+    return this.enrolmentsService.findAll(
+      user,
+      query,
+      parsePortalType(rawPortalType),
+    );
+  }
+
+  @Get('counterpart-organisations/lookup')
+  @ResponseMessage('Counterpart organisation resolved successfully')
+  @ApiOperation({
+    summary: 'Resolve an employer organisation by UKPRN for enrolment linking',
+    description:
+      'Provider-only. PRD F2.4.1 — counterpart employers are linked explicitly (UKPRN lookup or existing ' +
+      'relationship via employer directory), not discovered via a global org list.',
+  })
+  @ApiOkResponse({
+    description: 'Employer organisation matching the UKPRN',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(CounterpartOrganisationLookupResponseDto) },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'No employer organisation found for this UKPRN',
+    type: ErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    description: 'Active organisation is not a provider portal',
+    type: ErrorResponseDto,
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'Validation failed',
+    type: ValidationErrorResponseDto,
+  })
+  lookupCounterpartOrganisation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: LookupCounterpartOrganisationQueryDto,
+  ) {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.enrolmentsService.lookupCounterpartOrganisationByUkprn(
+      user,
+      query,
+    );
   }
 
   @Get(':id/journey')
@@ -206,6 +276,36 @@ export class EnrolmentsController {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
     return this.enrolmentJourneyService.updateJourney(user, id, dto);
+  }
+
+  @Get(':id/participant-options')
+  @ResponseMessage('Enrolment participant options retrieved successfully')
+  @ApiOperation({
+    summary: 'List selectable users for enrolment participants',
+    description:
+      'Provider-only. Apprentice candidates match the apprentice record email; tutors are active provider org members; ' +
+      'employer managers are active members of the linked employer organisation.',
+  })
+  @ApiOkResponse({
+    description: 'Participant selector options',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(EnrolmentParticipantOptionsResponseDto) },
+      },
+    },
+  })
+  @ApiForbiddenResponse({
+    description: 'Active organisation is not a provider portal',
+    type: ErrorResponseDto,
+  })
+  getParticipantOptions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.enrolmentsService.getParticipantOptions(user, id);
   }
 
   @Get(':id')

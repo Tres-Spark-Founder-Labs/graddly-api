@@ -213,6 +213,39 @@ export async function createProviderDirectoryContext(
   };
 }
 
+export interface IFlowOrgContext {
+  owner: IVerifiedUserFixture;
+  flowOrgId: string;
+  authHeaders: Record<string, string>;
+}
+
+export async function createFlowOrgContext(
+  app: INestApplication<App>,
+  label: string,
+): Promise<IFlowOrgContext> {
+  const suffix = Date.now();
+  const owner = await createVerifiedUser(app, {
+    email: `rpt-flow-org-${label}-${suffix}@example.com`,
+  });
+
+  const flowRes = await request(app.getHttpServer())
+    .post('/api/v1/organisations')
+    .set('Authorization', `Bearer ${owner.accessToken}`)
+    .send({
+      ...buildOrgPayload(`RPT Flow Org ${label} ${suffix}`),
+      portalType: 'flow',
+    })
+    .expect(201);
+  const flowOrgId = (flowRes.body as { data: { id: string } }).data.id;
+
+  const authHeaders: Record<string, string> = {
+    [ORGANISATION_ID_HEADER]: flowOrgId,
+  };
+  authHeaders['Authorization'] = `Bearer ${owner.accessToken}`;
+
+  return { owner, flowOrgId, authHeaders };
+}
+
 export async function createFlowSmeContext(
   app: INestApplication<App>,
   label: string,

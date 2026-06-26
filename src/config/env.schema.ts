@@ -51,6 +51,14 @@ export const envSchema = z
     DB_USERNAME: z.string().min(1).default('graddly'),
     DB_PASSWORD: z.string().default(''),
     DB_NAME: z.string().min(1).default('graddly'),
+    /** When unset, TypeORM logs SQL in development only. Set explicitly to override. */
+    DB_LOGGING_ENABLED: z
+      .string()
+      .optional()
+      .transform((v) => {
+        if (v === undefined || v.trim() === '') return undefined;
+        return v === 'true';
+      }),
 
     JWT_SECRET: z.string().default('change-me-in-production'),
     JWT_ACCESS_EXPIRES_IN: z.string().min(1).default('15m'),

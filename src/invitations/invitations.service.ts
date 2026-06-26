@@ -36,6 +36,7 @@ import type { InvitationResponseDto } from './dto/invitation-response.dto.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 
 const INVITATION_ACCEPT_PREFIX = 'invitation-accept:';
+const INVITATION_PORTAL_PREFIX = 'invitation-portal:';
 
 @Injectable()
 export class InvitationsService {
@@ -117,7 +118,9 @@ export class InvitationsService {
         role,
       });
       await em.getRepository(OrganisationMembership).save(membership);
-      await em.getRepository(Invitation).softRemove(invitation);
+      invitation.isDeleted = true;
+      invitation.deletedAt = new Date();
+      await em.getRepository(Invitation).save(invitation);
     });
 
     await this.redis.del(redisKey);
@@ -162,6 +165,7 @@ export class InvitationsService {
   ): Promise<InvitationResponseDto> {
     const orgId = user.organisationId!;
     await this.assertUserNotAlreadyMember(orgId, dto.email);
+    await this.repairRevokedInvitationIndexBlocker(orgId, dto.email);
 
     const expiresAt = dto.expiresAt
       ? new Date(dto.expiresAt)
@@ -231,6 +235,7 @@ export class InvitationsService {
       organisationId,
       email.trim().toLowerCase(),
     );
+    await this.repairRevokedInvitationIndexBlocker(organisationId, email);
 
     const expiresAt = this.defaultExpiresAt();
     const organisation = await this.organisationRepo.findOne({
@@ -329,8 +334,30 @@ export class InvitationsService {
       throw new NotFoundException('Invitation not found');
     }
 
-    await this.invitationRepo.softRemove(invitation);
+    invitation.isDeleted = true;
+    invitation.deletedAt = new Date();
+    await this.invitationRepo.save(invitation);
     await this.deleteAllAcceptTokensForInvitation(invitation.id);
+  }
+
+  /**
+   * Older revokes used TypeORM softRemove, which set deletedAt but left
+   * isDeleted=false. The partial unique index only excludes isDeleted=true,
+   * so those rows still blocked re-invites for the same email.
+   */
+  private async repairRevokedInvitationIndexBlocker(
+    organisationId: string,
+    email: string,
+  ): Promise<void> {
+    await this.invitationRepo
+      .createQueryBuilder()
+      .update(Invitation)
+      .set({ isDeleted: true })
+      .where('"organisationId" = :organisationId', { organisationId })
+      .andWhere('LOWER(email) = LOWER(:email)', { email: email.trim() })
+      .andWhere('"isDeleted" = false')
+      .andWhere('"deletedAt" IS NOT NULL')
+      .execute();
   }
 
   private defaultExpiresAt(): Date {
@@ -383,6 +410,25 @@ export class InvitationsService {
     return bounded;
   }
 
+  private async resolvePortalTypeForInvitation(
+    invitation: Invitation,
+    portalType?: PortalType,
+  ): Promise<PortalType | undefined> {
+    if (portalType) {
+      return portalType;
+    }
+    if (invitation.enrolmentId) {
+      return PortalType.APPRENTICE;
+    }
+    const stored = await this.redis.get(
+      `${INVITATION_PORTAL_PREFIX}${invitation.id}`,
+    );
+    if (stored && Object.values(PortalType).includes(stored as PortalType)) {
+      return stored as PortalType;
+    }
+    return undefined;
+  }
+
   private async storeAcceptTokenAndSendEmail(
     invitation: Invitation,
     organisationName: string,
@@ -391,23 +437,45 @@ export class InvitationsService {
   ): Promise<void> {
     const token = uuidV4();
     const ttl = this.resolveAcceptTokenTtlSeconds(invitation.expiresAt);
+    const effectivePortal = await this.resolvePortalTypeForInvitation(
+      invitation,
+      portalType,
+    );
+
     await this.redis.set(
       `${INVITATION_ACCEPT_PREFIX}${token}`,
       invitation.id,
       ttl,
     );
 
-    try {
-      await this.emailDispatch.enqueue(
-        InvitationAcceptEmail.create(this.config, {
-          to: invitation.email,
-          firstName,
-          token,
-          organisationName,
-          portalType,
-          tokenTtlSeconds: ttl,
-        }),
+    if (effectivePortal) {
+      await this.redis.set(
+        `${INVITATION_PORTAL_PREFIX}${invitation.id}`,
+        effectivePortal,
+        ttl,
       );
+    }
+
+    try {
+      const payload = InvitationAcceptEmail.create(this.config, {
+        to: invitation.email,
+        firstName,
+        token,
+        organisationName,
+        portalType: effectivePortal,
+        tokenTtlSeconds: ttl,
+      });
+
+      if (this.config.get<string>('app.nodeEnv') === 'development') {
+        const { acceptUrl } = payload.getTemplateContext() as {
+          acceptUrl: string;
+        };
+        this.logger.log(
+          `Invitation accept link (dev, ${invitation.email}): ${acceptUrl}`,
+        );
+      }
+
+      await this.emailDispatch.enqueue(payload);
     } catch (err) {
       this.logger.error(
         `Invitation email failed for ${invitation.email}`,

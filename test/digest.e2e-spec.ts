@@ -131,12 +131,32 @@ describe('OTJ digest (e2e)', () => {
     setCurrentUserId(manager.userId);
     setLastKnownUserIdForGuc(manager.userId);
 
-    const beforeCount = await emailQueue.count();
+    const countsBefore = await emailQueue.getJobCounts(
+      'waiting',
+      'active',
+      'delayed',
+      'completed',
+    );
     const digestService = app.get(OtjDigestService);
     const sent = await digestService.sendWeeklyDigestForOrganisation(orgId);
 
     expect(sent).toBe(1);
-    const afterCount = await emailQueue.count();
-    expect(afterCount).toBeGreaterThan(beforeCount);
+    const countsAfter = await emailQueue.getJobCounts(
+      'waiting',
+      'active',
+      'delayed',
+      'completed',
+    );
+    const totalBefore =
+      countsBefore.waiting +
+      countsBefore.active +
+      countsBefore.delayed +
+      countsBefore.completed;
+    const totalAfter =
+      countsAfter.waiting +
+      countsAfter.active +
+      countsAfter.delayed +
+      countsAfter.completed;
+    expect(totalAfter).toBeGreaterThan(totalBefore);
   });
 });

@@ -44,7 +44,10 @@ export async function createOrgOwnerContext(
   const orgRes = await request(app.getHttpServer())
     .post('/api/v1/organisations')
     .set('Authorization', `Bearer ${owner.accessToken}`)
-    .send(buildOrgPayload(`${orgNamePrefix} ${suffix}`))
+    .send({
+      ...buildOrgPayload(`${orgNamePrefix} ${suffix}`),
+      portalType: 'provider',
+    })
     .expect(201);
 
   const orgId = (orgRes.body as { data: { id: string } }).data.id;

@@ -14,6 +14,7 @@ import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
 import { Review } from '../reviews/entities/review.entity.js';
+import { User } from '../users/entities/user.entity.js';
 import { UsersModule } from '../users/users.module.js';
 import { WithdrawalPushModule } from '../withdrawal-push/withdrawal-push.module.js';
 
@@ -41,6 +42,7 @@ import { EpaOutcomeRecord } from './entities/epa-outcome.entity.js';
       Standard,
       Organisation,
       OrganisationMembership,
+      User,
       OtjLogEntry,
       CommitmentStatementGroup,
       CommitmentStatement,

@@ -14,8 +14,11 @@ export class NoopEmailSender implements IEmailSender {
 
   send(message: IEmailMessage): Promise<void> {
     if (this.config.get<string>('app.nodeEnv') === 'development') {
-      this.logger.debug(
-        `Email (noop): to=${message.to} subject="${message.subject}"`,
+      this.logger.log(
+        [
+          `Email (noop): to=${message.to} subject="${message.subject}"`,
+          message.text.trim(),
+        ].join('\n'),
       );
     }
     return Promise.resolve();

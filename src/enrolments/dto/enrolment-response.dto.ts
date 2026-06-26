@@ -17,6 +17,21 @@ export class EnrolmentResponseDto {
   @ApiProperty({ format: 'uuid' })
   standardId!: string;
 
+  @ApiProperty({
+    nullable: true,
+    example: 'Jane Smith',
+    description:
+      'Name from the provider apprentice record (available on list/detail for all portals)',
+  })
+  apprenticeDisplayName!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    example: 'Software Developer (ST0123)',
+    description: 'Standard title and code for display',
+  })
+  standardDisplayName!: string | null;
+
   @ApiProperty({ enum: EnrolmentStatus })
   status!: EnrolmentStatus;
 
@@ -52,11 +67,25 @@ export class EnrolmentResponseDto {
   apprenticeUserId!: string | null;
 
   @ApiProperty({
+    nullable: true,
+    example: 'Jane Smith (jane.smith@example.com)',
+    description: 'Display label for linked apprentice platform user',
+  })
+  apprenticeUserDisplayName!: string | null;
+
+  @ApiProperty({
     format: 'uuid',
     nullable: true,
     description: 'Assigned tutor platform user ID',
   })
   tutorUserId!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    example: 'Alex Jones (alex@provider.example.com)',
+    description: 'Display label for assigned tutor',
+  })
+  tutorUserDisplayName!: string | null;
 
   @ApiProperty({
     format: 'uuid',
@@ -66,6 +95,13 @@ export class EnrolmentResponseDto {
   employerManagerUserId!: string | null;
 
   @ApiProperty({
+    nullable: true,
+    example: 'Sam Taylor (sam@employer.example.com)',
+    description: 'Display label for employer line manager',
+  })
+  employerManagerUserDisplayName!: string | null;
+
+  @ApiProperty({
     format: 'uuid',
     nullable: true,
     description: 'Linked employer organisation for cross-portal reporting',
@@ -73,11 +109,25 @@ export class EnrolmentResponseDto {
   employerOrganisationId!: string | null;
 
   @ApiProperty({
+    nullable: true,
+    example: 'Acme Engineering Ltd',
+    description: 'Display name for linked employer organisation',
+  })
+  employerOrganisationName!: string | null;
+
+  @ApiProperty({
     format: 'uuid',
     nullable: true,
     description: 'Linked provider organisation for cross-portal reporting',
   })
   providerOrganisationId!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    example: 'Northstar Training Ltd',
+    description: 'Display name for linked provider organisation',
+  })
+  providerOrganisationName!: string | null;
 
   @ApiProperty({
     enum: EnrolmentPipelineState,

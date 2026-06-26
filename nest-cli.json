@@ -4,9 +4,21 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "assets": [
-      "ofsted/config/*.json",
-      "otj/config/*.json",
-      "levy-exchange/config/*.json"
+      {
+        "include": "ofsted/config/**/*.json",
+        "outDir": "dist/src",
+        "watchAssets": true
+      },
+      {
+        "include": "otj/config/**/*.json",
+        "outDir": "dist/src",
+        "watchAssets": true
+      },
+      {
+        "include": "levy-exchange/config/**/*.json",
+        "outDir": "dist/src",
+        "watchAssets": true
+      }
     ],
     "deleteOutDir": false,
     "plugins": [

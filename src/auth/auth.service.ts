@@ -383,14 +383,23 @@ export class AuthService {
     await this.redis.set(`${EMAIL_VERIFY_PREFIX}${token}`, user.id, ttl);
 
     try {
-      await this.emailDispatch.enqueue(
-        EmailVerificationEmail.create(this.config, {
-          to: user.email,
-          firstName: user.firstName,
-          token,
-          portalType,
-        }),
-      );
+      const payload = EmailVerificationEmail.create(this.config, {
+        to: user.email,
+        firstName: user.firstName,
+        token,
+        portalType,
+      });
+
+      if (this.config.get<string>('app.nodeEnv') === 'development') {
+        const { verifyUrl } = payload.getTemplateContext() as {
+          verifyUrl: string;
+        };
+        this.logger.log(
+          `Email verification link (dev, ${user.email}): ${verifyUrl}`,
+        );
+      }
+
+      await this.emailDispatch.enqueue(payload);
     } catch (err) {
       this.logger.error(
         `Email verification failed for ${user.email}`,

@@ -9,8 +9,11 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Apprentice } from '../apprentices/entities/apprentice.entity.js';
 import { CompletionPushService } from '../completion-push/completion-push.service.js';
 import { MessageThreadsService } from '../messaging/message-threads.service.js';
+import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
+import { PortalType } from '../organisations/portal-type.enum.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
+import { User } from '../users/entities/user.entity.js';
 import { WithdrawalPushService } from '../withdrawal-push/withdrawal-push.service.js';
 
 import { EnrolmentPipelineService } from './enrolment-pipeline.service.js';
@@ -33,8 +36,14 @@ describe('EnrolmentsService', () => {
   const enrolmentCreate = jest.fn();
   const enrolmentFindAndCount = jest.fn();
   const apprenticeFindOne = jest.fn();
+  const apprenticeFind = jest.fn();
   const standardFindOne = jest.fn();
+  const standardFind = jest.fn();
   const organisationFindOne = jest.fn();
+  const organisationFind = jest.fn();
+  const membershipFind = jest.fn();
+  const userFind = jest.fn();
+  const userFindOne = jest.fn();
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -51,15 +60,23 @@ describe('EnrolmentsService', () => {
         },
         {
           provide: getRepositoryToken(Apprentice),
-          useValue: { findOne: apprenticeFindOne },
+          useValue: { findOne: apprenticeFindOne, find: apprenticeFind },
         },
         {
           provide: getRepositoryToken(Standard),
-          useValue: { findOne: standardFindOne },
+          useValue: { findOne: standardFindOne, find: standardFind },
         },
         {
           provide: getRepositoryToken(Organisation),
-          useValue: { findOne: organisationFindOne },
+          useValue: { findOne: organisationFindOne, find: organisationFind },
+        },
+        {
+          provide: getRepositoryToken(OrganisationMembership),
+          useValue: { find: membershipFind },
+        },
+        {
+          provide: getRepositoryToken(User),
+          useValue: { find: userFind, findOne: userFindOne },
         },
         {
           provide: getRepositoryToken(EpaOutcomeRecord),
@@ -101,6 +118,10 @@ describe('EnrolmentsService', () => {
 
     service = moduleRef.get(EnrolmentsService);
     jest.clearAllMocks();
+    apprenticeFind.mockResolvedValue([]);
+    standardFind.mockResolvedValue([]);
+    organisationFind.mockResolvedValue([]);
+    userFind.mockResolvedValue([]);
   });
 
   const user = { id: 'u-1', organisationId: 'org-1' } as const;
@@ -190,6 +211,26 @@ describe('EnrolmentsService', () => {
     enrolmentSave.mockImplementation((value: Enrolment) =>
       Promise.resolve(value),
     );
+    userFind.mockResolvedValue([
+      {
+        id: 'u-app',
+        firstName: 'App',
+        lastName: 'User',
+        email: 'app@example.com',
+      },
+      {
+        id: 'u-tutor',
+        firstName: 'Tutor',
+        lastName: 'One',
+        email: 'tutor@example.com',
+      },
+      {
+        id: 'u-mgr',
+        firstName: 'Manager',
+        lastName: 'One',
+        email: 'mgr@example.com',
+      },
+    ]);
 
     const result = await service.updateParticipants(user, 'enr-1', {
       apprenticeUserId: 'u-app',
@@ -198,6 +239,7 @@ describe('EnrolmentsService', () => {
     });
 
     expect(result.apprenticeUserId).toBe('u-app');
+    expect(result.apprenticeUserDisplayName).toBe('App User (app@example.com)');
     expect(result.tutorUserId).toBe('u-tutor');
     expect(result.employerManagerUserId).toBe('u-mgr');
   });
@@ -212,7 +254,13 @@ describe('EnrolmentsService', () => {
     } as Enrolment;
 
     enrolmentFindOne.mockResolvedValue(enrolment);
-    organisationFindOne.mockResolvedValue({ id: 'emp-1', isDeleted: false });
+    organisationFindOne.mockResolvedValue({
+      id: 'emp-1',
+      isDeleted: false,
+      portalType: 'employer',
+    });
+    organisationFind.mockResolvedValue([{ id: 'emp-1', name: 'Acme Ltd' }]);
+    userFind.mockResolvedValue([]);
     enrolmentSave.mockImplementation((value: Enrolment) =>
       Promise.resolve(value),
     );
@@ -222,6 +270,62 @@ describe('EnrolmentsService', () => {
     });
 
     expect(result.employerOrganisationId).toBe('emp-1');
+  });
+
+  it('includes organisation link display names on findOne', async () => {
+    const enrolment = {
+      id: 'enr-1',
+      organisationId: 'org-1',
+      apprenticeId: 'app-1',
+      standardId: 'std-1',
+      status: EnrolmentStatus.ACTIVE,
+      employerOrganisationId: 'emp-1',
+      providerOrganisationId: null,
+    } as Enrolment;
+
+    enrolmentFindOne.mockResolvedValue(enrolment);
+    apprenticeFind.mockResolvedValue([
+      { id: 'app-1', firstName: 'Jane', lastName: 'Smith' },
+    ]);
+    standardFind.mockResolvedValue([
+      { id: 'std-1', title: 'Software Developer', code: 'ST0123' },
+    ]);
+    organisationFind.mockResolvedValue([{ id: 'emp-1', name: 'Acme Ltd' }]);
+    userFind.mockResolvedValue([]);
+
+    const result = await service.findOne(user, 'enr-1');
+
+    expect(result.employerOrganisationName).toBe('Acme Ltd');
+    expect(result.providerOrganisationName).toBeNull();
+    expect(result.apprenticeDisplayName).toBe('Jane Smith');
+    expect(result.standardDisplayName).toBe('Software Developer (ST0123)');
+  });
+
+  it('resolves employer organisation by UKPRN for provider portal', async () => {
+    organisationFindOne
+      .mockResolvedValueOnce({
+        id: 'org-1',
+        portalType: PortalType.PROVIDER,
+        isDeleted: false,
+      })
+      .mockResolvedValueOnce({
+        id: 'emp-1',
+        name: 'Acme Ltd',
+        ukprn: '10012345',
+        portalType: PortalType.EMPLOYER,
+        isDeleted: false,
+      });
+
+    const result = await service.lookupCounterpartOrganisationByUkprn(user, {
+      ukprn: '10012345',
+    });
+
+    expect(result).toEqual({
+      id: 'emp-1',
+      name: 'Acme Ltd',
+      ukprn: '10012345',
+      portalType: PortalType.EMPLOYER,
+    });
   });
 
   it('creates draft enrolment', async () => {
@@ -239,13 +343,32 @@ describe('EnrolmentsService', () => {
     expect(result.status).toBe(EnrolmentStatus.DRAFT);
   });
 
-  it('returns paginated enrolments', async () => {
-    enrolmentFindAndCount.mockResolvedValue([[{ id: 'enr-1' }], 1]);
+  it('returns paginated enrolments with display labels', async () => {
+    enrolmentFindAndCount.mockResolvedValue([
+      [
+        {
+          id: 'enr-1',
+          apprenticeId: 'app-1',
+          standardId: 'std-1',
+        },
+      ],
+      1,
+    ]);
+    apprenticeFind.mockResolvedValue([
+      { id: 'app-1', firstName: 'Alex', lastName: 'Apprentice' },
+    ]);
+    standardFind.mockResolvedValue([
+      { id: 'std-1', title: 'Business Admin', code: 'BA01' },
+    ]);
+    userFind.mockResolvedValue([]);
+    organisationFind.mockResolvedValue([]);
 
     const result = await service.findAll(user, { page: 1, perPage: 10 });
 
     expect(result.items).toHaveLength(1);
     expect(result.meta.total).toBe(1);
+    expect(result.items[0]?.apprenticeDisplayName).toBe('Alex Apprentice');
+    expect(result.items[0]?.standardDisplayName).toBe('Business Admin (BA01)');
   });
 
   it('throws not found when enrolment missing', async () => {

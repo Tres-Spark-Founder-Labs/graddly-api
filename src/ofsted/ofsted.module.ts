@@ -74,6 +74,7 @@ import { SafeguardingChecklistService } from './safeguarding-checklist.service.j
   ],
   exports: [
     EifScoreCacheService,
+    EifScoreCalculatorService,
     EvidencePackBuilderService,
     EvidencePackDispatchService,
     TypeOrmModule,

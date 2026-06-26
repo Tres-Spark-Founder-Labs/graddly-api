@@ -9,6 +9,18 @@ import { seedAiProgrammeCatalogue } from './helpers/ai-programme-seed';
 
 dotenv.config({ path: path.resolve(__dirname, '..', '.env.test') });
 
+function applyE2eEnvOverrides(): void {
+  process.env.DAS_DONOR_OAUTH_AUTHORIZE_URL =
+    'https://das.example.com/oauth/authorize';
+  process.env.DAS_DONOR_OAUTH_TOKEN_URL = 'https://das.example.com/oauth/token';
+  process.env.DAS_DONOR_OAUTH_CLIENT_ID = 'e2e-donor-client-id';
+  process.env.DAS_DONOR_OAUTH_CLIENT_SECRET = 'e2e-donor-client-secret';
+  process.env.DAS_DONOR_OAUTH_REDIRECT_URI =
+    'http://localhost:3000/api/v1/levy-exchange/donor-links/oauth/callback';
+  process.env.DAS_DONOR_OAUTH_SCOPE = 'levy.read';
+  delete process.env.FRONTEND_BASE_FLOW_URL;
+}
+
 export default async function globalSetup(): Promise<void> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports -- dist CJS default export
@@ -22,6 +34,8 @@ export default async function globalSetup(): Promise<void> {
   } catch {
     // Migrations may already be applied via CI `yarn migration:run`; requires `yarn build` locally.
   }
+
+  applyE2eEnvOverrides();
 
   const pg = new Client({
     host: process.env.DB_HOST || 'localhost',

@@ -24,6 +24,7 @@ import { InterventionActionsService } from './intervention-actions.service.js';
 import { InterventionQueueService } from './intervention-queue.service.js';
 import { LearnerCohortService } from './learner-cohort.service.js';
 import { LearnerDocumentsService } from './learner-documents.service.js';
+import { LearnerMeSummaryService } from './learner-me-summary.service.js';
 import { LearnerMetricsService } from './learner-metrics.service.js';
 import { LearnerProfileService } from './learner-profile.service.js';
 import { LearnersController } from './learners.controller.js';
@@ -59,6 +60,7 @@ import { LearnersController } from './learners.controller.js';
     InterventionActionsService,
     LearnerCohortService,
     LearnerProfileService,
+    LearnerMeSummaryService,
   ],
   exports: [LearnerDocumentsService, LearnerMetricsService],
 })

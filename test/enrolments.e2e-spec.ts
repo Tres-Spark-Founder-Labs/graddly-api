@@ -80,11 +80,27 @@ describe('Enrolments + domain APIs (e2e)', () => {
     const employerOrgRes = await request(app.getHttpServer())
       .post('/api/v1/organisations')
       .set('Authorization', `Bearer ${owner.accessToken}`)
-      .send(buildOrgPayload(`Employer Link Org ${suffix}`))
+      .send({
+        ...buildOrgPayload(`Employer Link Org ${suffix}`),
+        portalType: 'employer',
+      })
       .expect(201);
     const employerOrganisationId = (
-      employerOrgRes.body as { data: { id: string } }
+      employerOrgRes.body as { data: { id: string; ukprn: string } }
     ).data.id;
+    const employerUkprn = (
+      employerOrgRes.body as { data: { id: string; ukprn: string } }
+    ).data.ukprn;
+
+    const lookupRes = await request(app.getHttpServer())
+      .get('/api/v1/enrolments/counterpart-organisations/lookup')
+      .query({ ukprn: employerUkprn })
+      .set(authHeaders)
+      .expect(200);
+    expectSuccessEnvelope(lookupRes.body);
+    expect((lookupRes.body as { data: { id: string } }).data.id).toBe(
+      employerOrganisationId,
+    );
 
     const participantsRes = await request(app.getHttpServer())
       .patch(`/api/v1/enrolments/${enrolmentId}/participants`)
@@ -100,6 +116,22 @@ describe('Enrolments + domain APIs (e2e)', () => {
       (participantsRes.body as { data: { apprenticeUserId: string } }).data
         .apprenticeUserId,
     ).toBe(owner.userId);
+    expect(
+      (participantsRes.body as { data: { apprenticeUserDisplayName: string } })
+        .data.apprenticeUserDisplayName,
+    ).toContain(owner.email);
+
+    const participantOptionsRes = await request(app.getHttpServer())
+      .get(`/api/v1/enrolments/${enrolmentId}/participant-options`)
+      .set(authHeaders)
+      .expect(200);
+    expectSuccessEnvelope(participantOptionsRes.body);
+    const tutors = (
+      participantOptionsRes.body as {
+        data: { tutors: Array<{ id: string }> };
+      }
+    ).data.tutors;
+    expect(tutors.some((row) => row.id === owner.userId)).toBe(true);
 
     const linksRes = await request(app.getHttpServer())
       .patch(`/api/v1/enrolments/${enrolmentId}/organisation-links`)
@@ -111,6 +143,10 @@ describe('Enrolments + domain APIs (e2e)', () => {
       (linksRes.body as { data: { employerOrganisationId: string } }).data
         .employerOrganisationId,
     ).toBe(employerOrganisationId);
+    expect(
+      (linksRes.body as { data: { employerOrganisationName: string } }).data
+        .employerOrganisationName,
+    ).toBe(`Employer Link Org ${suffix}`);
 
     const getRes = await request(app.getHttpServer())
       .get(`/api/v1/enrolments/${enrolmentId}`)
@@ -121,6 +157,10 @@ describe('Enrolments + domain APIs (e2e)', () => {
     expect(
       (getRes.body as { data: { organisationId: string } }).data.organisationId,
     ).toBe(orgId);
+    expect(
+      (getRes.body as { data: { employerOrganisationName: string } }).data
+        .employerOrganisationName,
+    ).toBe(`Employer Link Org ${suffix}`);
   });
 
   it('supports scoped lifecycle and emits audit logs', async () => {

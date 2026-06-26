@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
@@ -13,9 +13,12 @@ import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
+import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
+import { Organisation } from '../organisations/entities/organisation.entity.js';
+import { PortalType } from '../organisations/portal-type.enum.js';
 import { StorageObjectCategory } from '../storage/enums/storage-object-category.enum.js';
 import { StorageKeyBuilder } from '../storage/storage-key.builder.js';
 
@@ -36,6 +39,8 @@ export class OtjLogEntriesService {
     private readonly repo: Repository<OtjLogEntry>,
     @InjectRepository(Enrolment)
     private readonly enrolmentRepo: Repository<Enrolment>,
+    @InjectRepository(Organisation)
+    private readonly organisationRepo: Repository<Organisation>,
     private readonly notificationsService: NotificationsService,
     private readonly emailDispatchService: EmailDispatchService,
     private readonly config: ConfigService,
@@ -76,12 +81,30 @@ export class OtjLogEntriesService {
   ): Promise<PaginatedResult<OtjLogEntryResponseDto>> {
     const page = query.page ?? 1;
     const perPage = query.perPage ?? 20;
+    const employerEnrolmentIds = await this.loadEmployerEnrolmentIds(
+      user.organisationId!,
+    );
+
+    if (employerEnrolmentIds !== null && employerEnrolmentIds.length === 0) {
+      return new PaginatedResult(
+        [],
+        buildPaginationMeta({ total: 0, page, perPage }),
+      );
+    }
+
     const qb = this.repo
       .createQueryBuilder('otj')
-      .where('otj.organisationId = :organisationId', {
+      .where('otj.isDeleted = false');
+
+    if (employerEnrolmentIds !== null) {
+      qb.andWhere('otj.enrolmentId IN (:...employerEnrolmentIds)', {
+        employerEnrolmentIds,
+      });
+    } else {
+      qb.andWhere('otj.organisationId = :organisationId', {
         organisationId: user.organisationId!,
-      })
-      .andWhere('otj.isDeleted = false');
+      });
+    }
 
     if (query.status)
       qb.andWhere('otj.status = :status', { status: query.status });
@@ -113,9 +136,7 @@ export class OtjLogEntriesService {
     user: AuthenticatedUser,
     id: string,
   ): Promise<OtjLogEntryResponseDto> {
-    const row = await this.repo.findOne({
-      where: { id, organisationId: user.organisationId!, isDeleted: false },
-    });
+    const row = await this.findAccessibleEntry(user, id);
     if (!row) throw new NotFoundException('OTJ log entry not found');
     return this.toResponse(row);
   }
@@ -125,12 +146,10 @@ export class OtjLogEntriesService {
     id: string,
     dto: UpdateOtjLogEntryDto,
   ): Promise<OtjLogEntryResponseDto> {
-    const row = await this.repo.findOne({
-      where: { id, organisationId: user.organisationId!, isDeleted: false },
-    });
+    const row = await this.findAccessibleEntry(user, id);
     if (!row) throw new NotFoundException('OTJ log entry not found');
 
-    const organisationId = user.organisationId!;
+    const organisationId = row.organisationId;
     const enrolmentId = dto.enrolmentId ?? row.enrolmentId;
     const apprenticeId = dto.apprenticeId ?? row.apprenticeId;
     if (dto.enrolmentId !== undefined || dto.apprenticeId !== undefined) {
@@ -161,9 +180,7 @@ export class OtjLogEntriesService {
   }
 
   async remove(user: AuthenticatedUser, id: string): Promise<void> {
-    const row = await this.repo.findOne({
-      where: { id, organisationId: user.organisationId!, isDeleted: false },
-    });
+    const row = await this.findAccessibleEntry(user, id);
     if (!row) throw new NotFoundException('OTJ log entry not found');
     await this.repo.softRemove(row);
   }
@@ -193,9 +210,7 @@ export class OtjLogEntriesService {
     for (const id of ids) {
       let notificationQueued = false;
       try {
-        const row = await this.repo.findOne({
-          where: { id, organisationId: user.organisationId!, isDeleted: false },
-        });
+        const row = await this.findAccessibleEntry(user, id);
         if (!row) {
           results.push({
             id,
@@ -274,10 +289,21 @@ export class OtjLogEntriesService {
 
     if (
       results.some((r) => r.ok) &&
-      user.organisationId &&
       (target === OtjLogStatus.APPROVED || target === OtjLogStatus.REJECTED)
     ) {
-      await this.eifScoreCache.invalidate(user.organisationId);
+      const providerOrgIds = new Set<string>();
+      for (const id of ids) {
+        const row = await this.repo.findOne({
+          where: { id, isDeleted: false },
+          select: ['organisationId'],
+        });
+        if (row?.organisationId) providerOrgIds.add(row.organisationId);
+      }
+      await Promise.all(
+        [...providerOrgIds].map((orgId) =>
+          this.eifScoreCache.invalidate(orgId),
+        ),
+      );
     }
 
     return {
@@ -286,6 +312,63 @@ export class OtjLogEntriesService {
       failed: results.filter((x) => !x.ok).length,
       results,
     };
+  }
+
+  /**
+   * Employer portal: OTJ rows live under the provider org but belong to
+   * enrolments linked via employerOrganisationId (same rule as employer dashboard).
+   * Returns null for non-employer orgs.
+   */
+  private async loadEmployerEnrolmentIds(
+    organisationId: string,
+  ): Promise<string[] | null> {
+    const organisation = await this.organisationRepo.findOne({
+      where: { id: organisationId, isDeleted: false },
+      select: ['portalType'],
+    });
+    if (organisation?.portalType !== PortalType.EMPLOYER) {
+      return null;
+    }
+
+    const enrolments = await this.enrolmentRepo.find({
+      where: {
+        employerOrganisationId: organisationId,
+        status: EnrolmentStatus.ACTIVE,
+        isDeleted: false,
+      },
+      select: ['id'],
+    });
+    return enrolments.map((e) => e.id);
+  }
+
+  private async findAccessibleEntry(
+    user: AuthenticatedUser,
+    id: string,
+  ): Promise<OtjLogEntry | null> {
+    const employerEnrolmentIds = await this.loadEmployerEnrolmentIds(
+      user.organisationId!,
+    );
+
+    if (employerEnrolmentIds !== null) {
+      if (employerEnrolmentIds.length === 0) {
+        return null;
+      }
+      return this.repo.findOne({
+        where: {
+          id,
+          enrolmentId: In(employerEnrolmentIds),
+          isDeleted: false,
+        },
+      });
+    }
+
+    return this.repo.findOne({
+      where: {
+        id,
+        organisationId: user.organisationId!,
+        isDeleted: false,
+      },
+    });
   }
 
   private applyStatusTransition(row: OtjLogEntry, target: OtjLogStatus): void {

@@ -6,6 +6,7 @@ import { EmailModule } from '../email/email.module.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { OfstedModule } from '../ofsted/ofsted.module.js';
+import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { StorageModule } from '../storage/storage.module.js';
 
 import { OtjLogEntry } from './entities/otj-log-entry.entity.js';
@@ -20,7 +21,7 @@ import { OtjPaceService } from './otj-pace.service.js';
     NotificationsModule,
     OfstedModule,
     StorageModule,
-    TypeOrmModule.forFeature([OtjLogEntry, Enrolment]),
+    TypeOrmModule.forFeature([OtjLogEntry, Enrolment, Organisation]),
   ],
   controllers: [OtjLogEntriesController],
   providers: [OtjLogEntriesService, OtjPaceService],

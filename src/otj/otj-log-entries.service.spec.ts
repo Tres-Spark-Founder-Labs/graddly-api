@@ -5,8 +5,11 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
+import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
+import { Organisation } from '../organisations/entities/organisation.entity.js';
+import { PortalType } from '../organisations/portal-type.enum.js';
 import { StorageKeyBuilder } from '../storage/storage-key.builder.js';
 
 import { OtjLogEntry } from './entities/otj-log-entry.entity.js';
@@ -26,7 +29,8 @@ describe('OtjLogEntriesService', () => {
   const emailDispatchService = { enqueue: jest.fn() };
   const configService = { get: jest.fn() };
   const eifScoreCache = { invalidate: jest.fn() };
-  const enrolmentRepo = { findOne: jest.fn() };
+  const enrolmentRepo = { findOne: jest.fn(), find: jest.fn() };
+  const organisationRepo = { findOne: jest.fn() };
   const keyBuilder = { belongsToOrganisation: jest.fn().mockReturnValue(true) };
 
   let service: OtjLogEntriesService;
@@ -41,6 +45,10 @@ describe('OtjLogEntriesService', () => {
         { provide: ConfigService, useValue: configService },
         { provide: EifScoreCacheService, useValue: eifScoreCache },
         { provide: getRepositoryToken(Enrolment), useValue: enrolmentRepo },
+        {
+          provide: getRepositoryToken(Organisation),
+          useValue: organisationRepo,
+        },
         { provide: StorageKeyBuilder, useValue: keyBuilder },
       ],
     }).compile();
@@ -53,6 +61,9 @@ describe('OtjLogEntriesService', () => {
       apprenticeId: 'a-1',
     });
     keyBuilder.belongsToOrganisation.mockReturnValue(true);
+    organisationRepo.findOne.mockResolvedValue({
+      portalType: PortalType.PROVIDER,
+    });
   });
 
   const user = {
@@ -100,8 +111,9 @@ describe('OtjLogEntriesService', () => {
 
   it('filters list by category', async () => {
     const andWhere = jest.fn().mockReturnThis();
+    const where = jest.fn().mockReturnThis();
     const qb = {
-      where: jest.fn().mockReturnThis(),
+      where,
       andWhere,
       orderBy: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
@@ -135,6 +147,42 @@ describe('OtjLogEntriesService', () => {
 
     expect(andWhere).toHaveBeenCalledWith('otj.category = :category', {
       category: OtjActivityCategory.TAUGHT_LEARNING,
+    });
+  });
+
+  it('lists submitted entries for employer via linked enrolments', async () => {
+    organisationRepo.findOne.mockResolvedValue({
+      portalType: PortalType.EMPLOYER,
+    });
+    enrolmentRepo.find.mockResolvedValue([{ id: 'enrol-employer-1' }]);
+
+    const andWhere = jest.fn().mockReturnThis();
+    const qb = {
+      where: jest.fn().mockReturnThis(),
+      andWhere,
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    };
+    repo.createQueryBuilder.mockReturnValue(qb);
+
+    await service.findAll(
+      { ...user, organisationId: 'employer-org-1' },
+      { status: OtjLogStatus.SUBMITTED },
+    );
+
+    expect(andWhere).toHaveBeenCalledWith(
+      'otj.enrolmentId IN (:...employerEnrolmentIds)',
+      { employerEnrolmentIds: ['enrol-employer-1'] },
+    );
+    expect(enrolmentRepo.find).toHaveBeenCalledWith({
+      where: {
+        employerOrganisationId: 'employer-org-1',
+        status: EnrolmentStatus.ACTIVE,
+        isDeleted: false,
+      },
+      select: ['id'],
     });
   });
 

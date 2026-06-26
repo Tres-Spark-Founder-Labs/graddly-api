@@ -200,4 +200,50 @@ describe('InvitationsController (e2e)', () => {
       await findInvitationAcceptTokenForInvitationId(invitationId);
     expect(tokenAfter).toBeNull();
   });
+
+  it('create succeeds after revoke for the same email', async () => {
+    const suffix = Date.now();
+    const owner = await createVerifiedUser(app, {
+      email: `inv-reinvite-owner-${suffix}@example.com`,
+    });
+
+    await request(app.getHttpServer())
+      .post('/api/v1/organisations')
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send(buildOrgPayload('Reinvite Org'))
+      .expect(201);
+
+    const { accessToken: ownerToken } = await loginVerifiedUser(
+      app,
+      owner.email,
+      owner.password,
+    );
+
+    const inviteeEmail = `reinvite-invitee-${suffix}@example.com`;
+
+    const firstCreate = await request(app.getHttpServer())
+      .post('/api/v1/invitations')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ email: inviteeEmail, role: 'member' })
+      .expect(201);
+
+    const firstInvitationId = (firstCreate.body as { data: { id: string } })
+      .data.id;
+
+    await request(app.getHttpServer())
+      .delete(`/api/v1/invitations/${firstInvitationId}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(204);
+
+    const secondCreate = await request(app.getHttpServer())
+      .post('/api/v1/invitations')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ email: inviteeEmail, role: 'member' })
+      .expect(201);
+
+    expectSuccessEnvelope(secondCreate.body);
+    expect((secondCreate.body as { data: { id: string } }).data.id).not.toBe(
+      firstInvitationId,
+    );
+  });
 });

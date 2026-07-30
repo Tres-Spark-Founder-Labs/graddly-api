@@ -72,6 +72,7 @@ export class UsersService {
         'locale',
         'timezone',
         'lastLoginAt',
+        'mfaEnabled',
         'createdAt',
         'updatedAt',
       ],
@@ -137,6 +138,62 @@ export class UsersService {
     await this.usersRepository.update(
       { id: userId },
       { password: hashedPassword },
+    );
+  }
+
+  /** Encrypted TOTP secret — `null` when no enrollment (pending or active) exists. */
+  async getMfaSecret(userId: string): Promise<string | null> {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'mfaSecret'],
+    });
+    return user?.mfaSecret ?? null;
+  }
+
+  /** Stores the encrypted secret for a pending (unconfirmed) enrollment. */
+  async setPendingMfaSecret(
+    userId: string,
+    encryptedSecret: string,
+  ): Promise<void> {
+    await this.usersRepository.update(
+      { id: userId },
+      { mfaSecret: encryptedSecret },
+    );
+  }
+
+  /** Activates MFA after the first code is confirmed, storing the hashed recovery codes. */
+  async enableMfa(
+    userId: string,
+    hashedRecoveryCodes: string[],
+  ): Promise<void> {
+    await this.usersRepository.update(
+      { id: userId },
+      { mfaEnabled: true, mfaRecoveryCodes: hashedRecoveryCodes },
+    );
+  }
+
+  async disableMfa(userId: string): Promise<void> {
+    await this.usersRepository.update(
+      { id: userId },
+      { mfaEnabled: false, mfaSecret: null, mfaRecoveryCodes: null },
+    );
+  }
+
+  async getMfaRecoveryCodes(userId: string): Promise<string[] | null> {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'mfaRecoveryCodes'],
+    });
+    return user?.mfaRecoveryCodes ?? null;
+  }
+
+  async setMfaRecoveryCodes(
+    userId: string,
+    remainingHashedCodes: string[],
+  ): Promise<void> {
+    await this.usersRepository.update(
+      { id: userId },
+      { mfaRecoveryCodes: remainingHashedCodes },
     );
   }
 }

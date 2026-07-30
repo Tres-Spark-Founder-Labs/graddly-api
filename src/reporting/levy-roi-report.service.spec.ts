@@ -15,6 +15,7 @@ import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
 import { PdfDispatchService } from '../pdf/pdf-dispatch.service.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
+import { Review } from '../reviews/entities/review.entity.js';
 
 import { LevyRoiBreakdownGroup } from './enums/levy-roi-breakdown-group.enum.js';
 import { LevyRoiReportService } from './levy-roi-report.service.js';
@@ -51,6 +52,7 @@ describe('LevyRoiReportService', () => {
   };
   const enrolmentFind = jest.fn();
   const transferFind = jest.fn();
+  const reviewFind = jest.fn().mockResolvedValue([]);
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -83,6 +85,10 @@ describe('LevyRoiReportService', () => {
         {
           provide: getRepositoryToken(DasLevyBalance),
           useValue: { findOne: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(Review),
+          useValue: { find: reviewFind },
         },
       ],
     }).compile();
@@ -155,10 +161,20 @@ describe('LevyRoiReportService', () => {
     });
     enrolmentFind.mockResolvedValue([
       {
+        id: 'enr-1',
         status: EnrolmentStatus.ACTIVE,
         providerOrganisationId: 'prov-1',
         standardId: 'std-1',
         agreedPrice: '10000',
+        apprentice: { status: 'active' },
+      },
+      {
+        id: 'enr-2',
+        status: EnrolmentStatus.CANCELLED,
+        providerOrganisationId: 'prov-1',
+        standardId: 'std-1',
+        agreedPrice: null,
+        apprentice: { status: 'withdrawn' },
       },
     ]);
     const orgFindBy = jest
@@ -167,6 +183,10 @@ describe('LevyRoiReportService', () => {
     const stdFindBy = jest
       .fn()
       .mockResolvedValue([{ id: 'std-1', title: 'Standard 1' }]);
+    reviewFind.mockResolvedValue([
+      { status: 'completed', scheduledAt: new Date('2026-01-01') },
+      { status: 'scheduled', scheduledAt: new Date('2026-01-15') },
+    ]);
     const moduleRef = await Test.createTestingModule({
       providers: [
         LevyRoiReportService,
@@ -198,6 +218,10 @@ describe('LevyRoiReportService', () => {
           provide: getRepositoryToken(DasLevyBalance),
           useValue: { findOne: jest.fn() },
         },
+        {
+          provide: getRepositoryToken(Review),
+          useValue: { find: reviewFind },
+        },
       ],
     }).compile();
     const localService = moduleRef.get(LevyRoiReportService);
@@ -207,7 +231,17 @@ describe('LevyRoiReportService', () => {
       LevyRoiBreakdownGroup.PROVIDER,
     );
 
-    expect(breakdown.length).toBeGreaterThanOrEqual(0);
+    expect(breakdown).toHaveLength(1);
+    expect(breakdown[0]).toMatchObject({
+      groupId: 'prov-1',
+      label: 'Provider A',
+      activeApprenticeCount: 1,
+      completionCount: 0,
+      // 1 of 2 enrolments (any status) is withdrawn/cancelled.
+      withdrawalRate: 50,
+      // 1 of 2 due reviews reached `completed`.
+      reviewComplianceRate: 50,
+    });
   });
 
   it('enqueues PDF export job for employer org', async () => {
@@ -286,6 +320,10 @@ describe('LevyRoiReportService', () => {
         {
           provide: getRepositoryToken(DasLevyBalance),
           useValue: { findOne: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(Review),
+          useValue: { find: reviewFind },
         },
       ],
     }).compile();

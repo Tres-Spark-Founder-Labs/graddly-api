@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -128,7 +129,17 @@ export class OrganisationsService {
     return organisation;
   }
 
-  async update(id: string, dto: UpdateOrganisationDto): Promise<Organisation> {
+  async update(
+    id: string,
+    dto: UpdateOrganisationDto,
+    activeOrganisationId: string,
+  ): Promise<Organisation> {
+    if (id !== activeOrganisationId) {
+      throw new ForbiddenException(
+        'You can only update your active organisation',
+      );
+    }
+
     const organisation = await this.findOne(id);
 
     if (dto.name !== undefined) organisation.name = dto.name.trim();
@@ -162,7 +173,13 @@ export class OrganisationsService {
     return this.organisationsRepository.save(organisation);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, activeOrganisationId: string): Promise<void> {
+    if (id !== activeOrganisationId) {
+      throw new ForbiddenException(
+        'You can only delete your active organisation',
+      );
+    }
+
     const organisation = await this.findOne(id);
     await this.organisationsRepository.softRemove(organisation);
   }

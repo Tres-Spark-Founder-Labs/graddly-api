@@ -16,6 +16,7 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiExtraModels,
+  ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -27,7 +28,10 @@ import {
 } from '@nestjs/swagger';
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
+import { Roles } from '../auth/decorators/roles.decorator.js';
+import { ActiveOrganisationGuard } from '../auth/guards/active-organisation.guard.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import {
   ErrorResponseDto,
@@ -39,6 +43,7 @@ import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { CreateOrganisationDto } from './dto/create-organisation.dto.js';
 import { OrganisationResponseDto } from './dto/organisation-response.dto.js';
 import { UpdateOrganisationDto } from './dto/update-organisation.dto.js';
+import { OrganisationRole } from './organisation-role.enum.js';
 import { OrganisationsService } from './organisations.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
@@ -128,8 +133,10 @@ export class OrganisationsController {
   }
 
   @Patch(':id')
+  @UseGuards(ActiveOrganisationGuard, RolesGuard)
+  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
   @ResponseMessage('Organisation updated successfully')
-  @ApiOperation({ summary: 'Update organisation' })
+  @ApiOperation({ summary: 'Update organisation (owner or admin)' })
   @ApiOkResponse({
     description: 'Updated organisation',
     schema: {
@@ -143,6 +150,11 @@ export class OrganisationsController {
     description: 'Validation failed',
     type: ValidationErrorResponseDto,
   })
+  @ApiForbiddenResponse({
+    description:
+      "Insufficient permissions, no active organisation, or :id does not match the caller's active organisation",
+    type: ErrorResponseDto,
+  })
   @ApiNotFoundResponse({
     description: 'Organisation not found',
     type: ErrorResponseDto,
@@ -154,20 +166,35 @@ export class OrganisationsController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateOrganisationDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.organisationsService.update(id, dto);
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.organisationsService.update(id, dto, user.organisationId!);
   }
 
   @Delete(':id')
+  @UseGuards(ActiveOrganisationGuard, RolesGuard)
+  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ResponseMessage('Organisation deleted successfully')
-  @ApiOperation({ summary: 'Soft-delete organisation' })
+  @ApiOperation({ summary: 'Soft-delete organisation (owner or admin)' })
   @ApiNoContentResponse({ description: 'Organisation deleted' })
+  @ApiForbiddenResponse({
+    description:
+      "Insufficient permissions, no active organisation, or :id does not match the caller's active organisation",
+    type: ErrorResponseDto,
+  })
   @ApiNotFoundResponse({
     description: 'Organisation not found',
     type: ErrorResponseDto,
   })
-  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    await this.organisationsService.remove(id);
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    await this.organisationsService.remove(id, user.organisationId!);
   }
 }

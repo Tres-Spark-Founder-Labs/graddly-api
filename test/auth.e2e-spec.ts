@@ -275,6 +275,7 @@ describe('AuthController (e2e)', () => {
           locale: 'en-GB',
           timezone: 'Europe/London',
           lastLoginAt: expect.any(String),
+          mfaEnabled: false,
           isDeleted: false,
           deletedAt: null,
           createdAt: expect.any(String),

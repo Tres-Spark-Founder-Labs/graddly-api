@@ -13,6 +13,9 @@ import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { ActiveOrganisationGuard } from './guards/active-organisation.guard.js';
 import { RolesGuard } from './guards/roles.guard.js';
+import { MfaEncryptionService } from './mfa/mfa-encryption.service.js';
+import { MfaController } from './mfa/mfa.controller.js';
+import { MfaService } from './mfa/mfa.service.js';
 import { OidcModule } from './oidc/oidc.module.js';
 import { RefreshTokenService } from './refresh-token.service.js';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
@@ -34,7 +37,7 @@ import { JwtStrategy } from './strategies/jwt.strategy.js';
       }),
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, MfaController],
   providers: [
     AuthService,
     RefreshTokenService,
@@ -42,6 +45,8 @@ import { JwtStrategy } from './strategies/jwt.strategy.js';
     ActiveOrganisationResolver,
     ActiveOrganisationGuard,
     RolesGuard,
+    MfaService,
+    MfaEncryptionService,
   ],
   exports: [
     AuthService,

@@ -62,6 +62,9 @@ export class UserResponseDto {
   @ApiPropertyOptional({ nullable: true })
   lastLoginAt!: Date | null;
 
+  @ApiProperty({ example: false })
+  mfaEnabled!: boolean;
+
   @ApiProperty()
   createdAt!: Date;
 

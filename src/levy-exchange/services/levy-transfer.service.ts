@@ -7,6 +7,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+import { buildPaginationMeta } from '../../common/pagination/build-pagination-meta.js';
+import { PaginatedResult } from '../../common/pagination/paginated-result.js';
 import { DasHttpClient } from '../../das/das-http.client.js';
 import { Organisation } from '../../organisations/entities/organisation.entity.js';
 import { PdfGenerationJob } from '../../pdf/entities/pdf-generation-job.entity.js';
@@ -19,6 +21,10 @@ import { StorageService } from '../../storage/storage.service.js';
 import { CreateTransferFromMatchDto } from '../dto/create-transfer-from-match.dto.js';
 import { LevyTransferDocumentResponseDto } from '../dto/levy-transfer-document-response.dto.js';
 import { LevyTransferResponseDto } from '../dto/levy-transfer-response.dto.js';
+import {
+  ListTransfersQueryDto,
+  TransferRoleFilter,
+} from '../dto/list-transfers-query.dto.js';
 import { SignTransferResponseDto } from '../dto/sign-transfer-response.dto.js';
 import { SignTransferDto } from '../dto/sign-transfer.dto.js';
 import { DasDonorLink } from '../entities/das-donor-link.entity.js';
@@ -140,6 +146,47 @@ export class LevyTransferService {
       transferId,
     );
     return this.toResponse(transfer);
+  }
+
+  async list(
+    organisationId: string,
+    query: ListTransfersQueryDto,
+  ): Promise<PaginatedResult<LevyTransferResponseDto>> {
+    const page = query.page ?? 1;
+    const perPage = query.perPage ?? 20;
+
+    const qb = this.transferRepo
+      .createQueryBuilder('transfer')
+      .where('transfer.isDeleted = false');
+
+    if (query.role === TransferRoleFilter.DONOR) {
+      qb.andWhere('transfer.donorOrganisationId = :organisationId', {
+        organisationId,
+      });
+    } else if (query.role === TransferRoleFilter.RECIPIENT) {
+      qb.andWhere('transfer.recipientOrganisationId = :organisationId', {
+        organisationId,
+      });
+    } else {
+      qb.andWhere(
+        '(transfer.donorOrganisationId = :organisationId OR transfer.recipientOrganisationId = :organisationId)',
+        { organisationId },
+      );
+    }
+
+    if (query.status) {
+      qb.andWhere('transfer.status = :status', { status: query.status });
+    }
+
+    qb.orderBy('transfer.createdAt', 'DESC')
+      .skip((page - 1) * perPage)
+      .take(perPage);
+
+    const [rows, total] = await qb.getManyAndCount();
+    return new PaginatedResult(
+      rows.map((row) => this.toResponse(row)),
+      buildPaginationMeta({ total, page, perPage }),
+    );
   }
 
   async sign(

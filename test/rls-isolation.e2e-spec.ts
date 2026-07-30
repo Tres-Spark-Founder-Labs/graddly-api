@@ -78,18 +78,24 @@ describe('RLS tenant isolation (e2e)', () => {
       expect((res.body.data as { id: string }).id).toBe(tenantA.organisationId);
     });
 
+    // Cross-tenant writes are rejected at the service layer (403) before any DB
+    // lookup, rather than falling through to RLS masking (404). Tenant A supplies
+    // their OWN org via X-Organisation-Id so they hold a legitimate owner context —
+    // this exercises the real cross-tenant check rather than merely tripping the
+    // "no active organisation context" guard.
     it('prevents cross-tenant organisation update', async () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/organisations/${tenantB.organisationId}`)
         .set('Authorization', `Bearer ${tenantA.accessToken}`)
+        .set('X-Organisation-Id', tenantA.organisationId)
         .send({ name: 'Hijacked Trust' })
-        .expect(404);
+        .expect(403);
 
       expectFilteredHttpExceptionBody(res.body as Record<string, unknown>, {
-        statusCode: 404,
-        message: 'Organisation not found',
+        statusCode: 403,
+        message: 'You can only update your active organisation',
         path: `/api/v1/organisations/${tenantB.organisationId}`,
-        error: 'Not Found',
+        error: 'Forbidden',
       });
     });
 
@@ -97,13 +103,33 @@ describe('RLS tenant isolation (e2e)', () => {
       const res = await request(app.getHttpServer())
         .delete(`/api/v1/organisations/${tenantB.organisationId}`)
         .set('Authorization', `Bearer ${tenantA.accessToken}`)
-        .expect(404);
+        .set('X-Organisation-Id', tenantA.organisationId)
+        .expect(403);
 
       expectFilteredHttpExceptionBody(res.body as Record<string, unknown>, {
-        statusCode: 404,
-        message: 'Organisation not found',
+        statusCode: 403,
+        message: 'You can only delete your active organisation',
         path: `/api/v1/organisations/${tenantB.organisationId}`,
-        error: 'Not Found',
+        error: 'Forbidden',
+      });
+    });
+
+    // Guards against information disclosure: a foreign-but-real org and a
+    // nonexistent org must be indistinguishable, so 403 cannot be used to probe
+    // which organisation ids exist.
+    it('returns the same 403 for a nonexistent organisation id (no existence leak)', async () => {
+      const nonexistentId = '00000000-0000-4000-8000-000000000000';
+      const res = await request(app.getHttpServer())
+        .delete(`/api/v1/organisations/${nonexistentId}`)
+        .set('Authorization', `Bearer ${tenantA.accessToken}`)
+        .set('X-Organisation-Id', tenantA.organisationId)
+        .expect(403);
+
+      expectFilteredHttpExceptionBody(res.body as Record<string, unknown>, {
+        statusCode: 403,
+        message: 'You can only delete your active organisation',
+        path: `/api/v1/organisations/${nonexistentId}`,
+        error: 'Forbidden',
       });
     });
   });

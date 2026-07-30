@@ -56,6 +56,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { SignupDto } from './dto/signup.dto.js';
 import { VerifyEmailDto } from './dto/verify-email.dto.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
+import { MfaChallengeResponseDto } from './mfa/dto/mfa-challenge-response.dto.js';
 
 import type { AuthenticatedUser } from './interfaces/authenticated-user.interface.js';
 
@@ -134,14 +135,22 @@ export class AuthController {
   @ApiOperation({
     summary: 'Log in with email and password',
     description:
-      'Authenticates a user with their email and password. Returns a new token pair. Fails if the credentials are invalid or the account is deactivated. Rate limited to 5 requests per minute.',
+      'Authenticates a user with their email and password. Returns a new token pair, ' +
+      'or — when the account has MFA enabled — a challengeToken to complete via POST ' +
+      '/auth/mfa/verify. Fails if the credentials are invalid or the account is deactivated. ' +
+      'Rate limited to 5 requests per minute.',
   })
   @ApiOkResponse({
-    description: 'Login successful',
+    description: 'Login successful, or an MFA challenge to complete',
     schema: {
       properties: {
         message: { type: 'string' },
-        data: { $ref: getSchemaPath(AuthResponseDto) },
+        data: {
+          oneOf: [
+            { $ref: getSchemaPath(AuthResponseDto) },
+            { $ref: getSchemaPath(MfaChallengeResponseDto) },
+          ],
+        },
       },
     },
   })

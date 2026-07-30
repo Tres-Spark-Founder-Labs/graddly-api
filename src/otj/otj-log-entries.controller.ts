@@ -30,8 +30,10 @@ import {
 } from '@nestjs/swagger';
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
+import { Roles } from '../auth/decorators/roles.decorator.js';
 import { ActiveOrganisationGuard } from '../auth/guards/active-organisation.guard.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers.js';
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import {
@@ -42,6 +44,7 @@ import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
+import { OrganisationRole } from '../organisations/organisation-role.enum.js';
 
 import { BulkOtjActionResponseDto } from './dto/bulk-otj-action-response.dto.js';
 import { BulkOtjActionDto } from './dto/bulk-otj-action.dto.js';
@@ -178,9 +181,11 @@ export class OtjLogEntriesController {
   }
 
   @Post('bulk-approve')
+  @UseGuards(RolesGuard)
+  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
   @ResponseMessage('Bulk OTJ approval completed')
   @ApiOperation({
-    summary: 'Bulk approve OTJ submitted entries',
+    summary: 'Bulk approve OTJ submitted entries (owner or admin)',
     description:
       'Transitions each entry from submitted to approved. Entries not in submitted status return ' +
       'per-id failure in the results array. Invalidates EIF score cache when any succeed.',
@@ -194,6 +199,10 @@ export class OtjLogEntriesController {
       },
     },
   })
+  @ApiForbiddenResponse({
+    description: 'Insufficient permissions',
+    type: ErrorResponseDto,
+  })
   bulkApprove(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: BulkOtjActionDto,
@@ -204,9 +213,11 @@ export class OtjLogEntriesController {
   }
 
   @Post('bulk-reject')
+  @UseGuards(RolesGuard)
+  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
   @ResponseMessage('Bulk OTJ rejection completed')
   @ApiOperation({
-    summary: 'Bulk reject OTJ submitted entries',
+    summary: 'Bulk reject OTJ submitted entries (owner or admin)',
     description:
       'Transitions each entry from submitted to rejected with an optional reason. Invalidates EIF ' +
       'score cache when any succeed.',
@@ -219,6 +230,10 @@ export class OtjLogEntriesController {
         data: { $ref: getSchemaPath(BulkOtjActionResponseDto) },
       },
     },
+  })
+  @ApiForbiddenResponse({
+    description: 'Insufficient permissions',
+    type: ErrorResponseDto,
   })
   bulkReject(
     @CurrentUser() user: AuthenticatedUser,

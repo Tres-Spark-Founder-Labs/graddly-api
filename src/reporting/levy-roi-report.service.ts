@@ -189,6 +189,7 @@ export class LevyRoiReportService {
       providerBreakdown,
       standardBreakdown,
       balance,
+      forecast,
     ] = await Promise.all([
       this.loadOrganisationWithBootstrap(organisationId),
       this.getSummary(organisationId),
@@ -197,6 +198,9 @@ export class LevyRoiReportService {
       this.levyBalanceRepo.findOne({
         where: { organisationId, isDeleted: false },
       }),
+      // F1.1.5 AC1: the exported report must include the forecast. It was
+      // already computed for the API response but never reached the PDF.
+      this.forecastService.forecastForOrganisation(organisationId),
     ]);
 
     return {
@@ -214,6 +218,13 @@ export class LevyRoiReportService {
         estimatedProductivityUplift: summary.estimatedProductivityUplift,
         monthlyContributions: summary.monthlyContributions,
         utilisationSegments: balance?.utilisationSegments ?? null,
+      },
+      forecast: {
+        horizonMonths: forecast.horizonMonths,
+        activeEnrolmentCount: forecast.activeEnrolmentCount,
+        projectedMonthlySpend: forecast.projectedMonthlySpend,
+        projectedCompletionLiability: forecast.projectedCompletionLiability,
+        estimatedRunwayMonths: forecast.estimatedRunwayMonths,
       },
       breakdownByProvider: providerBreakdown,
       breakdownByStandard: standardBreakdown,

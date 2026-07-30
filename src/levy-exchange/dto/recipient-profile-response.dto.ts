@@ -25,6 +25,12 @@ export class RecipientProfileResponseDto {
   @ApiProperty()
   hasDasAccount!: boolean;
 
+  @ApiProperty({
+    description:
+      'Whether this profile is opted in to the donor-facing directory',
+  })
+  isListed!: boolean;
+
   @ApiProperty()
   createdAt!: string;
 

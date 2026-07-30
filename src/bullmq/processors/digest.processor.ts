@@ -17,13 +17,15 @@ export class DigestProcessor extends WorkerHost {
 
   async process(job: Job<IWeeklyOtjDigestJobPayload>): Promise<void> {
     switch (job.name) {
+      // The job name string stays "weekly-otj-digest" for wire compatibility:
+      // it is persisted in Redis, so renaming it would strand jobs already
+      // queued at deploy time. The cadence is now per-manager (F1.2.3 AC7).
       case DIGEST_JOB_WEEKLY_OTJ: {
-        const sent =
-          await this.otjDigestService.sendWeeklyDigestForOrganisation(
-            job.data.organisationId,
-          );
+        const sent = await this.otjDigestService.sendDigestForOrganisation(
+          job.data.organisationId,
+        );
         this.logger.log(
-          `Weekly OTJ digest for org ${job.data.organisationId}: ${sent} email(s) (job ${job.id})`,
+          `OTJ approval digest for org ${job.data.organisationId}: ${sent} email(s) (job ${job.id})`,
         );
         return;
       }

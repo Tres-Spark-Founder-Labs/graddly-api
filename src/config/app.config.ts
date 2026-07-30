@@ -51,6 +51,7 @@ export default registerAs('app', () => {
       lockTtlSeconds: e.CRON_LOCK_TTL_SECONDS,
       digestEnabled: e.CRON_DIGEST_ENABLED,
       digestSchedule: e.CRON_DIGEST_SCHEDULE,
+      digestTimeZone: e.CRON_DIGEST_TIMEZONE,
       dasSyncEnabled: e.CRON_DAS_SYNC_ENABLED,
       dasSyncSchedule: e.CRON_DAS_SYNC_SCHEDULE,
       dasFundingSyncEnabled: e.CRON_DAS_FUNDING_SYNC_ENABLED,

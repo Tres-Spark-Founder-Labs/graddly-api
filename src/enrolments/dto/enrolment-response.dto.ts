@@ -181,4 +181,13 @@ export class EnrolmentResponseDto {
     description: 'Latest OTJ smart pace alert level from nightly cron',
   })
   otjPaceAlertLevel!: OtjPaceAlertLevel | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    description:
+      'How far behind the required OTJ pace, as a percentage (F1.2.4 AC5). ' +
+      'Null when pace cannot be computed, which is not the same as zero.',
+  })
+  otjBehindPercent!: number | null;
 }

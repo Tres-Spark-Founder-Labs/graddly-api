@@ -1,6 +1,7 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
+  IsOptional,
   IsNumberString,
   IsString,
   MaxLength,
@@ -56,4 +57,16 @@ export class UpsertRecipientProfileDto {
   })
   @IsBoolean()
   hasDasAccount!: boolean;
+
+  @ApiPropertyOptional({
+    default: false,
+    description:
+      'Opt in to the donor-facing SME directory. While false the profile is ' +
+      'visible only to this organisation; setting it true makes sector, ' +
+      'region, programme type and amount required readable by levy-paying ' +
+      'employers searching for transfer recipients.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  isListed?: boolean;
 }

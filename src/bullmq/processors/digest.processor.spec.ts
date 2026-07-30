@@ -10,7 +10,7 @@ import type { Job } from 'bullmq';
 
 describe('DigestProcessor', () => {
   let processor: DigestProcessor;
-  const sendWeeklyDigestForOrganisation = jest.fn();
+  const sendDigestForOrganisation = jest.fn();
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -18,14 +18,14 @@ describe('DigestProcessor', () => {
         DigestProcessor,
         {
           provide: OtjDigestService,
-          useValue: { sendWeeklyDigestForOrganisation },
+          useValue: { sendDigestForOrganisation },
         },
       ],
     }).compile();
 
     processor = moduleRef.get(DigestProcessor);
     jest.clearAllMocks();
-    sendWeeklyDigestForOrganisation.mockResolvedValue(1);
+    sendDigestForOrganisation.mockResolvedValue(1);
   });
 
   it('delegates weekly OTJ digest jobs to OtjDigestService', async () => {
@@ -37,6 +37,6 @@ describe('DigestProcessor', () => {
 
     await processor.process(job);
 
-    expect(sendWeeklyDigestForOrganisation).toHaveBeenCalledWith('org-1');
+    expect(sendDigestForOrganisation).toHaveBeenCalledWith('org-1');
   });
 });

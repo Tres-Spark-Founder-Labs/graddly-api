@@ -144,6 +144,16 @@ export class Enrolment extends BaseEntity {
   @Column({ type: 'timestamptz', nullable: true })
   otjPaceAlertedAt!: Date | null;
 
+  /**
+   * How far behind the required OTJ pace, as a percentage (F1.2.4 AC5).
+   * Null when pace cannot be computed — which is not the same as zero.
+   *
+   * `numeric` columns come back from pg as strings, so this is typed
+   * accordingly at the boundary and coerced when read.
+   */
+  @Column({ type: 'numeric', precision: 6, scale: 2, nullable: true })
+  otjBehindPercent!: string | number | null;
+
   @Column({ type: 'timestamptz', nullable: true })
   gatewayReadyNotifiedAt!: Date | null;
 }

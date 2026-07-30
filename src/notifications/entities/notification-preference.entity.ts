@@ -3,6 +3,10 @@ import { Column, Entity, JoinColumn, ManyToOne, RelationId } from 'typeorm';
 import { BaseEntity } from '../../common/entities/base.entity.js';
 import { Organisation } from '../../organisations/entities/organisation.entity.js';
 import { User } from '../../users/entities/user.entity.js';
+import {
+  DEFAULT_DIGEST_FREQUENCY,
+  DigestFrequency,
+} from '../enums/digest-frequency.enum.js';
 import { NotificationChannel } from '../enums/notification-channel.enum.js';
 import { NotificationType } from '../enums/notification-type.enum.js';
 
@@ -38,4 +42,16 @@ export class NotificationPreference extends BaseEntity {
 
   @Column({ default: true })
   enabled!: boolean;
+
+  /**
+   * F1.2.3 AC7. Meaningful only when `channel` is DIGEST; other channels carry
+   * the default and ignore it.
+   */
+  @Column({
+    type: 'enum',
+    enum: DigestFrequency,
+    enumName: 'digest_frequency',
+    default: DEFAULT_DIGEST_FREQUENCY,
+  })
+  frequency!: DigestFrequency;
 }

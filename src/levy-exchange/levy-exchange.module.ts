@@ -17,6 +17,7 @@ import { DonorOAuthController } from './controllers/donor-oauth.controller.js';
 import { EligibilityController } from './controllers/eligibility.controller.js';
 import { MatchApplicationsController } from './controllers/match-applications.controller.js';
 import { MatchingController } from './controllers/matching.controller.js';
+import { RecipientDirectoryController } from './controllers/recipient-directory.controller.js';
 import { RecipientProfileController } from './controllers/recipient-profile.controller.js';
 import { SurplusController } from './controllers/surplus.controller.js';
 import { TransferPreferencesController } from './controllers/transfer-preferences.controller.js';
@@ -78,6 +79,7 @@ import { TokenEncryptionService } from './services/token-encryption.service.js';
     DonorLinksController,
     DonorOAuthController,
     EligibilityController,
+    RecipientDirectoryController,
     RecipientProfileController,
     TransferPreferencesController,
     SurplusController,

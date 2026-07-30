@@ -47,7 +47,10 @@ import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { OrganisationRole } from '../organisations/organisation-role.enum.js';
 
 import { BulkOtjActionResponseDto } from './dto/bulk-otj-action-response.dto.js';
-import { BulkOtjActionDto } from './dto/bulk-otj-action.dto.js';
+import {
+  BulkOtjApproveDto,
+  BulkOtjRejectDto,
+} from './dto/bulk-otj-action.dto.js';
 import { CreateOtjLogEntryDto } from './dto/create-otj-log-entry.dto.js';
 import { ListOtjLogEntriesQueryDto } from './dto/list-otj-log-entries-query.dto.js';
 import { OtjActivityCategoryDefinitionDto } from './dto/otj-activity-category-response.dto.js';
@@ -187,8 +190,9 @@ export class OtjLogEntriesController {
   @ApiOperation({
     summary: 'Bulk approve OTJ submitted entries (owner or admin)',
     description:
-      'Transitions each entry from submitted to approved. Entries not in submitted status return ' +
-      'per-id failure in the results array. Invalidates EIF score cache when any succeed.',
+      'Transitions each entry from submitted to approved. Maximum 20 ids per call. Entries not in ' +
+      'submitted status return per-id failure in the results array. Invalidates EIF score cache ' +
+      'when any succeed.',
   })
   @ApiCreatedResponse({
     description: 'Bulk approval result with per-id outcomes',
@@ -205,7 +209,7 @@ export class OtjLogEntriesController {
   })
   bulkApprove(
     @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: BulkOtjActionDto,
+    @Body() dto: BulkOtjApproveDto,
   ): Promise<BulkOtjActionResponseDto> {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
@@ -219,8 +223,9 @@ export class OtjLogEntriesController {
   @ApiOperation({
     summary: 'Bulk reject OTJ submitted entries (owner or admin)',
     description:
-      'Transitions each entry from submitted to rejected with an optional reason. Invalidates EIF ' +
-      'score cache when any succeed.',
+      'Transitions each entry from submitted to rejected. A reason of at least 10 characters is ' +
+      'mandatory and is shown to the apprentice. Maximum 20 ids per call. Invalidates EIF score ' +
+      'cache when any succeed.',
   })
   @ApiCreatedResponse({
     description: 'Bulk rejection result with per-id outcomes',
@@ -237,7 +242,7 @@ export class OtjLogEntriesController {
   })
   bulkReject(
     @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: BulkOtjActionDto,
+    @Body() dto: BulkOtjRejectDto,
   ): Promise<BulkOtjActionResponseDto> {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);

@@ -43,6 +43,14 @@ export interface IReviewSnapshotContent {
 export interface ILevyRoiReportContent {
   organisationName: string;
   logoUrl: string | null;
+
+  /**
+   * F1.1.5 AC2 — the logo as raw bytes. PDFKit cannot draw from a URL, and the
+   * renderer must stay synchronous and side-effect free, so fetching happens
+   * upstream (in the job processor) and the bytes are passed in. Null when the
+   * organisation has no logo or the fetch failed.
+   */
+  logoBytes?: Buffer | null;
   summary: {
     totalLevySpendToDate: number;
     availableBalance: number | null;
@@ -61,6 +69,19 @@ export interface ILevyRoiReportContent {
       currency: string;
     } | null;
   };
+
+  /**
+   * F1.1.5 AC1 — the report must carry the forward forecast, not only history.
+   * Optional so existing callers and fixtures stay valid; the renderer omits
+   * the section when absent rather than printing zeros.
+   */
+  forecast?: {
+    horizonMonths: number;
+    activeEnrolmentCount: number;
+    projectedMonthlySpend: number;
+    projectedCompletionLiability: number;
+    estimatedRunwayMonths: number | null;
+  } | null;
   breakdownByProvider: Array<{
     label: string;
     activeApprenticeCount: number;

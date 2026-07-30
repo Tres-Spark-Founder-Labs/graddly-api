@@ -1,0 +1,24 @@
+{% extends "layouts/base.html.njk" %}
+
+{% block title %}Off-the-job log {% if approved %}approved{% else %}sent back{% endif %}{% endblock %}
+
+{% block content %}
+<p>Hi {{ firstName }},</p>
+{% if approved %}
+<p>Your off-the-job training log has been <strong>approved</strong>.</p>
+{% else %}
+<p>Your off-the-job training log has been <strong>sent back for changes</strong>.</p>
+{% endif %}
+<p>
+  <strong>{{ activityName }}</strong><br />
+  {{ loggedDate }} &middot; {{ hours }} hour(s)
+</p>
+{% if approved %}
+<p>These hours now count towards your off-the-job total.</p>
+{% else %}
+<p><strong>Reason given:</strong></p>
+<blockquote>{{ reason }}</blockquote>
+<p>You can edit the entry and submit it again.</p>
+{% endif %}
+<p>Sign in to {{ appName }} to view your log.</p>
+{% endblock %}

@@ -691,6 +691,14 @@ export class EnrolmentsService {
                 usersById.get(enrolment.employerManagerUserId),
               )
             : null,
+          // `numeric` columns arrive from pg as strings. Coerced here so the
+          // API contract is a number and clients are not left doing it — a
+          // string would compare and sort wrongly without anyone noticing.
+          otjBehindPercent:
+            enrolment.otjBehindPercent === null ||
+            enrolment.otjBehindPercent === undefined
+              ? null
+              : Number(enrolment.otjBehindPercent),
         }),
       );
     } finally {

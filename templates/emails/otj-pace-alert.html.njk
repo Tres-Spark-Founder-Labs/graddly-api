@@ -1,0 +1,29 @@
+{% extends "layouts/base.html.njk" %}
+
+{% block title %}{{ apprenticeName }} is behind on off-the-job hours{% endblock %}
+
+{% block content %}
+<p>Hi {{ firstName }},</p>
+<p>
+  <strong>{{ apprenticeName }}</strong> is <strong>{{ behindPercent }}%</strong> behind the
+  off-the-job training pace required to reach their end-point assessment on time.
+</p>
+{% if critical %}
+<p>
+  This has passed the <strong>overdue</strong> threshold ({{ overdueThreshold }}% behind),
+  which puts the apprenticeship funding and the EPA date at risk.
+</p>
+{% else %}
+<p>This has passed the <strong>at-risk</strong> threshold ({{ atRiskThreshold }}% behind).</p>
+{% endif %}
+{% if requiredWeeklyHours %}
+<p>
+  To get back on track they need to log about
+  <strong>{{ requiredWeeklyHours }} hours a week</strong> for the rest of the programme.
+</p>
+{% endif %}
+<p>Sign in to {{ appName }} to review their off-the-job log and speak to their training provider.</p>
+<p style="color:#6b7280;font-size:12px;">
+  You are receiving this because you are the line manager on this apprenticeship.
+</p>
+{% endblock %}

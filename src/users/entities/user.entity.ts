@@ -63,6 +63,17 @@ export class User extends BaseEntity {
   @Column({ type: 'timestamp', nullable: true })
   lastLoginAt!: Date | null;
 
+  @Column({ default: false })
+  mfaEnabled!: boolean;
+
+  /** AES-256-GCM encrypted TOTP secret (see MfaEncryptionService). Never sent to clients. */
+  @Column({ type: 'text', nullable: true, select: false })
+  mfaSecret!: string | null;
+
+  /** Single-use recovery codes, each stored as a bcrypt hash. Never sent to clients. */
+  @Column({ type: 'text', array: true, nullable: true, select: false })
+  mfaRecoveryCodes!: string[] | null;
+
   @OneToMany('OrganisationMembership', 'user')
   memberships!: OrganisationMembership[];
 }

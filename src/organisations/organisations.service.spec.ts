@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
@@ -227,6 +231,13 @@ describe('OrganisationsService', () => {
   });
 
   describe('update', () => {
+    it("throws ForbiddenException when :id does not match the caller's active organisation", async () => {
+      await expect(
+        service.update('org-1', { name: 'New Name' }, 'org-2'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(repository.findOne).not.toHaveBeenCalled();
+    });
+
     it('throws ConflictException when new UKPRN belongs to another org', async () => {
       const existing = {
         id: 'org-1',
@@ -240,7 +251,7 @@ describe('OrganisationsService', () => {
         .mockResolvedValueOnce(other); //   UKPRN clash check
 
       await expect(
-        service.update('org-1', { ukprn: '22222222' }),
+        service.update('org-1', { ukprn: '22222222' }, 'org-1'),
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
@@ -256,10 +267,11 @@ describe('OrganisationsService', () => {
         Promise.resolve(o),
       );
 
-      const result = await service.update('org-1', {
-        name: 'New Name',
-        city: 'London',
-      });
+      const result = await service.update(
+        'org-1',
+        { name: 'New Name', city: 'London' },
+        'org-1',
+      );
 
       expect(result.name).toBe('New Name');
       expect(result.city).toBe('London');
@@ -278,12 +290,14 @@ describe('OrganisationsService', () => {
         Promise.resolve(o),
       );
 
-      const set = await service.update('org-1', {
-        logoUrl: 'https://cdn.example.com/logo.png',
-      });
+      const set = await service.update(
+        'org-1',
+        { logoUrl: 'https://cdn.example.com/logo.png' },
+        'org-1',
+      );
       expect(set.logoUrl).toBe('https://cdn.example.com/logo.png');
 
-      const cleared = await service.update('org-1', { logoUrl: '' });
+      const cleared = await service.update('org-1', { logoUrl: '' }, 'org-1');
       expect(cleared.logoUrl).toBeNull();
     });
   });
@@ -304,12 +318,19 @@ describe('OrganisationsService', () => {
   });
 
   describe('remove', () => {
+    it("throws ForbiddenException when :id does not match the caller's active organisation", async () => {
+      await expect(service.remove('org-1', 'org-2')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(repository.findOne).not.toHaveBeenCalled();
+    });
+
     it('soft-removes organisation', async () => {
       const org = { id: 'org-1', name: 'A', slug: 'a' } as Organisation;
       repository.findOne.mockResolvedValueOnce(org);
       repository.softRemove.mockResolvedValueOnce(org);
 
-      await service.remove('org-1');
+      await service.remove('org-1', 'org-1');
 
       expect(repository.softRemove).toHaveBeenCalledWith(org);
     });

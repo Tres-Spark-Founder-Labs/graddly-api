@@ -203,5 +203,8 @@ export default registerAs('app', () => {
     flowportalRegistration: {
       companiesHouseApiKey: e.COMPANIES_HOUSE_API_KEY,
     },
+    security: {
+      mfaEncryptionKey: e.MFA_ENCRYPTION_KEY?.trim() || e.JWT_SECRET,
+    },
   };
 });

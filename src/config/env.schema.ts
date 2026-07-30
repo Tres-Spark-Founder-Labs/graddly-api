@@ -374,6 +374,8 @@ export const envSchema = z
       .transform((v) => v !== 'false'),
 
     COMPANIES_HOUSE_API_KEY: z.string().optional().default(''),
+
+    MFA_ENCRYPTION_KEY: z.string().optional().default(''),
   })
   .superRefine((data, ctx) => {
     const deployed =

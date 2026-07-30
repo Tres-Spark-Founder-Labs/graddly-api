@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -34,11 +35,13 @@ import {
   ErrorResponseDto,
   ValidationErrorResponseDto,
 } from '../../common/dto/error-response.dto.js';
+import { PaginationMetaDto } from '../../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../../common/interceptors/response-message.decorator.js';
 import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
 import { CreateTransferFromMatchDto } from '../dto/create-transfer-from-match.dto.js';
 import { LevyTransferDocumentResponseDto } from '../dto/levy-transfer-document-response.dto.js';
 import { LevyTransferResponseDto } from '../dto/levy-transfer-response.dto.js';
+import { ListTransfersQueryDto } from '../dto/list-transfers-query.dto.js';
 import { SignTransferResponseDto } from '../dto/sign-transfer-response.dto.js';
 import { SignTransferDto } from '../dto/sign-transfer.dto.js';
 import { LevyTransferService } from '../services/levy-transfer.service.js';
@@ -53,6 +56,8 @@ import type { Request } from 'express';
   SignTransferResponseDto,
   CreateTransferFromMatchDto,
   SignTransferDto,
+  ListTransfersQueryDto,
+  PaginationMetaDto,
 )
 @Controller({ path: 'levy-exchange/transfers', version: '1' })
 @UseGuards(JwtAuthGuard, ActiveOrganisationGuard)
@@ -104,6 +109,36 @@ export class TransfersController {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
     return this.transferService.createFromMatch(user, dto);
+  }
+
+  @Get()
+  @ResponseMessage('Levy transfers retrieved successfully')
+  @ApiOperation({
+    summary: 'List levy transfers for active organisation',
+    description:
+      'Returns transfers where the active organisation is donor or recipient, ' +
+      'newest first. Filter with role=donor|recipient and/or status.',
+  })
+  @ApiOkResponse({
+    description: 'Paginated levy transfers',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(LevyTransferResponseDto) },
+        },
+        meta: { $ref: getSchemaPath(PaginationMetaDto) },
+      },
+    },
+  })
+  list(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ListTransfersQueryDto,
+  ) {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.transferService.list(user.organisationId!, query);
   }
 
   @Get(':id')

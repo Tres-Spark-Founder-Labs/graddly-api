@@ -25,8 +25,10 @@ import {
 } from '@nestjs/swagger';
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
+import { Roles } from '../auth/decorators/roles.decorator.js';
 import { ActiveOrganisationGuard } from '../auth/guards/active-organisation.guard.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers.js';
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
@@ -34,6 +36,7 @@ import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
+import { OrganisationRole } from '../organisations/organisation-role.enum.js';
 
 import { BuildIlrLearnerRecordDto } from './dto/build-ilr-learner-record.dto.js';
 import { IlrLearnerRecordResponseDto } from './dto/ilr-learner-record-response.dto.js';
@@ -199,11 +202,13 @@ export class IlrLearnerRecordsController {
   }
 
   @Post(':id/submit')
+  @UseGuards(RolesGuard)
+  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
   @ResponseMessage('ILR submission queued successfully')
   @ApiOperation({
-    summary: 'Queue ILR submit to ESFA (async)',
+    summary: 'Queue ILR submit to ESFA (async, owner or admin)',
     description:
-      'Creates a submission with status `queued` and enqueues a BullMQ job. Poll `GET /api/v1/ilr/submissions/:id` until status is `submitted` or `failed`. Requires a validated learner record and organisation UKPRN. Owner or admin only.',
+      'Creates a submission with status `queued` and enqueues a BullMQ job. Poll `GET /api/v1/ilr/submissions/:id` until status is `submitted` or `failed`. Requires a validated learner record and organisation UKPRN.',
   })
   @ApiCreatedResponse({
     description:
@@ -215,9 +220,12 @@ export class IlrLearnerRecordsController {
       },
     },
   })
+  @ApiForbiddenResponse({
+    description: 'Insufficient permissions',
+    type: ErrorResponseDto,
+  })
   @ApiBadRequestResponse({
-    description:
-      'Draft or invalid record, missing UKPRN, or caller is not owner/admin',
+    description: 'Draft or invalid record, or missing UKPRN',
     type: ErrorResponseDto,
   })
   @ApiConflictResponse({
@@ -235,9 +243,11 @@ export class IlrLearnerRecordsController {
   }
 
   @Post(':id/amend')
+  @UseGuards(RolesGuard)
+  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
   @ResponseMessage('ILR amendment queued successfully')
   @ApiOperation({
-    summary: 'Queue ILR amendment to ESFA (async)',
+    summary: 'Queue ILR amendment to ESFA (async, owner or admin)',
     description:
       'Same async flow as submit. Requires a prior successful submission (`submitted`) with an ESFA reference. Poll `GET /api/v1/ilr/submissions/:id` for the new submission row.',
   })
@@ -250,9 +260,12 @@ export class IlrLearnerRecordsController {
       },
     },
   })
+  @ApiForbiddenResponse({
+    description: 'Insufficient permissions',
+    type: ErrorResponseDto,
+  })
   @ApiBadRequestResponse({
-    description:
-      'No prior successful submission, missing UKPRN, or caller is not owner/admin',
+    description: 'No prior successful submission, or missing UKPRN',
     type: ErrorResponseDto,
   })
   @ApiConflictResponse({

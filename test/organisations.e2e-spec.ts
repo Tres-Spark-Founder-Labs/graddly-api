@@ -5,12 +5,16 @@ import { App } from 'supertest/types';
 
 import { AppModule } from './../src/app.module.js';
 import { configureApp } from './../src/configure-app.js';
-import { createVerifiedUser } from './helpers/e2e-http.js';
+import { createVerifiedUser, loginVerifiedUser } from './helpers/e2e-http.js';
 import {
   expectFilteredHttpExceptionBody,
   expectOrganisationResource,
   expectSuccessEnvelope,
 } from './helpers/e2e-response-contracts.js';
+import {
+  addVerifiedUserToOrganisation,
+  createOrgOwnerContext,
+} from './helpers/programme-graph-e2e.js';
 import { createE2ePgClient } from './helpers/rls-db.js';
 
 /** Minimal valid payload for POST /organisations. Slug is backend-generated. */
@@ -209,6 +213,10 @@ describe('OrganisationsController (e2e)', () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/organisations/${organisationId}`)
         .set('Authorization', `Bearer ${accessToken}`)
+        // Token was minted at signup, before this org existed, so it carries no
+        // org claims. Real clients always send this header (see lib/api/client.js),
+        // which refreshes roles from the membership row.
+        .set('X-Organisation-Id', organisationId)
         .send({ name: 'Updated Trust', city: 'Manchester' })
         .expect(200);
 
@@ -229,6 +237,7 @@ describe('OrganisationsController (e2e)', () => {
       const res = await request(app.getHttpServer())
         .delete(`/api/v1/organisations/${organisationId}`)
         .set('Authorization', `Bearer ${accessToken}`)
+        .set('X-Organisation-Id', organisationId)
         .expect(204);
       expect(
         res.body === undefined || Object.keys(res.body as object).length === 0,
@@ -259,6 +268,67 @@ describe('OrganisationsController (e2e)', () => {
         message: 'Unauthorized',
         path: '/api/v1/organisations',
       });
+    });
+  });
+
+  describe('Update/delete authorization (owner+admin only)', () => {
+    it('a plain member cannot PATCH or DELETE the organisation (403)', async () => {
+      const suffix = Date.now();
+      const {
+        owner,
+        orgId: authzOrgId,
+        authHeaders: ownerHeaders,
+      } = await createOrgOwnerContext(app, 'Authz Test Org');
+
+      const member = await createVerifiedUser(app, {
+        email: `org-authz-member-${suffix}@example.com`,
+      });
+      await addVerifiedUserToOrganisation(app, ownerHeaders, member);
+
+      const { accessToken: ownerToken } = await loginVerifiedUser(
+        app,
+        owner.email,
+        owner.password,
+      );
+      const { accessToken: memberToken } = await loginVerifiedUser(
+        app,
+        member.email,
+        member.password,
+      );
+
+      const patchRes = await request(app.getHttpServer())
+        .patch(`/api/v1/organisations/${authzOrgId}`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .send({ name: 'Member Renamed This' })
+        .expect(403);
+      expectFilteredHttpExceptionBody(
+        patchRes.body as Record<string, unknown>,
+        {
+          statusCode: 403,
+          message: 'Insufficient permissions',
+          path: `/api/v1/organisations/${authzOrgId}`,
+        },
+      );
+
+      const deleteRes = await request(app.getHttpServer())
+        .delete(`/api/v1/organisations/${authzOrgId}`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(403);
+      expectFilteredHttpExceptionBody(
+        deleteRes.body as Record<string, unknown>,
+        {
+          statusCode: 403,
+          message: 'Insufficient permissions',
+          path: `/api/v1/organisations/${authzOrgId}`,
+        },
+      );
+
+      // Owner can still update/delete their own org.
+      await request(app.getHttpServer())
+        .patch(`/api/v1/organisations/${authzOrgId}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ name: 'Owner Renamed This' })
+        .expect(200);
     });
   });
 });

@@ -13,6 +13,7 @@ import { PdfDispatchService } from '../pdf/pdf-dispatch.service.js';
 import { StorageKeyBuilder } from '../storage/storage-key.builder.js';
 import { StorageService } from '../storage/storage.service.js';
 
+import { TransferRoleFilter } from './dto/list-transfers-query.dto.js';
 import { DasDonorLink } from './entities/das-donor-link.entity.js';
 import { DasDonorOAuthToken } from './entities/das-donor-oauth-token.entity.js';
 import { LevyMatchApplication } from './entities/levy-match-application.entity.js';
@@ -34,6 +35,12 @@ describe('LevyTransferService', () => {
   const transferFindOne = jest.fn();
   const transferCreate = jest.fn();
   const transferSave = jest.fn();
+  const qbGetManyAndCount = jest.fn();
+  const qbAndWhere = jest.fn();
+  const qbWhere = jest.fn();
+  const qbOrderBy = jest.fn();
+  const qbSkip = jest.fn();
+  const qbTake = jest.fn();
 
   const documentCreate = jest.fn();
   const documentSave = jest.fn();
@@ -65,6 +72,15 @@ describe('LevyTransferService', () => {
   };
 
   beforeEach(async () => {
+    const queryBuilder = {
+      where: qbWhere.mockReturnThis(),
+      andWhere: qbAndWhere.mockReturnThis(),
+      orderBy: qbOrderBy.mockReturnThis(),
+      skip: qbSkip.mockReturnThis(),
+      take: qbTake.mockReturnThis(),
+      getManyAndCount: qbGetManyAndCount,
+    };
+
     const moduleRef = await Test.createTestingModule({
       providers: [
         LevyTransferService,
@@ -74,6 +90,7 @@ describe('LevyTransferService', () => {
             findOne: transferFindOne,
             create: transferCreate,
             save: transferSave,
+            createQueryBuilder: jest.fn(() => queryBuilder),
           },
         },
         {
@@ -149,6 +166,55 @@ describe('LevyTransferService', () => {
 
     service = moduleRef.get(LevyTransferService);
     jest.clearAllMocks();
+  });
+
+  describe('list', () => {
+    it('filters by donor role and paginates', async () => {
+      const row = {
+        id: 'transfer-1',
+        donorOrganisationId: 'donor-org',
+        recipientOrganisationId: 'recipient-org',
+        matchApplicationId: 'match-1',
+        amount: '5000.00',
+        programmeDetails: null,
+        esfaTransferReference: null,
+        status: LevyTransferStatus.DRAFT,
+        startDate: null,
+        confirmedAt: null,
+        expiryDate: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      };
+      qbGetManyAndCount.mockResolvedValue([[row], 1]);
+
+      const result = await service.list('donor-org', {
+        role: TransferRoleFilter.DONOR,
+        page: 1,
+        perPage: 20,
+      });
+
+      expect(qbAndWhere).toHaveBeenCalledWith(
+        'transfer.donorOrganisationId = :organisationId',
+        { organisationId: 'donor-org' },
+      );
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]).toMatchObject({
+        id: 'transfer-1',
+        status: LevyTransferStatus.DRAFT,
+      });
+      expect(result.meta).toMatchObject({ total: 1, page: 1, perPage: 20 });
+    });
+
+    it('matches donor-or-recipient when no role filter is given', async () => {
+      qbGetManyAndCount.mockResolvedValue([[], 0]);
+
+      await service.list('org-1', {});
+
+      expect(qbAndWhere).toHaveBeenCalledWith(
+        '(transfer.donorOrganisationId = :organisationId OR transfer.recipientOrganisationId = :organisationId)',
+        { organisationId: 'org-1' },
+      );
+    });
   });
 
   it('creates transfer from confirmed match', async () => {

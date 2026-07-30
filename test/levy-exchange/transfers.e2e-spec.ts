@@ -217,6 +217,57 @@ describe('Levy Exchange transfers (e2e)', () => {
     });
   });
 
+  it('lists transfers scoped to donor or recipient role', async () => {
+    const donorCtx = await createLexOrgContext(app, 'transfers-list-donor');
+    const recipientCtx = await createLexOrgContext(
+      app,
+      'transfers-list-recipient',
+    );
+    const { matchApplicationId } = await seedConfirmedMatch(
+      app,
+      donorCtx,
+      recipientCtx,
+    );
+
+    const createRes = await request(app.getHttpServer())
+      .post('/api/v1/levy-exchange/transfers')
+      .set(donorCtx.authHeaders)
+      .send({
+        matchApplicationId,
+        recipientSignerUserId: recipientCtx.user.userId,
+      })
+      .expect(201);
+    const transferId = (createRes.body as { data: { id: string } }).data.id;
+
+    const donorListRes = await request(app.getHttpServer())
+      .get('/api/v1/levy-exchange/transfers?role=donor')
+      .set(donorCtx.authHeaders)
+      .expect(200);
+    expectSuccessEnvelope(donorListRes.body);
+    const donorRows = (donorListRes.body as { data: { id: string }[] }).data;
+    expect(donorRows.some((r) => r.id === transferId)).toBe(true);
+
+    const recipientListRes = await request(app.getHttpServer())
+      .get('/api/v1/levy-exchange/transfers?role=recipient')
+      .set(recipientCtx.authHeaders)
+      .expect(200);
+    const recipientRows = (recipientListRes.body as { data: { id: string }[] })
+      .data;
+    expect(recipientRows.some((r) => r.id === transferId)).toBe(true);
+
+    const unrelatedCtx = await createLexOrgContext(
+      app,
+      'transfers-list-unrelated',
+    );
+    const unrelatedListRes = await request(app.getHttpServer())
+      .get('/api/v1/levy-exchange/transfers')
+      .set(unrelatedCtx.authHeaders)
+      .expect(200);
+    const unrelatedRows = (unrelatedListRes.body as { data: { id: string }[] })
+      .data;
+    expect(unrelatedRows.some((r) => r.id === transferId)).toBe(false);
+  });
+
   it('returns 404 for missing transfer document', async () => {
     const donorCtx = await createLexOrgContext(app, 'transfers-doc-missing');
     const res = await request(app.getHttpServer())

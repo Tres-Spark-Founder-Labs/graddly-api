@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
+import { ApprenticeStatus } from '../apprentices/enums/apprentice-status.enum.js';
 import {
   getRlsBootstrap,
   setRlsBootstrap,
@@ -22,6 +23,8 @@ import { PdfJobResponseDto } from '../pdf/dto/pdf-job-response.dto.js';
 import { PdfJobTemplate } from '../pdf/enums/pdf-job-template.enum.js';
 import { PdfDispatchService } from '../pdf/pdf-dispatch.service.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
+import { Review } from '../reviews/entities/review.entity.js';
+import { ReviewStatus } from '../reviews/enums/review-status.enum.js';
 
 import { LevyRoiBreakdownGroup } from './enums/levy-roi-breakdown-group.enum.js';
 import { OtjProgressMetricsService } from './otj-progress-metrics.service.js';
@@ -58,6 +61,8 @@ export class LevyRoiReportService {
     private readonly organisationRepo: Repository<Organisation>,
     @InjectRepository(LevyTransfer)
     private readonly transferRepo: Repository<LevyTransfer>,
+    @InjectRepository(Review)
+    private readonly reviewRepo: Repository<Review>,
   ) {}
 
   async getSummary(organisationId: string): Promise<LevyRoiReportResponseDto> {
@@ -141,19 +146,14 @@ export class LevyRoiReportService {
 
     const enrolments = await this.enrolmentRepo.find({
       where: { organisationId, isDeleted: false },
+      relations: ['apprentice'],
     });
 
-    const relevant = enrolments.filter(
-      (e) =>
-        e.status === EnrolmentStatus.ACTIVE ||
-        e.status === EnrolmentStatus.COMPLETED,
-    );
-
     if (groupBy === LevyRoiBreakdownGroup.PROVIDER) {
-      return this.breakdownByProvider(organisationId, relevant);
+      return this.breakdownByProvider(organisationId, enrolments);
     }
 
-    return this.breakdownByStandard(organisationId, relevant);
+    return this.breakdownByStandard(organisationId, enrolments);
   }
 
   async exportPdf(user: AuthenticatedUser): Promise<PdfJobResponseDto> {
@@ -301,7 +301,15 @@ export class LevyRoiReportService {
     const completed = enrolments.filter(
       (e) => e.status === EnrolmentStatus.COMPLETED,
     );
-    const otjIds = [...active, ...completed].map((e) => e.id);
+    const inFlightIds = [...active, ...completed].map((e) => e.id);
+
+    const [averageOtjPercent, reviewComplianceRate] = await Promise.all([
+      this.otjMetricsService.averageOtjPercentForEnrolments(
+        organisationId,
+        inFlightIds,
+      ),
+      this.reviewComplianceRateForEnrolments(organisationId, inFlightIds),
+    ]);
 
     return {
       groupId,
@@ -309,12 +317,52 @@ export class LevyRoiReportService {
       activeApprenticeCount: active.length,
       completionCount: completed.length,
       averageCostPerCompletion: this.averageAgreedPrice(completed),
-      averageOtjPercent:
-        await this.otjMetricsService.averageOtjPercentForEnrolments(
-          organisationId,
-          otjIds,
-        ),
+      averageOtjPercent,
+      reviewComplianceRate,
+      withdrawalRate: this.withdrawalRate(enrolments),
     };
+  }
+
+  /** % of reviews scheduled up to now that reached `completed` status. */
+  private async reviewComplianceRateForEnrolments(
+    organisationId: string,
+    enrolmentIds: string[],
+  ): Promise<number | null> {
+    if (enrolmentIds.length === 0) {
+      return null;
+    }
+
+    const dueReviews = await this.reviewRepo.find({
+      where: {
+        organisationId,
+        enrolmentId: In(enrolmentIds),
+        isDeleted: false,
+      },
+      select: ['status', 'scheduledAt'],
+    });
+
+    const now = new Date();
+    const due = dueReviews.filter((r) => r.scheduledAt <= now);
+    if (due.length === 0) {
+      return null;
+    }
+    const compliant = due.filter(
+      (r) => r.status === ReviewStatus.COMPLETED,
+    ).length;
+    return Number(((compliant / due.length) * 100).toFixed(2));
+  }
+
+  /** % of the group's enrolments (any status) withdrawn or cancelled. */
+  private withdrawalRate(enrolments: Enrolment[]): number | null {
+    if (enrolments.length === 0) {
+      return null;
+    }
+    const withdrawn = enrolments.filter(
+      (e) =>
+        e.status === EnrolmentStatus.CANCELLED ||
+        e.apprentice?.status === ApprenticeStatus.WITHDRAWN,
+    ).length;
+    return Number(((withdrawn / enrolments.length) * 100).toFixed(2));
   }
 
   private groupEnrolments(

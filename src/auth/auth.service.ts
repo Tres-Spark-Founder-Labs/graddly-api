@@ -37,10 +37,15 @@ import { AuthResponseDto } from './dto/auth-response.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { SignupDto } from './dto/signup.dto.js';
 import { IJwtPayload } from './interfaces/jwt-payload.interface.js';
+import { MfaChallengeResponseDto } from './mfa/dto/mfa-challenge-response.dto.js';
+import { MfaVerifyDto } from './mfa/dto/mfa-verify.dto.js';
+import { MfaService } from './mfa/mfa.service.js';
 import { RefreshTokenService } from './refresh-token.service.js';
 
 const PASSWORD_RESET_PREFIX = 'password-reset:';
 const EMAIL_VERIFY_PREFIX = 'email-verify:';
+const MFA_CHALLENGE_PREFIX = 'mfa-challenge:';
+const MFA_CHALLENGE_TTL_SECONDS = 300;
 
 /** Lower is higher privilege when choosing the active organisation. */
 const ROLE_PRIORITY: Record<OrganisationRole, number> = {
@@ -79,6 +84,7 @@ export class AuthService {
     private readonly redis: RedisService,
     private readonly refreshTokenService: RefreshTokenService,
     private readonly emailDispatch: EmailDispatchService,
+    private readonly mfaService: MfaService,
     @InjectRepository(OrganisationMembership)
     private readonly membershipRepo: Repository<OrganisationMembership>,
   ) {}
@@ -88,7 +94,9 @@ export class AuthService {
     await this.sendVerificationEmail(user, portalType);
   }
 
-  async login(dto: LoginDto): Promise<AuthResponseDto> {
+  async login(
+    dto: LoginDto,
+  ): Promise<AuthResponseDto | MfaChallengeResponseDto> {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -105,6 +113,54 @@ export class AuthService {
 
     if (!user.isEmailVerified) {
       throw new ForbiddenException('Email address not verified');
+    }
+
+    if (user.mfaEnabled) {
+      const challengeToken = uuidV4();
+      await this.redis.set(
+        `${MFA_CHALLENGE_PREFIX}${challengeToken}`,
+        user.id,
+        MFA_CHALLENGE_TTL_SECONDS,
+      );
+      return { mfaRequired: true, challengeToken };
+    }
+
+    void this.usersService.updateLastLoginAt(user.id).catch(() => undefined);
+
+    return this.generateTokens(user);
+  }
+
+  /** Completes login started by a login() MFA challenge — see POST /auth/mfa/verify. */
+  async verifyMfaChallenge(dto: MfaVerifyDto): Promise<AuthResponseDto> {
+    const userId = await this.redis.get(
+      `${MFA_CHALLENGE_PREFIX}${dto.challengeToken}`,
+    );
+    if (!userId) {
+      throw new UnauthorizedException('Invalid or expired MFA challenge');
+    }
+
+    // No JWT exists yet on this route, so RLS has no user context — the `users`
+    // row would be invisible and the secret would read as null. The challenge
+    // token already proves which user this is, so scope RLS to exactly them
+    // (satisfies `id = app_current_user()` in users_select/users_update).
+    setCurrentUserId(userId);
+    setLastKnownUserIdForGuc(userId);
+
+    const valid = dto.code
+      ? await this.mfaService.verifyCode(userId, dto.code)
+      : dto.recoveryCode
+        ? await this.mfaService.consumeRecoveryCode(userId, dto.recoveryCode)
+        : false;
+
+    if (!valid) {
+      throw new UnauthorizedException('Invalid code');
+    }
+
+    await this.redis.del(`${MFA_CHALLENGE_PREFIX}${dto.challengeToken}`);
+
+    const user = await this.usersService.findById(userId);
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
     }
 
     void this.usersService.updateLastLoginAt(user.id).catch(() => undefined);

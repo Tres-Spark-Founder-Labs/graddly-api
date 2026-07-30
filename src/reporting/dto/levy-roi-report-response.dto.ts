@@ -154,4 +154,20 @@ export class LevyRoiBreakdownEntryResponseDto {
     description: 'Average OTJ % across enrolments in this group',
   })
   averageOtjPercent!: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    example: 88,
+    description:
+      '% of reviews due to date that reached completed status. Null when no reviews are due yet.',
+  })
+  reviewComplianceRate!: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    example: 4.5,
+    description:
+      '% of all enrolments in this group (any status) where the apprentice withdrew or the enrolment was cancelled.',
+  })
+  withdrawalRate!: number | null;
 }

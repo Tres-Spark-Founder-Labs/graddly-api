@@ -11,6 +11,7 @@ import { RedisService } from '../../redis/redis.service.js';
 import { User } from '../../users/entities/user.entity.js';
 import { UsersService } from '../../users/users.service.js';
 import { AuthService } from '../auth.service.js';
+import { MfaService } from '../mfa/mfa.service.js';
 import { RefreshTokenService } from '../refresh-token.service.js';
 
 jest.mock('bcrypt', () => ({
@@ -87,6 +88,11 @@ const mockEmailDispatch = {
   enqueue: jest.fn(),
 };
 
+const mockMfaService = {
+  verifyCode: jest.fn(),
+  consumeRecoveryCode: jest.fn(),
+};
+
 const mockMembershipQueryBuilder = {
   innerJoin: jest.fn().mockReturnThis(),
   select: jest.fn().mockReturnThis(),
@@ -122,6 +128,7 @@ describe('AuthService', () => {
           useValue: mockRefreshTokenService,
         },
         { provide: EmailDispatchService, useValue: mockEmailDispatch },
+        { provide: MfaService, useValue: mockMfaService },
         {
           provide: getRepositoryToken(OrganisationMembership),
           useValue: mockMembershipRepo,
@@ -216,6 +223,91 @@ describe('AuthService', () => {
       await expect(authService.login(dto)).rejects.toThrow(
         new UnauthorizedException('Invalid credentials'),
       );
+    });
+
+    it('should return an MFA challenge instead of tokens when MFA is enabled', async () => {
+      mockUsersService.findByEmail.mockResolvedValue({
+        ...mockUser,
+        isEmailVerified: true,
+        mfaEnabled: true,
+      });
+      mockCompare.mockResolvedValue(true);
+
+      const result = await authService.login(dto);
+
+      expect(result).toHaveProperty('mfaRequired', true);
+      expect(result).toHaveProperty('challengeToken');
+      expect(mockRedisService.set).toHaveBeenCalledWith(
+        expect.stringMatching(/^mfa-challenge:/u),
+        mockUser.id,
+        300,
+      );
+      expect(mockJwtService.sign).not.toHaveBeenCalled();
+      expect(mockUsersService.updateLastLoginAt).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('verifyMfaChallenge', () => {
+    const dto = {
+      challengeToken: '550e8400-e29b-41d4-a716-446655440099',
+      code: '123456',
+    };
+
+    it('throws when the challenge token is invalid or expired', async () => {
+      mockRedisService.get.mockResolvedValue(null);
+
+      await expect(authService.verifyMfaChallenge(dto)).rejects.toThrow(
+        new UnauthorizedException('Invalid or expired MFA challenge'),
+      );
+      expect(mockMfaService.verifyCode).not.toHaveBeenCalled();
+    });
+
+    it('throws when the code is invalid', async () => {
+      mockRedisService.get.mockResolvedValue(mockUser.id);
+      mockMfaService.verifyCode.mockResolvedValue(false);
+
+      await expect(authService.verifyMfaChallenge(dto)).rejects.toThrow(
+        new UnauthorizedException('Invalid code'),
+      );
+      expect(mockRedisService.del).not.toHaveBeenCalled();
+    });
+
+    it('issues tokens and consumes the challenge for a valid code', async () => {
+      mockRedisService.get.mockResolvedValue(mockUser.id);
+      mockMfaService.verifyCode.mockResolvedValue(true);
+      mockUsersService.findById.mockResolvedValue({
+        ...mockUser,
+        isEmailVerified: true,
+      });
+
+      const result = await authService.verifyMfaChallenge(dto);
+
+      expect(mockRedisService.del).toHaveBeenCalledWith(
+        `mfa-challenge:${dto.challengeToken}`,
+      );
+      expect(result).toHaveProperty('accessToken');
+      expect(result).toHaveProperty('refreshToken');
+    });
+
+    it('falls back to a recovery code when no TOTP code is provided', async () => {
+      const recoveryDto = {
+        challengeToken: dto.challengeToken,
+        recoveryCode: 'a1b2c3d4e5',
+      };
+      mockRedisService.get.mockResolvedValue(mockUser.id);
+      mockMfaService.consumeRecoveryCode.mockResolvedValue(true);
+      mockUsersService.findById.mockResolvedValue({
+        ...mockUser,
+        isEmailVerified: true,
+      });
+
+      const result = await authService.verifyMfaChallenge(recoveryDto);
+
+      expect(mockMfaService.consumeRecoveryCode).toHaveBeenCalledWith(
+        mockUser.id,
+        'a1b2c3d4e5',
+      );
+      expect(result).toHaveProperty('accessToken');
     });
   });
 

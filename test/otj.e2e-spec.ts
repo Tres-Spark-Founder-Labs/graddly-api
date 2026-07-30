@@ -7,13 +7,16 @@ import { OtjActivityCategory } from '../src/otj/enums/otj-activity-category.enum
 import { OtjLogStatus } from '../src/otj/enums/otj-log-status.enum.js';
 
 import { createE2eApp } from './helpers/e2e-app.js';
-import { createVerifiedUser } from './helpers/e2e-http.js';
+import { createVerifiedUser, loginVerifiedUser } from './helpers/e2e-http.js';
 import { buildOrgPayload } from './helpers/e2e-organisation.js';
 import {
+  expectFilteredHttpExceptionBody,
   expectPaginatedListEnvelope,
   expectSuccessEnvelope,
 } from './helpers/e2e-response-contracts.js';
 import {
+  addVerifiedUserToOrganisation,
+  authHeadersFor,
   createEnrolment,
   createOrgOwnerContext,
   seedProgrammeGraph,
@@ -270,5 +273,88 @@ describe('OTJ log entries (e2e)', () => {
     expect((rejectedRes.body as { data: { status: string } }).data.status).toBe(
       OtjLogStatus.REJECTED,
     );
+  });
+
+  it('a plain member cannot bulk-approve or bulk-reject OTJ entries (403)', async () => {
+    const { orgId, authHeaders: ownerHeaders } = await createOrgOwnerContext(
+      app,
+      'OTJ Authz Org',
+    );
+    const { apprenticeId, standardId } = await seedProgrammeGraph(
+      app,
+      ownerHeaders,
+    );
+    const enrolmentId = await createEnrolment(
+      app,
+      ownerHeaders,
+      apprenticeId,
+      standardId,
+    );
+    await request(app.getHttpServer())
+      .post(`/api/v1/enrolments/${enrolmentId}/activate`)
+      .set(ownerHeaders)
+      .expect(201);
+
+    const createRes = await request(app.getHttpServer())
+      .post('/api/v1/otj-log-entries')
+      .set(ownerHeaders)
+      .send({
+        enrolmentId,
+        apprenticeId,
+        activityName: 'Authz check session',
+        category: OtjActivityCategory.OTHER,
+        loggedDate: '2026-03-01',
+        minutes: 60,
+      })
+      .expect(201);
+    const otjId = (createRes.body as { data: { id: string } }).data.id;
+    await request(app.getHttpServer())
+      .patch(`/api/v1/otj-log-entries/${otjId}`)
+      .set(ownerHeaders)
+      .send({ status: OtjLogStatus.SUBMITTED })
+      .expect(200);
+
+    const member = await createVerifiedUser(app, {
+      email: `otj-authz-member-${Date.now()}@example.com`,
+    });
+    await addVerifiedUserToOrganisation(app, ownerHeaders, member);
+    const { accessToken: memberToken } = await loginVerifiedUser(
+      app,
+      member.email,
+      member.password,
+    );
+    const memberHeaders = authHeadersFor(memberToken, orgId);
+
+    const approveRes = await request(app.getHttpServer())
+      .post('/api/v1/otj-log-entries/bulk-approve')
+      .set(memberHeaders)
+      .send({ ids: [otjId] })
+      .expect(403);
+    expectFilteredHttpExceptionBody(
+      approveRes.body as Record<string, unknown>,
+      {
+        statusCode: 403,
+        message: 'Insufficient permissions',
+        path: '/api/v1/otj-log-entries/bulk-approve',
+      },
+    );
+
+    const rejectRes = await request(app.getHttpServer())
+      .post('/api/v1/otj-log-entries/bulk-reject')
+      .set(memberHeaders)
+      .send({ ids: [otjId] })
+      .expect(403);
+    expectFilteredHttpExceptionBody(rejectRes.body as Record<string, unknown>, {
+      statusCode: 403,
+      message: 'Insufficient permissions',
+      path: '/api/v1/otj-log-entries/bulk-reject',
+    });
+
+    // Owner can still approve.
+    await request(app.getHttpServer())
+      .post('/api/v1/otj-log-entries/bulk-approve')
+      .set(ownerHeaders)
+      .send({ ids: [otjId] })
+      .expect(201);
   });
 });

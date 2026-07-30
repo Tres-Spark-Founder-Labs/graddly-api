@@ -1,0 +1,15 @@
+Hi {{ firstName }},
+
+{{ apprenticeName }} is {{ behindPercent }}% behind the off-the-job training pace required to reach their end-point assessment on time.
+
+{% if critical -%}
+This has passed the overdue threshold ({{ overdueThreshold }}% behind), which puts the apprenticeship funding and the EPA date at risk.
+{%- else -%}
+This has passed the at-risk threshold ({{ atRiskThreshold }}% behind).
+{%- endif %}
+
+{% if requiredWeeklyHours %}To get back on track they need to log about {{ requiredWeeklyHours }} hours a week for the rest of the programme.{% endif %}
+
+Sign in to {{ appName }} to review their off-the-job log and speak to their training provider.
+
+You are receiving this because you are the line manager on this apprenticeship.

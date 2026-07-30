@@ -137,7 +137,22 @@ export class PdfKitPdfRenderer implements IPdfRenderer {
 
   renderLevyRoiReport(content: ILevyRoiReportContent): Promise<Buffer> {
     return renderToBuffer((doc) => {
-      doc.fontSize(22).text('Levy ROI Report', { align: 'center' });
+      // F1.1.5 AC2 — branded with Gradlly and the employer's name/logo.
+      if (content.logoBytes) {
+        try {
+          doc.image(content.logoBytes, { fit: [140, 48], align: 'center' });
+          doc.moveDown(0.5);
+        } catch {
+          // An unreadable or unsupported image must not fail the whole report.
+        }
+      }
+      doc
+        .fontSize(9)
+        .fillColor('#666666')
+        .text('Gradlly', { align: 'center' })
+        .fillColor('black');
+      doc.moveDown(0.5);
+      doc.fontSize(22).text('Levy Report', { align: 'center' });
       doc.moveDown();
       doc.fontSize(14).text(content.organisationName, { align: 'center' });
       doc.moveDown();
@@ -183,6 +198,31 @@ export class PdfKitPdfRenderer implements IPdfRenderer {
           `Expiring within 90 days: ${segments.currency} ${segments.expiringWithin90Days}`,
         );
         doc.text(`Available: ${segments.currency} ${segments.available}`);
+      }
+
+      // F1.1.5 AC1 — forward forecast. Omitted entirely when unavailable
+      // rather than printing zeros, which would read as a real projection.
+      if (content.forecast) {
+        const forecast = content.forecast;
+        doc.moveDown().fontSize(16).text('Forecast');
+        doc.fontSize(11);
+        doc.text(
+          `Projected spend (next ${forecast.horizonMonths} months): GBP ${
+            forecast.projectedMonthlySpend * forecast.horizonMonths
+          }`,
+        );
+        doc.text(`Monthly run rate: GBP ${forecast.projectedMonthlySpend}`);
+        doc.text(`Active programmes: ${forecast.activeEnrolmentCount}`);
+        doc.text(
+          `Projected completion liability: GBP ${forecast.projectedCompletionLiability}`,
+        );
+        doc.text(
+          `Estimated runway: ${
+            forecast.estimatedRunwayMonths === null
+              ? 'n/a (no projected spend)'
+              : `${forecast.estimatedRunwayMonths} months`
+          }`,
+        );
       }
 
       const renderBreakdownTable = (

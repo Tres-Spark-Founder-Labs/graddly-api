@@ -1,0 +1,24 @@
+Hi {{ firstName }},
+
+{% if approved -%}
+Your off-the-job training log has been approved.
+
+Activity: {{ activityName }}
+Date: {{ loggedDate }}
+Hours: {{ hours }}
+
+These hours now count towards your off-the-job total.
+{%- else -%}
+Your off-the-job training log has been sent back for changes.
+
+Activity: {{ activityName }}
+Date: {{ loggedDate }}
+Hours: {{ hours }}
+
+Reason given:
+{{ reason }}
+
+You can edit the entry and submit it again.
+{%- endif %}
+
+Sign in to {{ appName }} to view your log.

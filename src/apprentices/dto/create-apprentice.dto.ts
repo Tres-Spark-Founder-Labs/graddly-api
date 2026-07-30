@@ -25,6 +25,18 @@ export class CreateApprenticeDto {
   @MaxLength(320)
   email!: string;
 
+  @ApiPropertyOptional({
+    maxLength: 64,
+    example: 'EMP-04821',
+    description:
+      "The employer's own payroll or staff reference. Optional, and not " +
+      'unique across organisations.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  employeeId?: string;
+
   @ApiPropertyOptional({ enum: ApprenticeStatus })
   @IsOptional()
   @IsEnum(ApprenticeStatus)

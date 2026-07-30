@@ -3,6 +3,8 @@ export enum EmailTemplate {
   COMMITMENT_READY_TO_SIGN = 'commitment-ready-to-sign',
   COMMITMENT_CHASE = 'commitment-chase',
   OTJ_WEEKLY_DIGEST = 'otj-weekly-digest',
+  OTJ_DECISION = 'otj-decision',
+  OTJ_PACE_ALERT = 'otj-pace-alert',
   PASSWORD_RESET = 'password-reset',
   EMAIL_VERIFICATION = 'email-verification',
   INVITATION_ACCEPT = 'invitation-accept',

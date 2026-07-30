@@ -19,8 +19,22 @@ export class OtjLogEntryResponseDto {
   @ApiProperty({ format: 'uuid' })
   apprenticeId!: string;
 
+  /**
+   * F1.2.3 AC1 — the approval queue lists the apprentice's name.
+   *
+   * Only the id was exposed before, so the employer queue rendered a
+   * truncated UUID where a name belonged. Nullable because the apprentice
+   * relation is not loaded on every read path.
+   */
+  @ApiProperty({ nullable: true })
+  apprenticeName!: string | null;
+
   @ApiProperty({ format: 'date' })
   loggedDate!: string;
+
+  /** When the apprentice submitted it for approval; null while still a draft. */
+  @ApiProperty({ nullable: true, format: 'date-time' })
+  submittedAt!: string | null;
 
   @ApiProperty({ maxLength: 80 })
   activityName!: string;

@@ -80,6 +80,14 @@ export class OtjLogEntry extends BaseEntity {
   })
   status!: OtjLogStatus;
 
+  /**
+   * When the apprentice submitted the entry for approval (F1.2.3 AC1).
+   * Distinct from `loggedDate`, which is the day the learning happened, and
+   * from `createdAt`, which is when the draft was first written.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  submittedAt!: Date | null;
+
   @Column({ type: 'uuid', nullable: true })
   approvedByUserId!: string | null;
 

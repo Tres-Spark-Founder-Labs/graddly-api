@@ -33,4 +33,14 @@ export class LevyRecipientProfile extends BaseEntity {
 
   @Column({ type: 'boolean', default: false })
   hasDasAccount!: boolean;
+
+  /**
+   * Opt-in to the donor-facing directory (F1.1.4 AC2). While false the profile
+   * is visible only to its owning organisation, per the org-scoped RLS policy.
+   * Setting it true makes the profile readable by other tenants through the
+   * additive `_select_listed` policy — so this flag is a privacy control, not a
+   * display preference.
+   */
+  @Column({ type: 'boolean', default: false })
+  isListed!: boolean;
 }

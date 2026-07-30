@@ -74,5 +74,100 @@ describe('learner-status-badge.util', () => {
         }),
       ).toBe(100);
     });
+
+    /**
+     * F1.2.4 AC6 — "provider is simultaneously notified via their at-risk
+     * intervention queue".
+     *
+     * The provider queue selects on `severityScore > 0`, and both OTJ flags
+     * feed that score from the same `otjPaceAlertLevel` the employer roster
+     * reads. "Simultaneously" therefore holds by construction rather than by a
+     * second notification path that could drift out of step — but only while
+     * both levels score above zero, which is what these pin down.
+     */
+    it('puts an at-risk learner in the provider queue', () => {
+      expect(
+        computeInterventionSeverity({
+          otjOffTrack: false,
+          reviewOverdue: false,
+          gatewayStalled: false,
+          otjAtRisk: true,
+        }),
+      ).toBeGreaterThan(0);
+    });
+
+    it('puts an overdue learner in the provider queue', () => {
+      expect(
+        computeInterventionSeverity({
+          otjOffTrack: true,
+          reviewOverdue: false,
+          gatewayStalled: false,
+          otjAtRisk: false,
+        }),
+      ).toBeGreaterThan(0);
+    });
+
+    it('ranks overdue above at risk so the queue triages correctly', () => {
+      const overdue = computeInterventionSeverity({
+        otjOffTrack: true,
+        reviewOverdue: false,
+        gatewayStalled: false,
+        otjAtRisk: false,
+      });
+      const atRisk = computeInterventionSeverity({
+        otjOffTrack: false,
+        reviewOverdue: false,
+        gatewayStalled: false,
+        otjAtRisk: true,
+      });
+      expect(overdue).toBeGreaterThan(atRisk);
+    });
+
+    it('keeps an unflagged learner out of the queue', () => {
+      expect(
+        computeInterventionSeverity({
+          otjOffTrack: false,
+          reviewOverdue: false,
+          gatewayStalled: false,
+          otjAtRisk: false,
+        }),
+      ).toBe(0);
+    });
+  });
+
+  describe('deriveLearnerStatusBadge — OTJ pace (F1.2.4 AC5)', () => {
+    const base = {
+      apprenticeStatus: ApprenticeStatus.ACTIVE,
+      enrolmentStatus: EnrolmentStatus.ACTIVE,
+      gatewayCompletionPercent: 40,
+      hasOverdueReview: false,
+    };
+
+    it('badges an at-risk pace level', () => {
+      expect(
+        deriveLearnerStatusBadge({
+          ...base,
+          otjPaceAlertLevel: OtjPaceAlertLevel.AT_RISK,
+        }),
+      ).toBe(LearnerStatusBadge.AT_RISK);
+    });
+
+    it('badges an off-track pace level rather than falling through to on track', () => {
+      expect(
+        deriveLearnerStatusBadge({
+          ...base,
+          otjPaceAlertLevel: OtjPaceAlertLevel.OFF_TRACK,
+        }),
+      ).toBe(LearnerStatusBadge.AT_RISK);
+    });
+
+    it('leaves an on-track learner unbadged', () => {
+      expect(
+        deriveLearnerStatusBadge({
+          ...base,
+          otjPaceAlertLevel: OtjPaceAlertLevel.ON_TRACK,
+        }),
+      ).toBe(LearnerStatusBadge.ON_TRACK);
+    });
   });
 });

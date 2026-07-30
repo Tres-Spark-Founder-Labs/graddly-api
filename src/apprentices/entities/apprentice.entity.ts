@@ -35,6 +35,14 @@ export class Apprentice extends BaseEntity {
   @Column({ type: 'varchar', length: 320 })
   email!: string;
 
+  /**
+   * The employer's own payroll/staff reference (F1.2.1 AC5). Nullable because
+   * it is supplied by the employer rather than derived, and not unique because
+   * payroll numbers can collide across organisations.
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  employeeId!: string | null;
+
   @Column({
     type: 'enum',
     enum: ApprenticeStatus,

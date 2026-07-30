@@ -10,7 +10,6 @@ import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { OtjLogStatus } from '../otj/enums/otj-log-status.enum.js';
 import { User } from '../users/entities/user.entity.js';
 
-import { NotificationChannel } from './enums/notification-channel.enum.js';
 import { NotificationType } from './enums/notification-type.enum.js';
 import { NotificationPreferencesService } from './notification-preferences.service.js';
 
@@ -36,8 +35,21 @@ export class OtjDigestService {
     private readonly config: ConfigService,
   ) {}
 
-  async sendWeeklyDigestForOrganisation(
+  /**
+   * F1.2.3 AC6/AC7 — sends the pending-approvals digest to each line manager
+   * who is due one today.
+   *
+   * "Due today" is per manager, not per run: the cron fires daily and each
+   * manager's daily/weekly/off preference decides whether they receive this
+   * one. Weekly subscribers get theirs on Monday, which is what AC6 asks for,
+   * without a second cron.
+   *
+   * `now` is injectable so the Monday boundary can be tested without moving
+   * the system clock.
+   */
+  async sendDigestForOrganisation(
     organisationId: string,
+    now: Date = new Date(),
   ): Promise<number> {
     const entries = await this.otjLogRepo.find({
       where: {
@@ -92,12 +104,14 @@ export class OtjDigestService {
         continue;
       }
 
-      const digestEnabled = await this.preferencesService.isChannelEnabled(
+      // AC7 — daily/weekly/off. Replaces a plain on/off channel check, which
+      // could not express "daily" and so sent to everyone on the weekly run.
+      const due = await this.preferencesService.shouldSendDigestOn(
         manager.id,
         NotificationType.OTJ,
-        NotificationChannel.DIGEST,
+        now,
       );
-      if (!digestEnabled) {
+      if (!due) {
         continue;
       }
 

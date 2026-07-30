@@ -13,6 +13,19 @@ export type OtjPaceSnapshot = {
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+/**
+ * F1.2.4 AC2 — "at-risk flag triggers when actual OTJ pace falls more than 15%
+ * behind required pace".
+ *
+ * Strictly "more than": exactly 15% behind is still on track. Exported so the
+ * alert email, the tests and the UI copy all quote the same number rather than
+ * three independently maintained literals.
+ */
+export const OTJ_AT_RISK_THRESHOLD_PERCENT = 15;
+
+/** F1.2.4 AC3 — overdue at more than 30% behind. */
+export const OTJ_OVERDUE_THRESHOLD_PERCENT = 30;
+
 export function computeOtjPaceSnapshot(input: {
   plannedDurationMonths: number | null;
   plannedStartDate: string | null;
@@ -79,16 +92,24 @@ export function computeOtjPaceSnapshot(input: {
   };
 }
 
-function resolveAlertLevel(
+/**
+ * The threshold rule, exported so the boundaries can be tested directly.
+ *
+ * Constructing programme dates that land on exactly 15.00% behind is possible
+ * but fragile, and a test that cannot reach the boundary cannot show which
+ * side of it the rule falls on — which is the only thing AC2 and AC3 actually
+ * specify.
+ */
+export function resolveAlertLevel(
   behindPercent: number | null,
 ): OtjPaceAlertLevel | null {
   if (behindPercent === null) {
     return null;
   }
-  if (behindPercent > 30) {
+  if (behindPercent > OTJ_OVERDUE_THRESHOLD_PERCENT) {
     return OtjPaceAlertLevel.OFF_TRACK;
   }
-  if (behindPercent > 15) {
+  if (behindPercent > OTJ_AT_RISK_THRESHOLD_PERCENT) {
     return OtjPaceAlertLevel.AT_RISK;
   }
   return OtjPaceAlertLevel.ON_TRACK;

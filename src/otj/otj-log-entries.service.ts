@@ -21,6 +21,7 @@ import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
 import { StorageObjectCategory } from '../storage/enums/storage-object-category.enum.js';
 import { StorageKeyBuilder } from '../storage/storage-key.builder.js';
+import { User } from '../users/entities/user.entity.js';
 
 import { BulkOtjActionResponseDto } from './dto/bulk-otj-action-response.dto.js';
 import { CreateOtjLogEntryDto } from './dto/create-otj-log-entry.dto.js';
@@ -41,6 +42,8 @@ export class OtjLogEntriesService {
     private readonly enrolmentRepo: Repository<Enrolment>,
     @InjectRepository(Organisation)
     private readonly organisationRepo: Repository<Organisation>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     private readonly notificationsService: NotificationsService,
     private readonly emailDispatchService: EmailDispatchService,
     private readonly config: ConfigService,
@@ -94,6 +97,9 @@ export class OtjLogEntriesService {
 
     const qb = this.repo
       .createQueryBuilder('otj')
+      // F1.2.3 AC1 — the approval queue lists apprentice names. Joined once
+      // here rather than looked up per row by the client.
+      .leftJoinAndSelect('otj.apprentice', 'apprentice')
       .where('otj.isDeleted = false');
 
     if (employerEnrolmentIds !== null) {
@@ -192,10 +198,15 @@ export class OtjLogEntriesService {
     return this.bulkTransition(user, ids, OtjLogStatus.APPROVED);
   }
 
+  /**
+   * `reason` is required (F1.2.3 AC3) and validated at the DTO. Typed as
+   * non-optional here so the requirement survives any future caller that
+   * bypasses the controller.
+   */
   async bulkReject(
     user: AuthenticatedUser,
     ids: string[],
-    reason?: string,
+    reason: string,
   ): Promise<BulkOtjActionResponseDto> {
     return this.bulkTransition(user, ids, OtjLogStatus.REJECTED, reason);
   }
@@ -238,33 +249,7 @@ export class OtjLogEntriesService {
           row.rejectionReason = reason ?? null;
         }
         await this.repo.save(row);
-        try {
-          await this.notificationsService.createForUser({
-            userId: user.id,
-            organisationId: user.organisationId,
-            type: NotificationType.OTJ,
-            title: `OTJ entry ${target}`,
-            body: `OTJ entry ${row.id} was ${target}.`,
-            metadata: { otjLogEntryId: row.id, status: target },
-          });
-          if (user.email) {
-            await this.emailDispatchService.enqueue(
-              new SerializedEmailPayload(
-                EmailTemplate.EMAIL_VERIFICATION,
-                user.email,
-                {
-                  firstName: user.firstName ?? 'there',
-                  verifyUrl:
-                    this.config.get<string>('app.frontend.baseUrl', '') || '#',
-                  expiryHours: 24,
-                },
-              ),
-            );
-          }
-          notificationQueued = true;
-        } catch {
-          notificationQueued = false;
-        }
+        notificationQueued = await this.notifyApprenticeOfDecision(row, target);
         results.push({
           id,
           ok: true,
@@ -341,6 +326,85 @@ export class OtjLogEntriesService {
     return enrolments.map((e) => e.id);
   }
 
+  /**
+   * Tells the apprentice what happened to the entry they submitted.
+   *
+   * This previously notified `user.id` — the manager who had just pressed the
+   * button — so the only person told about the decision was the person who
+   * made it, while the apprentice who submitted the work was never informed.
+   * A rejection carries a mandatory explanation (AC3); sending that
+   * explanation to the manager instead of the apprentice makes the
+   * requirement pointless.
+   *
+   * The email also used `EmailTemplate.EMAIL_VERIFICATION`, so approving a log
+   * entry sent the manager a "verify your email address" message with a
+   * `verifyUrl` that fell back to `'#'`.
+   *
+   * Returns whether the notification was queued; failures here must not fail
+   * the approval itself, which is already committed.
+   */
+  private async notifyApprenticeOfDecision(
+    row: OtjLogEntry,
+    target: OtjLogStatus.APPROVED | OtjLogStatus.REJECTED,
+  ): Promise<boolean> {
+    const apprenticeUserId = row.enrolment?.apprenticeUserId;
+    if (!apprenticeUserId) {
+      // Enrolments can exist before the apprentice has a portal login. There
+      // is no one to notify, which is not an error.
+      return false;
+    }
+
+    const approved = target === OtjLogStatus.APPROVED;
+
+    try {
+      await this.notificationsService.createForUser({
+        userId: apprenticeUserId,
+        organisationId: row.organisationId,
+        type: NotificationType.OTJ,
+        title: approved
+          ? 'Off-the-job log approved'
+          : 'Off-the-job log sent back',
+        body: approved
+          ? `"${row.activityName}" was approved and now counts towards your off-the-job total.`
+          : `"${row.activityName}" was sent back: ${row.rejectionReason ?? ''}`.trim(),
+        metadata: {
+          otjLogEntryId: row.id,
+          status: target,
+          rejectionReason: approved ? null : row.rejectionReason,
+        },
+      });
+
+      const apprenticeUser = await this.userRepo.findOne({
+        where: { id: apprenticeUserId, isDeleted: false },
+      });
+
+      if (apprenticeUser?.email) {
+        await this.emailDispatchService.enqueue(
+          new SerializedEmailPayload(
+            EmailTemplate.OTJ_DECISION,
+            apprenticeUser.email,
+            {
+              firstName: apprenticeUser.firstName ?? 'there',
+              approved,
+              activityName: row.activityName,
+              loggedDate:
+                typeof row.loggedDate === 'string'
+                  ? row.loggedDate.slice(0, 10)
+                  : String(row.loggedDate),
+              hours: (row.minutes / 60).toFixed(1),
+              reason: row.rejectionReason ?? '',
+              appName: this.config.get<string>('app.email.appName', 'Graddly'),
+            },
+          ),
+        );
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   private async findAccessibleEntry(
     user: AuthenticatedUser,
     id: string,
@@ -359,6 +423,9 @@ export class OtjLogEntriesService {
           enrolmentId: In(employerEnrolmentIds),
           isDeleted: false,
         },
+        // The enrolment carries `apprenticeUserId`, which approve/reject needs
+        // in order to notify the person who submitted the entry.
+        relations: ['enrolment'],
       });
     }
 
@@ -368,6 +435,7 @@ export class OtjLogEntriesService {
         organisationId: user.organisationId!,
         isDeleted: false,
       },
+      relations: ['enrolment'],
     });
   }
 
@@ -380,6 +448,8 @@ export class OtjLogEntriesService {
       row.status === OtjLogStatus.DRAFT
     ) {
       row.status = OtjLogStatus.SUBMITTED;
+      // AC1 — the queue shows how long an entry has been waiting on a manager.
+      row.submittedAt = new Date();
       return;
     }
     throw new BadRequestException(
@@ -436,13 +506,25 @@ export class OtjLogEntriesService {
     }
   }
 
+  /** Full name when the apprentice relation was loaded, otherwise null. */
+  private apprenticeNameOf(entity: OtjLogEntry): string | null {
+    const apprentice = entity.apprentice;
+    if (!apprentice) return null;
+    const name = `${apprentice.firstName ?? ''} ${apprentice.lastName ?? ''}`;
+    return name.trim() || null;
+  }
+
   private toResponse(entity: OtjLogEntry): OtjLogEntryResponseDto {
     return {
       id: entity.id,
       organisationId: entity.organisationId,
       enrolmentId: entity.enrolmentId,
       apprenticeId: entity.apprenticeId,
+      apprenticeName: this.apprenticeNameOf(entity),
       loggedDate: entity.loggedDate,
+      submittedAt: entity.submittedAt
+        ? new Date(entity.submittedAt).toISOString()
+        : null,
       minutes: entity.minutes,
       activityName: entity.activityName,
       category: entity.category,

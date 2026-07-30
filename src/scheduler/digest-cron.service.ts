@@ -41,17 +41,44 @@ export class DigestCronService implements OnModuleInit, OnModuleDestroy {
 
     const expression = this.config.get<string>(
       'app.cron.digestSchedule',
-      '0 8 * * 1',
+      '0 8 * * *',
     );
 
-    const job = new CronJob(expression, () => {
-      void this.handleDigestCron();
-    });
+    /**
+     * F1.2.3 AC6 — "every Monday at 08:00 GMT".
+     *
+     * The zone is passed explicitly because `new CronJob(expression, onTick)`
+     * evaluates the expression in the server's local time. Without it, "08:00"
+     * is whatever the host's clock calls 08:00 — the same build delivers at a
+     * different hour depending on where it is deployed, and there is nothing
+     * in the code to reveal that.
+     *
+     * The schedule itself is daily, not Monday-only, because AC7 lets each
+     * manager choose daily/weekly/off. A Monday-only job cannot serve a daily
+     * subscriber, so the cadence filter moved to send time where the
+     * per-user preference is known.
+     */
+    const timeZone = this.config.get<string>(
+      'app.cron.digestTimeZone',
+      'Europe/London',
+    );
+
+    const job = new CronJob(
+      expression,
+      () => {
+        void this.handleDigestCron();
+      },
+      null,
+      false,
+      timeZone,
+    );
 
     this.schedulerRegistry.addCronJob(DIGEST_CRON_NAME, job);
     job.start();
 
-    this.logger.log(`Registered "${DIGEST_CRON_NAME}" cron (${expression})`);
+    this.logger.log(
+      `Registered "${DIGEST_CRON_NAME}" cron (${expression} ${timeZone})`,
+    );
   }
 
   onModuleDestroy(): void {

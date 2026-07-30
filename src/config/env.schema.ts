@@ -103,7 +103,15 @@ export const envSchema = z
       .default('false')
       .transform((v) => v === 'true'),
 
-    CRON_DIGEST_SCHEDULE: z.string().min(1).default('0 8 * * 1'),
+    // F1.2.3 AC6/AC7. Now daily rather than Monday-only: frequency is a
+    // per-user setting (daily/weekly/off) and a Monday-only job could never
+    // serve a manager who asked for daily. The weekly cohort is filtered to
+    // Mondays at send time instead.
+    CRON_DIGEST_SCHEDULE: z.string().min(1).default('0 8 * * *'),
+    // Without this the expression is evaluated in the server's local zone, so
+    // "08:00" means whatever the host says it means. See the note in
+    // EMPLOYER-PORTAL-IMPLEMENTATION.md on GMT vs Europe/London.
+    CRON_DIGEST_TIMEZONE: z.string().min(1).default('Europe/London'),
 
     QUEUE_OPS_ENABLED: z
       .string()

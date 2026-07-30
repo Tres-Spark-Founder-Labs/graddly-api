@@ -44,6 +44,9 @@ import type {
 import type { IPdfJobPayload } from '../../pdf/pdf-job.payload.js';
 import type { ReviewRecordPayloadDto } from '../../reviews/dto/review-record-payload.dto.js';
 
+/** Keeps a slow logo host from eating the AC3 ten-second budget. */
+const LOGO_FETCH_TIMEOUT_MS = 3000;
+
 @Processor(QUEUE_PDF)
 export class PdfGenerationProcessor extends WorkerHost {
   private readonly logger = new Logger(PdfGenerationProcessor.name);
@@ -136,8 +139,14 @@ export class PdfGenerationProcessor extends WorkerHost {
       } else if (template === PdfJobTemplate.LEVY_ROI_REPORT) {
         const content =
           await this.levyRoiReportService.buildPdfContent(organisationId);
-        buffer = await this.pdfService.renderLevyRoiReport(content);
-        filename = `levy-roi-report-${organisationId}.pdf`;
+        // F1.1.5 AC2: PDFKit cannot draw from a URL, so resolve the employer
+        // logo to bytes here. Never let a missing or slow logo fail the report.
+        const logoBytes = await this.fetchLogoBytes(content.logoUrl);
+        buffer = await this.pdfService.renderLevyRoiReport({
+          ...content,
+          logoBytes,
+        });
+        filename = `levy-report-${organisationId}.pdf`;
       } else {
         buffer = await this.pdfService.renderHelloPdf();
         filename = `hello-${jobId}.pdf`;
@@ -244,6 +253,36 @@ export class PdfGenerationProcessor extends WorkerHost {
       weeklyHours: content.weeklyHours,
       additionalTerms: content.additionalTerms,
     };
+  }
+
+  /**
+   * F1.1.5 AC2 — resolve an employer logo URL to bytes for embedding.
+   *
+   * Deliberately forgiving: a branded report is desirable, a failed report is
+   * not. A missing logo, an unreachable host, a slow response, or a non-image
+   * payload all degrade to "no logo" rather than failing the job. The timeout
+   * also protects AC3's ten-second budget from a hanging fetch.
+   */
+  private async fetchLogoBytes(logoUrl: string | null): Promise<Buffer | null> {
+    if (!logoUrl) return null;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), LOGO_FETCH_TIMEOUT_MS);
+    try {
+      const response = await fetch(logoUrl, { signal: controller.signal });
+      if (!response.ok) return null;
+
+      const contentType = response.headers.get('content-type') ?? '';
+      // PDFKit supports PNG and JPEG only; an SVG logo would throw.
+      if (!/image\/(png|jpe?g)/i.test(contentType)) return null;
+
+      const bytes = Buffer.from(await response.arrayBuffer());
+      return bytes.byteLength > 0 ? bytes : null;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   private async buildLevyTransferAgreementContent(

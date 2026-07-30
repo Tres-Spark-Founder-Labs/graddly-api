@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
+import { EmailTemplate } from '../email/email-template.enum.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
@@ -11,6 +12,7 @@ import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
 import { StorageKeyBuilder } from '../storage/storage-key.builder.js';
+import { User } from '../users/entities/user.entity.js';
 
 import { OtjLogEntry } from './entities/otj-log-entry.entity.js';
 import { OtjActivityCategory } from './enums/otj-activity-category.enum.js';
@@ -31,6 +33,7 @@ describe('OtjLogEntriesService', () => {
   const eifScoreCache = { invalidate: jest.fn() };
   const enrolmentRepo = { findOne: jest.fn(), find: jest.fn() };
   const organisationRepo = { findOne: jest.fn() };
+  const userRepo = { findOne: jest.fn() };
   const keyBuilder = { belongsToOrganisation: jest.fn().mockReturnValue(true) };
 
   let service: OtjLogEntriesService;
@@ -49,6 +52,7 @@ describe('OtjLogEntriesService', () => {
           provide: getRepositoryToken(Organisation),
           useValue: organisationRepo,
         },
+        { provide: getRepositoryToken(User), useValue: userRepo },
         { provide: StorageKeyBuilder, useValue: keyBuilder },
       ],
     }).compile();
@@ -115,6 +119,8 @@ describe('OtjLogEntriesService', () => {
     const qb = {
       where,
       andWhere,
+      // AC1 — the list joins the apprentice so the queue can show names.
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
@@ -160,6 +166,7 @@ describe('OtjLogEntriesService', () => {
     const qb = {
       where: jest.fn().mockReturnThis(),
       andWhere,
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
@@ -258,5 +265,158 @@ describe('OtjLogEntriesService', () => {
     emailDispatchService.enqueue.mockResolvedValue(undefined);
     const out = await service.bulkApprove(user, ['id-1']);
     expect(out.succeeded).toBe(1);
+  });
+
+  // F1.2.3 AC1 — the queue lists apprentice name and submission date.
+  describe('approval queue fields', () => {
+    it('exposes the apprentice name from the loaded relation', async () => {
+      repo.findOne.mockResolvedValue({
+        id: 'id-1',
+        organisationId: 'org-1',
+        status: OtjLogStatus.SUBMITTED,
+        apprentice: { firstName: 'Alex', lastName: 'Okafor' },
+      });
+
+      const result = await service.findOne(user, 'id-1');
+
+      // Only the id was exposed before, so the queue rendered a truncated UUID.
+      expect(result.apprenticeName).toBe('Alex Okafor');
+    });
+
+    it('returns a null name when the relation was not loaded', async () => {
+      repo.findOne.mockResolvedValue({
+        id: 'id-1',
+        organisationId: 'org-1',
+        status: OtjLogStatus.SUBMITTED,
+      });
+
+      const result = await service.findOne(user, 'id-1');
+
+      expect(result.apprenticeName).toBeNull();
+    });
+
+    it('stamps submittedAt when a draft is submitted', async () => {
+      // Distinct from loggedDate (when the learning happened) and createdAt
+      // (when the draft was written) — AC1 asks for the submission date.
+      repo.findOne.mockResolvedValue({
+        id: 'id-1',
+        organisationId: 'org-1',
+        status: OtjLogStatus.DRAFT,
+        minutes: 60,
+        submittedAt: null,
+      });
+      repo.save.mockImplementation((v: unknown) => Promise.resolve(v));
+
+      const result = await service.update(user, 'id-1', {
+        status: OtjLogStatus.SUBMITTED,
+      });
+
+      expect(result.submittedAt).not.toBeNull();
+    });
+  });
+
+  /**
+   * F1.2.3 AC2/AC3/AC5.
+   *
+   * The decision used to be sent to `user.id` — the manager pressing the
+   * button — so the apprentice who submitted the entry was never told, and the
+   * mandatory rejection comment went to the person who wrote it.
+   */
+  describe('decision notifications', () => {
+    const submittedEntry = {
+      id: 'id-1',
+      organisationId: 'org-1',
+      status: OtjLogStatus.SUBMITTED,
+      activityName: 'Shadowing a senior engineer',
+      loggedDate: '2026-02-03',
+      minutes: 90,
+      enrolment: { apprenticeUserId: 'apprentice-user-1' },
+    };
+
+    beforeEach(() => {
+      repo.findOne.mockResolvedValue({ ...submittedEntry });
+      repo.save.mockImplementation((v: unknown) => Promise.resolve(v));
+      notificationsService.createForUser.mockResolvedValue(undefined);
+      emailDispatchService.enqueue.mockResolvedValue(undefined);
+      userRepo.findOne.mockResolvedValue({
+        id: 'apprentice-user-1',
+        firstName: 'Alex',
+        email: 'alex@example.com',
+      });
+    });
+
+    it('notifies the apprentice, not the approving manager', async () => {
+      await service.bulkApprove(user, ['id-1']);
+
+      expect(notificationsService.createForUser).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'apprentice-user-1' }),
+      );
+      expect(notificationsService.createForUser).not.toHaveBeenCalledWith(
+        expect.objectContaining({ userId: user.id }),
+      );
+    });
+
+    it('emails the apprentice, not the approving manager', async () => {
+      await service.bulkApprove(user, ['id-1']);
+
+      const [payload] = emailDispatchService.enqueue.mock.calls[0] as [
+        { to: string; template: string },
+      ];
+      expect(payload.to).toBe('alex@example.com');
+      expect(payload.to).not.toBe(user.email);
+    });
+
+    it('uses the OTJ decision template rather than email verification', async () => {
+      // Approving an entry previously sent the manager a "verify your email
+      // address" message whose verifyUrl fell back to '#'.
+      await service.bulkApprove(user, ['id-1']);
+
+      const [payload] = emailDispatchService.enqueue.mock.calls[0] as [
+        { template: string },
+      ];
+      expect(payload.template).toBe(EmailTemplate.OTJ_DECISION);
+      expect(payload.template).not.toBe(EmailTemplate.EMAIL_VERIFICATION);
+    });
+
+    it('carries the rejection reason through to the apprentice', async () => {
+      await service.bulkReject(
+        user,
+        ['id-1'],
+        'Evidence does not show the activity',
+      );
+
+      const [payload] = notificationsService.createForUser.mock.calls[0] as [
+        { userId: string; metadata: { rejectionReason: string } },
+      ];
+      expect(payload.userId).toBe('apprentice-user-1');
+      expect(payload.metadata.rejectionReason).toBe(
+        'Evidence does not show the activity',
+      );
+    });
+
+    it('still approves when the enrolment has no apprentice login', async () => {
+      // Enrolments can exist before the apprentice has an account. That must
+      // not fail the approval, which is already committed.
+      repo.findOne.mockResolvedValue({
+        ...submittedEntry,
+        enrolment: { apprenticeUserId: null },
+      });
+
+      const out = await service.bulkApprove(user, ['id-1']);
+
+      expect(out.succeeded).toBe(1);
+      expect(emailDispatchService.enqueue).not.toHaveBeenCalled();
+    });
+
+    it('still approves when the notification fails', async () => {
+      notificationsService.createForUser.mockRejectedValue(
+        new Error('notification backend down'),
+      );
+
+      const out = await service.bulkApprove(user, ['id-1']);
+
+      expect(out.succeeded).toBe(1);
+      expect(out.results[0].notificationQueued).toBe(false);
+    });
   });
 });

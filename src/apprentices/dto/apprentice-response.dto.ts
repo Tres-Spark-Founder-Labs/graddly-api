@@ -25,6 +25,9 @@ export class ApprenticeResponseDto {
   })
   employeeId!: string | null;
 
+  @ApiProperty({ nullable: true, maxLength: 120 })
+  jobTitle!: string | null;
+
   @ApiProperty({ enum: ApprenticeStatus })
   status!: ApprenticeStatus;
 }

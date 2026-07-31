@@ -32,6 +32,7 @@ import { CounterpartOrganisationLookupResponseDto } from './dto/counterpart-orga
 import { CreateEnrolmentDto } from './dto/create-enrolment.dto.js';
 import { EnrolmentParticipantOptionsResponseDto } from './dto/enrolment-participant-options-response.dto.js';
 import { EpaOutcomeResponseDto } from './dto/epa-outcome-response.dto.js';
+import { LinkedProviderResponseDto } from './dto/linked-provider-response.dto.js';
 import { LookupCounterpartOrganisationQueryDto } from './dto/lookup-counterpart-organisation-query.dto.js';
 import { ParticipantUserOptionDto } from './dto/participant-user-option.dto.js';
 import { RecordEpaOutcomeDto } from './dto/record-epa-outcome.dto.js';
@@ -45,7 +46,10 @@ import {
 import { EnrolmentProvisioningService } from './enrolment-provisioning.service.js';
 import { Enrolment } from './entities/enrolment.entity.js';
 import { EpaOutcomeRecord } from './entities/epa-outcome.entity.js';
-import { EnrolmentPipelineState } from './enums/enrolment-pipeline-state.enum.js';
+import {
+  ACCEPTED_PROVIDER_PIPELINE_STATES,
+  EnrolmentPipelineState,
+} from './enums/enrolment-pipeline-state.enum.js';
 import { EnrolmentStatus } from './enums/enrolment-status.enum.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
@@ -168,6 +172,68 @@ export class EnrolmentsService {
     );
   }
 
+  /**
+   * F1.2.5 AC2 — providers this employer may enrol with.
+   *
+   * "Accepted connection request" is derived from the enrolments themselves:
+   * a provider that has advanced an enrolment from this employer to
+   * `provider_accepted` or beyond has, by definition, accepted working with
+   * them. Building a separate organisation-connection table would duplicate
+   * that relationship and then need reconciling with it.
+   *
+   * Ordered by how recently the employer enrolled with each provider, so the
+   * picker leads with the ones they actually use.
+   */
+  async listLinkedProviders(
+    user: AuthenticatedUser,
+  ): Promise<LinkedProviderResponseDto[]> {
+    const organisationId = user.organisationId!;
+
+    const rows = await this.enrolmentRepo
+      .createQueryBuilder('enrolment')
+      .innerJoin(
+        Organisation,
+        'provider',
+        'provider.id = enrolment."providerOrganisationId" AND provider."isDeleted" = false',
+      )
+      .select('provider.id', 'organisationId')
+      .addSelect('provider.name', 'name')
+      .addSelect('provider.ukprn', 'ukprn')
+      .addSelect('COUNT(enrolment.id)', 'acceptedEnrolmentCount')
+      .addSelect('MAX(enrolment."createdAt")', 'lastEnrolledAt')
+      .where('enrolment."employerOrganisationId" = :organisationId', {
+        organisationId,
+      })
+      .andWhere('enrolment."isDeleted" = false')
+      // Acceptance is a pipeline position, not a flag — anything at or past
+      // provider_accepted counts, including enrolments that have since moved
+      // on to ILR or DAS.
+      .andWhere('enrolment."pipelineState" IN (:...acceptedStates)', {
+        acceptedStates: ACCEPTED_PROVIDER_PIPELINE_STATES,
+      })
+      .groupBy('provider.id')
+      .addGroupBy('provider.name')
+      .addGroupBy('provider.ukprn')
+      .orderBy('MAX(enrolment."createdAt")', 'DESC')
+      .getRawMany<{
+        organisationId: string;
+        name: string;
+        ukprn: string | null;
+        acceptedEnrolmentCount: string;
+        lastEnrolledAt: Date | string | null;
+      }>();
+
+    return rows.map((row) => ({
+      organisationId: row.organisationId,
+      name: row.name,
+      ukprn: row.ukprn,
+      acceptedEnrolmentCount: Number(row.acceptedEnrolmentCount),
+      lastEnrolledAt: row.lastEnrolledAt
+        ? new Date(row.lastEnrolledAt).toISOString()
+        : null,
+    }));
+  }
+
   async findOne(
     user: AuthenticatedUser,
     id: string,
@@ -272,6 +338,26 @@ export class EnrolmentsService {
     ]);
 
     return { apprenticeCandidates, tutors, employerManagers };
+  }
+
+  /**
+   * F1.2.5 AC1 — selectable line managers, before an enrolment exists.
+   *
+   * `getParticipantOptions` covers the same ground but keys off
+   * `enrolment.employerOrganisationId`, so it can only answer once the
+   * enrolment has been created and linked. The enrol wizard needs the list
+   * while the form is still being filled in, and the answer is simply the
+   * members of the employer's own organisation — which is the caller's.
+   *
+   * Without this the field was free text: the drawer asked for a "line manager
+   * name", the API stores `employerManagerUserId`, and the typed name was
+   * dropped on submit. That is also why F1.2.4's at-risk alert had nobody to
+   * email — no enrolment created through this screen ever had a manager.
+   */
+  async listEmployerManagerOptions(
+    user: AuthenticatedUser,
+  ): Promise<ParticipantUserOptionDto[]> {
+    return this.loadOrgMemberOptions(user.organisationId!);
   }
 
   async lookupCounterpartOrganisationByUkprn(

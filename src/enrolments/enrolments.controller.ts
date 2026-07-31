@@ -45,13 +45,13 @@ import { ResponseMessage } from '../common/interceptors/response-message.decorat
 import { parsePortalType } from '../common/utils/parse-portal-type.util.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
-import { LinkedProviderResponseDto } from './dto/linked-provider-response.dto.js';
 import { CounterpartOrganisationLookupResponseDto } from './dto/counterpart-organisation-lookup-response.dto.js';
 import { CreateEnrolmentDto } from './dto/create-enrolment.dto.js';
 import { EnrolmentJourneyResponseDto } from './dto/enrolment-journey-response.dto.js';
 import { EnrolmentParticipantOptionsResponseDto } from './dto/enrolment-participant-options-response.dto.js';
 import { EnrolmentResponseDto } from './dto/enrolment-response.dto.js';
 import { EpaOutcomeResponseDto } from './dto/epa-outcome-response.dto.js';
+import { LinkedProviderResponseDto } from './dto/linked-provider-response.dto.js';
 import { LookupCounterpartOrganisationQueryDto } from './dto/lookup-counterpart-organisation-query.dto.js';
 import { ParticipantUserOptionDto } from './dto/participant-user-option.dto.js';
 import { RecordEpaOutcomeDto } from './dto/record-epa-outcome.dto.js';

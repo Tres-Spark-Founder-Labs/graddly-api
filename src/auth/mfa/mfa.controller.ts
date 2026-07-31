@@ -43,7 +43,16 @@ import { MfaService } from './mfa.service.js';
 import type { AuthenticatedUser } from '../interfaces/authenticated-user.interface.js';
 
 @ApiTags('Auth')
-@ApiExtraModels(AuthResponseDto, MfaChallengeResponseDto)
+// Every DTO reachable through getSchemaPath() must be registered here, or the
+// emitted spec contains a $ref to a schema that does not exist. Swagger UI
+// renders that as an empty box rather than an error, so it went unnoticed
+// until the spec was consumed by a code generator.
+@ApiExtraModels(
+  AuthResponseDto,
+  MfaChallengeResponseDto,
+  MfaEnrollResponseDto,
+  MfaConfirmResponseDto,
+)
 @Controller('auth/mfa')
 export class MfaController {
   constructor(

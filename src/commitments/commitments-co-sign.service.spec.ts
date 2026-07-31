@@ -71,28 +71,36 @@ describe('CommitmentsCoSignService', () => {
     roles: ['member'],
   } as const;
 
+  /**
+   * PRD order: provider creates, employer signs, apprentice signs.
+   *
+   * This fixture previously described the reverse (apprentice 1, tutor 2,
+   * employer 3) and was only ever used as *given* data — no test asserted
+   * what `ensureSignatureSlots` actually produces, which is why the ordering
+   * bug survived. See the "signature slot order" block below.
+   */
   const signatures = [
     {
       id: 's-1',
-      party: TripartiteParty.APPRENTICE,
-      signOrder: 1,
-      signerUserId: 'u-app',
-      status: CommitmentSignatureStatus.PENDING,
-      signatureRecordId: null,
-    },
-    {
-      id: 's-2',
       party: TripartiteParty.TUTOR,
-      signOrder: 2,
+      signOrder: 1,
       signerUserId: 'u-tutor',
       status: CommitmentSignatureStatus.PENDING,
       signatureRecordId: null,
     },
     {
-      id: 's-3',
+      id: 's-2',
       party: TripartiteParty.EMPLOYER_MANAGER,
-      signOrder: 3,
+      signOrder: 2,
       signerUserId: 'u-mgr',
+      status: CommitmentSignatureStatus.PENDING,
+      signatureRecordId: null,
+    },
+    {
+      id: 's-3',
+      party: TripartiteParty.APPRENTICE,
+      signOrder: 3,
+      signerUserId: 'u-app',
       status: CommitmentSignatureStatus.PENDING,
       signatureRecordId: null,
     },

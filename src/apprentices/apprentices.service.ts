@@ -47,6 +47,7 @@ export class ApprenticesService {
       // Trimmed to null rather than stored as "": an empty payroll reference
       // is an absent one, and "" would defeat the partial index.
       employeeId: dto.employeeId?.trim() || null,
+      jobTitle: dto.jobTitle?.trim() || null,
       status: dto.status,
     });
 
@@ -112,6 +113,8 @@ export class ApprenticesService {
     if (dto.lastName !== undefined) apprentice.lastName = dto.lastName.trim();
     if (dto.employeeId !== undefined)
       apprentice.employeeId = dto.employeeId?.trim() || null;
+    if (dto.jobTitle !== undefined)
+      apprentice.jobTitle = dto.jobTitle?.trim() || null;
     const wasWithdrawn = apprentice.status === ApprenticeStatus.WITHDRAWN;
     if (dto.status !== undefined) apprentice.status = dto.status;
 

@@ -13,11 +13,9 @@ import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 import { PdfGenerationJob } from '../pdf/entities/pdf-generation-job.entity.js';
 import { PdfJobStatus } from '../pdf/enums/pdf-job-status.enum.js';
 import { SequentialCoSignOrchestrator } from '../signing/sequential-co-sign.orchestrator.js';
-import {
-  TripartiteParty,
-  TRIPARTITE_PARTY_ORDER,
-} from '../signing/tripartite-party.enum.js';
+import { TripartiteParty } from '../signing/tripartite-party.enum.js';
 
+import { COMMITMENT_SIGNING_ORDER } from './commitment-signing-order.js';
 import { CommitmentStatementStatusService } from './commitment-statement-status.service.js';
 import { SignCommitmentResponseDto } from './dto/sign-commitment-response.dto.js';
 import { SignCommitmentDto } from './dto/sign-commitment.dto.js';
@@ -173,7 +171,9 @@ export class CommitmentsCoSignService {
     });
     if (existing > 0) return;
 
-    const slots = TRIPARTITE_PARTY_ORDER.map((party, index) =>
+    // PRD order: provider, then employer, then apprentice. See
+    // commitment-signing-order.ts for why this is not TRIPARTITE_PARTY_ORDER.
+    const slots = COMMITMENT_SIGNING_ORDER.map((party, index) =>
       this.signatureRepo.create({
         organisationId: statement.organisationId,
         statementId: statement.id,

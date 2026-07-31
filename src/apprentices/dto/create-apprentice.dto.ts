@@ -37,6 +37,18 @@ export class CreateApprenticeDto {
   @MaxLength(64)
   employeeId?: string;
 
+  @ApiPropertyOptional({
+    maxLength: 120,
+    example: 'Junior Software Engineer',
+    description:
+      'F1.2.5 AC1 — the role the apprenticeship supports. The employer’s ' +
+      'description of the job, not the apprenticeship standard.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  jobTitle?: string;
+
   @ApiPropertyOptional({ enum: ApprenticeStatus })
   @IsOptional()
   @IsEnum(ApprenticeStatus)

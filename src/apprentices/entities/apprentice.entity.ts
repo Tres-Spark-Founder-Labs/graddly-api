@@ -43,6 +43,14 @@ export class Apprentice extends BaseEntity {
   @Column({ type: 'varchar', length: 64, nullable: true })
   employeeId!: string | null;
 
+  /**
+   * F1.2.5 AC1 — the role the apprenticeship supports, as the employer
+   * describes it. Distinct from `users.jobTitle`, which only exists once the
+   * apprentice has accepted their invitation and created an account.
+   */
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  jobTitle!: string | null;
+
   @Column({
     type: 'enum',
     enum: ApprenticeStatus,

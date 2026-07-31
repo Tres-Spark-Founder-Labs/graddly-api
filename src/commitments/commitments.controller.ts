@@ -35,11 +35,17 @@ import { ResponseMessage } from '../common/interceptors/response-message.decorat
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
+import { CommitmentBoardService } from './commitment-board.service.js';
 import { CommitmentStatementsService } from './commitment-statements.service.js';
 import { CommitmentsCoSignService } from './commitments-co-sign.service.js';
+import {
+  CommitmentBoardResponseDto,
+  CommitmentBoardRowDto,
+} from './dto/commitment-board-row.dto.js';
 import { CommitmentStatementContentDto } from './dto/commitment-statement-content.dto.js';
 import { CommitmentStatementResponseDto } from './dto/commitment-statement-response.dto.js';
 import { CreateCommitmentStatementDto } from './dto/create-commitment-statement.dto.js';
+import { ListCommitmentBoardQueryDto } from './dto/list-commitment-board-query.dto.js';
 import { ListCommitmentStatementsQueryDto } from './dto/list-commitment-statements-query.dto.js';
 import { SignCommitmentResponseDto } from './dto/sign-commitment-response.dto.js';
 import { SignCommitmentDto } from './dto/sign-commitment.dto.js';
@@ -52,6 +58,8 @@ import type { Request } from 'express';
 @ApiExtraModels(
   CommitmentStatementResponseDto,
   CommitmentStatementContentDto,
+  CommitmentBoardResponseDto,
+  CommitmentBoardRowDto,
   SignCommitmentResponseDto,
   PaginationMetaDto,
 )
@@ -75,7 +83,41 @@ export class CommitmentsController {
   constructor(
     private readonly statementsService: CommitmentStatementsService,
     private readonly coSignService: CommitmentsCoSignService,
+    private readonly boardService: CommitmentBoardService,
   ) {}
+
+  /**
+   * F1.3.1. Declared before the `:id` routes so the literal path is matched
+   * first.
+   */
+  @Get('board')
+  @ResponseMessage('Commitment statement board retrieved successfully')
+  @ApiOperation({
+    summary: 'Employer commitment statement status board',
+    description:
+      'F1.3.1 — one row per apprentice with the signature state of all three ' +
+      'parties. Scoped by the enrolment employer link, not by the statement ' +
+      'owner, because statements are drafted by the provider. Rows the ' +
+      'employer can sign now are sorted to the top, and the response carries ' +
+      'the count for the sidebar badge.',
+  })
+  @ApiOkResponse({
+    description: 'Board rows plus the requiring-action count',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(CommitmentBoardResponseDto) },
+      },
+    },
+  })
+  getBoard(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ListCommitmentBoardQueryDto,
+  ): Promise<CommitmentBoardResponseDto> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.boardService.getBoard(user, query);
+  }
 
   @Post()
   @ResponseMessage('Commitment statement created successfully')

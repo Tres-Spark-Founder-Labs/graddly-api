@@ -51,6 +51,7 @@ import { EnrolmentJourneyResponseDto } from './dto/enrolment-journey-response.dt
 import { EnrolmentParticipantOptionsResponseDto } from './dto/enrolment-participant-options-response.dto.js';
 import { EnrolmentResponseDto } from './dto/enrolment-response.dto.js';
 import { EpaOutcomeResponseDto } from './dto/epa-outcome-response.dto.js';
+import { LinkedProviderResponseDto } from './dto/linked-provider-response.dto.js';
 import { LookupCounterpartOrganisationQueryDto } from './dto/lookup-counterpart-organisation-query.dto.js';
 import { ParticipantUserOptionDto } from './dto/participant-user-option.dto.js';
 import { RecordEpaOutcomeDto } from './dto/record-epa-outcome.dto.js';
@@ -64,6 +65,7 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
 
 @ApiTags('Enrolments')
 @ApiExtraModels(
+  LinkedProviderResponseDto,
   CounterpartOrganisationLookupResponseDto,
   EnrolmentJourneyResponseDto,
   EnrolmentParticipantOptionsResponseDto,
@@ -213,6 +215,67 @@ export class EnrolmentsController {
       user,
       query,
     );
+  }
+
+  /**
+   * F1.2.5 AC2. Declared before the `:id` routes so the literal path wins.
+   */
+  @Get('linked-providers')
+  @ResponseMessage('Linked providers retrieved successfully')
+  @ApiOperation({
+    summary: 'List training providers this employer may enrol with',
+    description:
+      'F1.2.5 AC2 — providers that have accepted at least one enrolment from ' +
+      'this employer. Acceptance is the enrolment pipeline reaching ' +
+      'provider_accepted, which is what an accepted connection request means ' +
+      'in this platform. Most recently used first.',
+  })
+  @ApiOkResponse({
+    description: 'Linked provider organisations',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(LinkedProviderResponseDto) },
+        },
+      },
+    },
+  })
+  listLinkedProviders(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<LinkedProviderResponseDto[]> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.enrolmentsService.listLinkedProviders(user);
+  }
+
+  @Get('employer-manager-options')
+  @ResponseMessage('Employer manager options retrieved successfully')
+  @ApiOperation({
+    summary: 'List users in the active organisation who can be a line manager',
+    description:
+      'F1.2.5 AC1 — the enrol form needs this before the enrolment exists, ' +
+      'which the per-enrolment participant-options endpoint cannot answer.',
+  })
+  @ApiOkResponse({
+    description: 'Selectable line managers',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(ParticipantUserOptionDto) },
+        },
+      },
+    },
+  })
+  listEmployerManagerOptions(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<ParticipantUserOptionDto[]> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.enrolmentsService.listEmployerManagerOptions(user);
   }
 
   @Get(':id/journey')

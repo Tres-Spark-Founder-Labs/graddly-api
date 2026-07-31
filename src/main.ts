@@ -8,7 +8,7 @@ import './instrument.js';
 
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SwaggerModule } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import basicAuth from 'express-basic-auth';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
@@ -16,6 +16,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { AppModule } from './app.module.js';
 import { configureApp } from './configure-app.js';
 import { configureHelmet } from './configure-helmet.js';
+import { buildSwaggerConfig } from './swagger.config.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
@@ -38,20 +39,10 @@ async function bootstrap() {
     basicAuth({ challenge: true, users: { [swaggerUser]: swaggerPass } }),
   );
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Graddly API')
-    .setDescription('The Graddly API documentation')
-    .setVersion('0.1.0')
-    .addBearerAuth({
-      type: 'http',
-      scheme: 'bearer',
-      bearerFormat: 'JWT',
-      description:
-        'JWT access token. Claims: `sub` (user id), `email`, optional `orgId` (active organisation), optional `roles` (roles in that org). See docs/api/jwt-payload.md for details and client migration.',
-    })
-    .build();
-
-  const openApiDocument = SwaggerModule.createDocument(app, swaggerConfig);
+  const openApiDocument = SwaggerModule.createDocument(
+    app,
+    buildSwaggerConfig(),
+  );
 
   app.use(
     '/docs',

@@ -12,13 +12,22 @@ import { CommitmentStatement } from './entities/commitment-statement.entity.js';
 import { CommitmentStatementStatus } from './enums/commitment-statement-status.enum.js';
 
 describe('CommitmentStatementsService', () => {
+  const groupQueryBuilder = {
+    innerJoin: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    getOne: jest.fn(),
+  };
   const groupRepo = {
+    createQueryBuilder: jest.fn(() => groupQueryBuilder),
     findOne: jest.fn(),
     create: jest.fn((v: unknown) => v),
     save: jest.fn((v: { id?: string }) => ({ id: 'group-1', ...v })),
   };
   const statementQueryBuilder = {
     innerJoinAndSelect: jest.fn().mockReturnThis(),
+    innerJoin: jest.fn().mockReturnThis(),
+    getOne: jest.fn(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
@@ -198,6 +207,32 @@ describe('CommitmentStatementsService', () => {
       updatedAt: new Date(),
     });
     groupRepo.findOne.mockResolvedValue({
+      id: 'group-1',
+      enrolmentId: 'enr-1',
+      apprenticeId: 'app-1',
+    });
+
+    /**
+     * F1.3.2 AC1 — `findOne` resolves the statement for any *party*, not only
+     * the organisation that owns it, so it goes through a query builder that
+     * joins the enrolment. Statements are drafted by the provider, so the
+     * previous owner-scoped lookup returned 404 for the employer who has to
+     * read the text before signing it.
+     */
+    statementQueryBuilder.getOne.mockResolvedValue({
+      id: 'stmt-1',
+      groupId: 'group-1',
+      organisationId: 'org-1',
+      version: 1,
+      status: CommitmentStatementStatus.DRAFT,
+      content,
+      apprenticeUserId: 'u1',
+      tutorUserId: 'u2',
+      employerManagerUserId: 'u3',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    groupQueryBuilder.getOne.mockResolvedValue({
       id: 'group-1',
       enrolmentId: 'enr-1',
       apprenticeId: 'app-1',

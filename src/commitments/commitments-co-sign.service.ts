@@ -17,6 +17,7 @@ import { TripartiteParty } from '../signing/tripartite-party.enum.js';
 
 import { COMMITMENT_SIGNING_ORDER } from './commitment-signing-order.js';
 import { CommitmentStatementStatusService } from './commitment-statement-status.service.js';
+import { CommitmentStatementsService } from './commitment-statements.service.js';
 import { SignCommitmentResponseDto } from './dto/sign-commitment-response.dto.js';
 import { SignCommitmentDto } from './dto/sign-commitment.dto.js';
 import { CommitmentSignature } from './entities/commitment-signature.entity.js';
@@ -43,6 +44,7 @@ export class CommitmentsCoSignService {
     private readonly notificationsService: NotificationsService,
     private readonly eifScoreCache: EifScoreCacheService,
     private readonly enrolmentsService: EnrolmentsService,
+    private readonly statementsService: CommitmentStatementsService,
   ) {}
 
   async sign(
@@ -53,9 +55,19 @@ export class CommitmentsCoSignService {
     userAgent?: string,
   ): Promise<SignCommitmentResponseDto> {
     const organisationId = user.organisationId!;
-    const statement = await this.statementRepo.findOne({
-      where: { id: statementId, organisationId },
-    });
+    /**
+     * F1.3.2 — resolved as a *party*, not as the owner.
+     *
+     * This looked the statement up by `organisationId`, which is the provider
+     * who drafted it. An employer signing their own commitment statement got
+     * 404 "not found" — the endpoint existed, the guard passed, and the
+     * lookup failed one line in. Migration 1781100000026 opens the matching
+     * write policy; both are needed.
+     */
+    const statement = await this.statementsService.findStatementAsParty(
+      user,
+      statementId,
+    );
     if (!statement)
       throw new NotFoundException('Commitment statement not found');
 
@@ -70,9 +82,12 @@ export class CommitmentsCoSignService {
     }
 
     await this.initializeForSigning(statement);
-    const refreshed = await this.statementRepo.findOne({
-      where: { id: statementId, organisationId },
-    });
+    // Re-read as a party for the same reason as above; scoping this one to
+    // the owner would have reintroduced the 404 two lines later.
+    const refreshed = await this.statementsService.findStatementAsParty(
+      user,
+      statementId,
+    );
     if (
       !refreshed ||
       refreshed.status !== CommitmentStatementStatus.AWAITING_SIGNATURES
@@ -82,8 +97,15 @@ export class CommitmentsCoSignService {
       );
     }
 
+    /**
+     * Signature rows carry the *statement owner's* organisationId — they are
+     * created alongside the statement by the provider — so filtering by the
+     * caller's organisation returns nothing for an employer, and the sign
+     * would fail with "not ready" rather than a permissions error. Scoped by
+     * statement instead, which the party check above has already authorised.
+     */
     const signatures = await this.signatureRepo.find({
-      where: { statementId, organisationId },
+      where: { statementId },
       order: { signOrder: 'ASC' },
     });
 

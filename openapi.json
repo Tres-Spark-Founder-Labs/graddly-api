@@ -9249,6 +9249,152 @@
         ]
       }
     },
+    "/commitment-statements/{id}/signed-document": {
+      "get": {
+        "description": "F1.3.2 AC6 — a short-lived presigned URL. Authorised on the statement rather than the storage key prefix: the PDF lives under the drafting provider namespace, so the generic download endpoint refuses it for an employer who is a party to the document.",
+        "operationId": "CommitmentsController_getSignedDocument",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Presigned download link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CommitmentSignedDocumentResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Download link for the fully signed commitment PDF",
+        "tags": [
+          "Commitment Statements"
+        ]
+      }
+    },
+    "/commitment-statements/{groupId}/version-history": {
+      "get": {
+        "description": "F1.3.2 AC5 — every version with its dates and signatories, newest first. Resolved for any party to the enrolment, not only the organisation that drafted the statement.",
+        "operationId": "CommitmentsController_getVersionHistory",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Versions with signatories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CommitmentVersionHistoryResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Version history for a commitment statement group",
+        "tags": [
+          "Commitment Statements"
+        ]
+      }
+    },
     "/commitment-statements/{groupId}/versions": {
       "post": {
         "operationId": "CommitmentsController_createVersion",
@@ -23059,6 +23205,145 @@
           "rows",
           "actionRequiredCount",
           "total"
+        ]
+      },
+      "CommitmentVersionSignatoryDto": {
+        "type": "object",
+        "properties": {
+          "party": {
+            "enum": [
+              "apprentice",
+              "tutor",
+              "employer_manager"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Resolved signatory name."
+          },
+          "signed": {
+            "type": "boolean"
+          },
+          "signedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time",
+            "description": "When they signed. Null while pending."
+          }
+        },
+        "required": [
+          "party",
+          "name",
+          "signed",
+          "signedAt"
+        ]
+      },
+      "CommitmentVersionDto": {
+        "type": "object",
+        "properties": {
+          "statementId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "number"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "submitted",
+              "awaiting_signatures",
+              "signed",
+              "superseded",
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "publishedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "supersededAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time",
+            "description": "When this version was replaced by a later one."
+          },
+          "finalSignedPdfKey": {
+            "type": "string",
+            "nullable": true,
+            "description": "Storage key for the fully signed PDF, once it exists."
+          },
+          "signatories": {
+            "description": "AC5 — \"all prior versions with dates and signatories\".",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitmentVersionSignatoryDto"
+            }
+          }
+        },
+        "required": [
+          "statementId",
+          "version",
+          "status",
+          "publishedAt",
+          "supersededAt",
+          "finalSignedPdfKey",
+          "signatories"
+        ]
+      },
+      "CommitmentVersionHistoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "groupId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versions": {
+            "description": "Newest version first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitmentVersionDto"
+            }
+          }
+        },
+        "required": [
+          "groupId",
+          "versions"
+        ]
+      },
+      "CommitmentSignedDocumentResponseDto": {
+        "type": "object",
+        "properties": {
+          "statementId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "number"
+          },
+          "downloadUrl": {
+            "type": "string",
+            "description": "Presigned, short-lived."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "filename": {
+            "type": "string",
+            "example": "commitment-statement-v2.pdf"
+          }
+        },
+        "required": [
+          "statementId",
+          "version",
+          "downloadUrl",
+          "expiresAt",
+          "filename"
         ]
       },
       "SignCommitmentResponseDto": {

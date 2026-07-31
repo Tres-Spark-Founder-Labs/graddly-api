@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
@@ -7,12 +7,19 @@ import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
 import { TripartiteParty } from '../signing/tripartite-party.enum.js';
+import { StorageService } from '../storage/storage.service.js';
+import { User } from '../users/entities/user.entity.js';
 
+import { CommitmentStatementsService } from './commitment-statements.service.js';
 import {
   CommitmentBoardResponseDto,
   CommitmentBoardRowDto,
   CommitmentPartyStatus,
 } from './dto/commitment-board-row.dto.js';
+import {
+  CommitmentSignedDocumentResponseDto,
+  CommitmentVersionHistoryResponseDto,
+} from './dto/commitment-version-history.dto.js';
 import { ListCommitmentBoardQueryDto } from './dto/list-commitment-board-query.dto.js';
 import { CommitmentSignature } from './entities/commitment-signature.entity.js';
 import { CommitmentStatementGroup } from './entities/commitment-statement-group.entity.js';
@@ -53,6 +60,10 @@ export class CommitmentBoardService {
     private readonly organisationRepo: Repository<Organisation>,
     @InjectRepository(Standard)
     private readonly standardRepo: Repository<Standard>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+    private readonly storageService: StorageService,
+    private readonly statementsService: CommitmentStatementsService,
   ) {}
 
   async getBoard(
@@ -162,6 +173,159 @@ export class CommitmentBoardService {
     const rows = this.sortActionFirst(this.applyFilters(allRows, query));
 
     return { rows, actionRequiredCount, total: allRows.length };
+  }
+
+  /**
+   * F1.3.2 AC5 — "version history shows all prior versions with dates and
+   * signatories".
+   *
+   * Resolved for any party to the enrolment, not just the statement owner,
+   * for the same reason as the board: the provider drafts the statement, so
+   * an owner-scoped query returns nothing for the employer reading their own
+   * signing history.
+   *
+   * Signatory *names* are resolved here rather than left as user ids —
+   * "who signed this, and when" is the whole point of the panel, and an id
+   * answers neither question.
+   */
+  async getVersionHistory(
+    user: AuthenticatedUser,
+    groupId: string,
+  ): Promise<CommitmentVersionHistoryResponseDto> {
+    const organisationId = user.organisationId!;
+
+    const group = await this.groupRepo
+      .createQueryBuilder('grp')
+      .innerJoin(
+        Enrolment,
+        'enrolment',
+        'enrolment.id = grp."enrolmentId" AND enrolment."isDeleted" = false',
+      )
+      .where('grp.id = :groupId', { groupId })
+      .andWhere('grp."isDeleted" = false')
+      .andWhere(
+        `(grp."organisationId" = :organisationId
+          OR enrolment."employerOrganisationId" = :organisationId
+          OR enrolment."providerOrganisationId" = :organisationId)`,
+        { organisationId },
+      )
+      .getOne();
+
+    if (!group) {
+      throw new NotFoundException('Commitment statement group not found');
+    }
+
+    const statements = await this.statementRepo.find({
+      where: { groupId },
+      order: { version: 'DESC' },
+    });
+    if (statements.length === 0) {
+      return { groupId, versions: [] };
+    }
+
+    const signatures = await this.signatureRepo.find({
+      where: { statementId: In(statements.map((s) => s.id)) },
+    });
+
+    const signerNames = await this.loadUserNames(
+      signatures.map((s) => s.signerUserId),
+    );
+
+    const byStatement = new Map<string, CommitmentSignature[]>();
+    for (const signature of signatures) {
+      const bucket = byStatement.get(signature.statementId) ?? [];
+      bucket.push(signature);
+      byStatement.set(signature.statementId, bucket);
+    }
+
+    const versions = statements.map((statement) => ({
+      statementId: statement.id,
+      version: statement.version,
+      status: statement.status,
+      publishedAt: statement.publishedAt
+        ? new Date(statement.publishedAt).toISOString()
+        : null,
+      supersededAt: statement.supersededAt
+        ? new Date(statement.supersededAt).toISOString()
+        : null,
+      finalSignedPdfKey: statement.finalSignedPdfKey,
+      signatories: (byStatement.get(statement.id) ?? [])
+        .sort((a, b) => a.signOrder - b.signOrder)
+        .map((s) => ({
+          party: s.party,
+          name: signerNames.get(s.signerUserId) ?? null,
+          signed: s.status === CommitmentSignatureStatus.SIGNED,
+          // `updatedAt` is when the row last changed, which for a signed
+          // signature is when it was signed. The signature record holds the
+          // authoritative timestamp; this is the cheap read for a list.
+          signedAt:
+            s.status === CommitmentSignatureStatus.SIGNED && s.updatedAt
+              ? new Date(s.updatedAt).toISOString()
+              : null,
+        })),
+    }));
+
+    return { groupId, versions };
+  }
+
+  /**
+   * F1.3.2 AC6 — a download link for the fully signed PDF.
+   *
+   * Storage keys are namespaced by organisation (`orgs/{id}/…`), and
+   * `StorageService.createDownloadUrl` enforces that the key sits under the
+   * *caller's* namespace. The signed PDF is written by the PDF job under the
+   * statement owner's namespace — the provider's — so an employer asking for a
+   * download URL got `Forbidden`, with a key they can legitimately see on a
+   * document they have signed.
+   *
+   * The fix is to authorise on the **document** rather than the key prefix:
+   * `findStatementAsParty` establishes that the caller is a party, and the
+   * presign then runs against the owning organisation. The caller never
+   * supplies the key, so this cannot be used to reach any other object —
+   * which is the property the prefix check was protecting.
+   */
+  async getSignedDocumentUrl(
+    user: AuthenticatedUser,
+    statementId: string,
+  ): Promise<CommitmentSignedDocumentResponseDto> {
+    const statement = await this.statementsService.findStatementAsParty(
+      user,
+      statementId,
+    );
+
+    if (!statement.finalSignedPdfKey) {
+      throw new NotFoundException(
+        'This statement has no signed PDF yet. It is generated once every party has signed.',
+      );
+    }
+
+    const presigned = await this.storageService.createDownloadUrl(
+      statement.organisationId,
+      { key: statement.finalSignedPdfKey },
+    );
+
+    return {
+      statementId: statement.id,
+      version: statement.version,
+      downloadUrl: presigned.downloadUrl,
+      expiresAt: new Date(presigned.expiresAt).toISOString(),
+      filename: `commitment-statement-v${statement.version}.pdf`,
+    };
+  }
+
+  private async loadUserNames(ids: string[]): Promise<Map<string, string>> {
+    const unique = [...new Set(ids)].filter(Boolean);
+    if (unique.length === 0) return new Map();
+    const rows = await this.userRepo.find({
+      where: { id: In(unique), isDeleted: false },
+      select: ['id', 'firstName', 'lastName', 'email'],
+    });
+    return new Map(
+      rows.map((u) => [
+        u.id,
+        `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email,
+      ]),
+    );
   }
 
   /** AC2 — a missing signature row means the statement has not been sent. */

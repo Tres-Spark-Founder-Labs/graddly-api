@@ -173,12 +173,16 @@ export class CommitmentStatementsService {
     );
   }
 
+  /**
+   * F1.3.2 AC1 — the employer reads the full text before signing, so this
+   * resolves for any party to the statement rather than only its owner.
+   */
   async findOne(
     user: AuthenticatedUser,
     id: string,
   ): Promise<CommitmentStatementResponseDto> {
-    const row = await this.findStatementEntity(user, id);
-    const group = await this.findGroup(user, row.groupId);
+    const row = await this.findStatementAsParty(user, id);
+    const group = await this.findGroupAsParty(user, row.groupId);
     return this.toResponse(row, group);
   }
 
@@ -270,6 +274,11 @@ export class CommitmentStatementsService {
     return this.toResponse(saved, group);
   }
 
+  /**
+   * Owner-scoped lookup. Used by update, publish and cancel — actions that
+   * belong to the provider who drafted the statement, and which are
+   * deliberately *not* widened to the other parties.
+   */
   async findStatementEntity(
     user: AuthenticatedUser,
     id: string,
@@ -279,6 +288,80 @@ export class CommitmentStatementsService {
     });
     if (!row) throw new NotFoundException('Commitment statement not found');
     return row;
+  }
+
+  /**
+   * Lookup for a party to the statement, not just its owner (F1.3.2 AC1).
+   *
+   * Commitment statements are owned by the provider who drafts them, so the
+   * owner-scoped lookup above returns 404 for the employer — before row-level
+   * security is even consulted. That would make "employer can view the full
+   * commitment statement text in the portal before signing" impossible no
+   * matter what the policies said.
+   *
+   * Reachability is the same as the RLS policy added in 1781100000024: the
+   * caller must be the employer or provider organisation named on the
+   * enrolment behind the statement. An unrelated organisation still gets 404.
+   */
+  async findStatementAsParty(
+    user: AuthenticatedUser,
+    id: string,
+  ): Promise<CommitmentStatement> {
+    const organisationId = user.organisationId!;
+
+    const row = await this.statementRepo
+      .createQueryBuilder('statement')
+      .innerJoin(
+        CommitmentStatementGroup,
+        'grp',
+        'grp.id = statement."groupId" AND grp."isDeleted" = false',
+      )
+      .innerJoin(
+        Enrolment,
+        'enrolment',
+        'enrolment.id = grp."enrolmentId" AND enrolment."isDeleted" = false',
+      )
+      .where('statement.id = :id', { id })
+      .andWhere(
+        `(statement."organisationId" = :organisationId
+          OR enrolment."employerOrganisationId" = :organisationId
+          OR enrolment."providerOrganisationId" = :organisationId)`,
+        { organisationId },
+      )
+      .getOne();
+
+    if (!row) throw new NotFoundException('Commitment statement not found');
+    return row;
+  }
+
+  /** Group lookup for any party, matching `findStatementAsParty`. */
+  private async findGroupAsParty(
+    user: AuthenticatedUser,
+    groupId: string,
+  ): Promise<CommitmentStatementGroup> {
+    const organisationId = user.organisationId!;
+
+    const group = await this.groupRepo
+      .createQueryBuilder('grp')
+      .innerJoin(
+        Enrolment,
+        'enrolment',
+        'enrolment.id = grp."enrolmentId" AND enrolment."isDeleted" = false',
+      )
+      .where('grp.id = :groupId', { groupId })
+      .andWhere('grp."isDeleted" = false')
+      .andWhere(
+        `(grp."organisationId" = :organisationId
+          OR enrolment."employerOrganisationId" = :organisationId
+          OR enrolment."providerOrganisationId" = :organisationId)`,
+        { organisationId },
+      )
+      .getOne();
+
+    if (!group) {
+      throw new NotFoundException('Commitment statement group not found');
+    }
+    return group;
   }
 
   private async findGroup(

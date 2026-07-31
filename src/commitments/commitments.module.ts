@@ -13,6 +13,7 @@ import { PdfGenerationJob } from '../pdf/entities/pdf-generation-job.entity.js';
 import { PdfModule } from '../pdf/pdf.module.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
 import { SigningModule } from '../signing/signing.module.js';
+import { StorageModule } from '../storage/storage.module.js';
 import { User } from '../users/entities/user.entity.js';
 
 import { CommitmentBoardService } from './commitment-board.service.js';
@@ -28,6 +29,7 @@ import { CommitmentStatement } from './entities/commitment-statement.entity.js';
 
 @Module({
   imports: [
+    StorageModule,
     AuthModule,
     EnrolmentsModule,
     SigningModule,

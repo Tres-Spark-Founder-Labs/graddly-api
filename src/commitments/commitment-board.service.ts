@@ -7,14 +7,19 @@ import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
 import { TripartiteParty } from '../signing/tripartite-party.enum.js';
+import { StorageService } from '../storage/storage.service.js';
 import { User } from '../users/entities/user.entity.js';
 
+import { CommitmentStatementsService } from './commitment-statements.service.js';
 import {
   CommitmentBoardResponseDto,
   CommitmentBoardRowDto,
   CommitmentPartyStatus,
 } from './dto/commitment-board-row.dto.js';
-import { CommitmentVersionHistoryResponseDto } from './dto/commitment-version-history.dto.js';
+import {
+  CommitmentSignedDocumentResponseDto,
+  CommitmentVersionHistoryResponseDto,
+} from './dto/commitment-version-history.dto.js';
 import { ListCommitmentBoardQueryDto } from './dto/list-commitment-board-query.dto.js';
 import { CommitmentSignature } from './entities/commitment-signature.entity.js';
 import { CommitmentStatementGroup } from './entities/commitment-statement-group.entity.js';
@@ -57,6 +62,8 @@ export class CommitmentBoardService {
     private readonly standardRepo: Repository<Standard>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    private readonly storageService: StorageService,
+    private readonly statementsService: CommitmentStatementsService,
   ) {}
 
   async getBoard(
@@ -259,6 +266,51 @@ export class CommitmentBoardService {
     }));
 
     return { groupId, versions };
+  }
+
+  /**
+   * F1.3.2 AC6 — a download link for the fully signed PDF.
+   *
+   * Storage keys are namespaced by organisation (`orgs/{id}/…`), and
+   * `StorageService.createDownloadUrl` enforces that the key sits under the
+   * *caller's* namespace. The signed PDF is written by the PDF job under the
+   * statement owner's namespace — the provider's — so an employer asking for a
+   * download URL got `Forbidden`, with a key they can legitimately see on a
+   * document they have signed.
+   *
+   * The fix is to authorise on the **document** rather than the key prefix:
+   * `findStatementAsParty` establishes that the caller is a party, and the
+   * presign then runs against the owning organisation. The caller never
+   * supplies the key, so this cannot be used to reach any other object —
+   * which is the property the prefix check was protecting.
+   */
+  async getSignedDocumentUrl(
+    user: AuthenticatedUser,
+    statementId: string,
+  ): Promise<CommitmentSignedDocumentResponseDto> {
+    const statement = await this.statementsService.findStatementAsParty(
+      user,
+      statementId,
+    );
+
+    if (!statement.finalSignedPdfKey) {
+      throw new NotFoundException(
+        'This statement has no signed PDF yet. It is generated once every party has signed.',
+      );
+    }
+
+    const presigned = await this.storageService.createDownloadUrl(
+      statement.organisationId,
+      { key: statement.finalSignedPdfKey },
+    );
+
+    return {
+      statementId: statement.id,
+      version: statement.version,
+      downloadUrl: presigned.downloadUrl,
+      expiresAt: new Date(presigned.expiresAt).toISOString(),
+      filename: `commitment-statement-v${statement.version}.pdf`,
+    };
   }
 
   private async loadUserNames(ids: string[]): Promise<Map<string, string>> {

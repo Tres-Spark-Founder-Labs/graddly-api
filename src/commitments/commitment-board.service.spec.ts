@@ -7,9 +7,11 @@ import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
 import { TripartiteParty } from '../signing/tripartite-party.enum.js';
+import { StorageService } from '../storage/storage.service.js';
 import { User } from '../users/entities/user.entity.js';
 
 import { CommitmentBoardService } from './commitment-board.service.js';
+import { CommitmentStatementsService } from './commitment-statements.service.js';
 import { CommitmentPartyStatus } from './dto/commitment-board-row.dto.js';
 import { CommitmentSignature } from './entities/commitment-signature.entity.js';
 import { CommitmentStatementGroup } from './entities/commitment-statement-group.entity.js';
@@ -31,6 +33,8 @@ describe('CommitmentBoardService', () => {
   const organisationRepo = { find: jest.fn() };
   const standardRepo = { find: jest.fn() };
   const userRepo = { find: jest.fn() };
+  const storageService = { createDownloadUrl: jest.fn() };
+  const findStatementAsParty = jest.fn();
   const groupQueryBuilder = {
     innerJoin: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
@@ -89,6 +93,11 @@ describe('CommitmentBoardService', () => {
         },
         { provide: getRepositoryToken(Standard), useValue: standardRepo },
         { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: StorageService, useValue: storageService },
+        {
+          provide: CommitmentStatementsService,
+          useValue: { findStatementAsParty },
+        },
       ],
     }).compile();
 
@@ -458,6 +467,81 @@ describe('CommitmentBoardService', () => {
       await expect(service.getVersionHistory(user, 'grp-1')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  /**
+   * F1.3.2 AC6 — the signed PDF is reachable from the employer portal.
+   *
+   * The generic storage download endpoint checks that the key sits under the
+   * *caller's* `orgs/{id}/` prefix. The PDF is written under the drafting
+   * provider's prefix, so an employer asking for it got Forbidden — on a
+   * document they had signed.
+   */
+  describe('signed document link (F1.3.2 AC6)', () => {
+    it('presigns against the owning organisation, not the caller', async () => {
+      findStatementAsParty.mockResolvedValue({
+        id: 'stmt-1',
+        organisationId: 'provider-org',
+        version: 2,
+        finalSignedPdfKey: 'orgs/provider-org/exports/signed.pdf',
+      });
+      storageService.createDownloadUrl.mockResolvedValue({
+        downloadUrl: 'https://s3/signed.pdf',
+        expiresAt: new Date('2026-08-01T12:00:00Z'),
+      });
+
+      const result = await service.getSignedDocumentUrl(user, 'stmt-1');
+
+      // The employer is 'employer-org'; presigning under that would fail the
+      // prefix check inside StorageService.
+      expect(storageService.createDownloadUrl).toHaveBeenCalledWith(
+        'provider-org',
+        { key: 'orgs/provider-org/exports/signed.pdf' },
+      );
+      expect(result.downloadUrl).toBe('https://s3/signed.pdf');
+      expect(result.filename).toBe('commitment-statement-v2.pdf');
+    });
+
+    it('authorises through findStatementAsParty, so the caller never supplies a key', async () => {
+      // This is what stops the endpoint being a way to reach arbitrary
+      // objects: the key comes from the statement, not the request.
+      findStatementAsParty.mockResolvedValue({
+        id: 'stmt-1',
+        organisationId: 'provider-org',
+        version: 1,
+        finalSignedPdfKey: 'orgs/provider-org/exports/signed.pdf',
+      });
+      storageService.createDownloadUrl.mockResolvedValue({
+        downloadUrl: 'https://s3/x',
+        expiresAt: new Date(),
+      });
+
+      await service.getSignedDocumentUrl(user, 'stmt-1');
+
+      expect(findStatementAsParty).toHaveBeenCalledWith(user, 'stmt-1');
+    });
+
+    it('404s when the statement is not fully signed yet', async () => {
+      findStatementAsParty.mockResolvedValue({
+        id: 'stmt-1',
+        organisationId: 'provider-org',
+        version: 1,
+        finalSignedPdfKey: null,
+      });
+
+      await expect(
+        service.getSignedDocumentUrl(user, 'stmt-1'),
+      ).rejects.toThrow(NotFoundException);
+      expect(storageService.createDownloadUrl).not.toHaveBeenCalled();
+    });
+
+    it('propagates the 404 for an organisation that is not a party', async () => {
+      findStatementAsParty.mockRejectedValue(new NotFoundException());
+
+      await expect(
+        service.getSignedDocumentUrl(user, 'stmt-1'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

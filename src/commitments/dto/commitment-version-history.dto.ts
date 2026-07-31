@@ -63,3 +63,21 @@ export class CommitmentVersionHistoryResponseDto {
   })
   versions!: CommitmentVersionDto[];
 }
+
+/** F1.3.2 AC6 — a short-lived link to the fully signed PDF. */
+export class CommitmentSignedDocumentResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  statementId!: string;
+
+  @ApiProperty()
+  version!: number;
+
+  @ApiProperty({ description: 'Presigned, short-lived.' })
+  downloadUrl!: string;
+
+  @ApiProperty({ format: 'date-time' })
+  expiresAt!: string;
+
+  @ApiProperty({ example: 'commitment-statement-v2.pdf' })
+  filename!: string;
+}

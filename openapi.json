@@ -9249,6 +9249,79 @@
         ]
       }
     },
+    "/commitment-statements/{id}/signed-document": {
+      "get": {
+        "description": "F1.3.2 AC6 — a short-lived presigned URL. Authorised on the statement rather than the storage key prefix: the PDF lives under the drafting provider namespace, so the generic download endpoint refuses it for an employer who is a party to the document.",
+        "operationId": "CommitmentsController_getSignedDocument",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Presigned download link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CommitmentSignedDocumentResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Download link for the fully signed commitment PDF",
+        "tags": [
+          "Commitment Statements"
+        ]
+      }
+    },
     "/commitment-statements/{groupId}/version-history": {
       "get": {
         "description": "F1.3.2 AC5 — every version with its dates and signatories, newest first. Resolved for any party to the enrolment, not only the organisation that drafted the statement.",
@@ -23240,6 +23313,37 @@
         "required": [
           "groupId",
           "versions"
+        ]
+      },
+      "CommitmentSignedDocumentResponseDto": {
+        "type": "object",
+        "properties": {
+          "statementId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "number"
+          },
+          "downloadUrl": {
+            "type": "string",
+            "description": "Presigned, short-lived."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "filename": {
+            "type": "string",
+            "example": "commitment-statement-v2.pdf"
+          }
+        },
+        "required": [
+          "statementId",
+          "version",
+          "downloadUrl",
+          "expiresAt",
+          "filename"
         ]
       },
       "SignCommitmentResponseDto": {

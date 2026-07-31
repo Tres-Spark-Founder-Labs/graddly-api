@@ -138,7 +138,17 @@ describe('OTJ digest (e2e)', () => {
       'completed',
     );
     const digestService = app.get(OtjDigestService);
-    const sent = await digestService.sendWeeklyDigestForOrganisation(orgId);
+    /**
+     * F1.2.3 AC7 — the cron now runs daily and each manager's daily/weekly/off
+     * preference is applied at send time. The default is weekly, which sends
+     * on Mondays only, so `now` is pinned to a known Monday (3 August 2026).
+     *
+     * Without it this test would pass one day in seven and fail the other six
+     * — a rename alone was not enough, because the method gained a cadence
+     * decision it did not have before.
+     */
+    const MONDAY = new Date('2026-08-03T08:00:00Z');
+    const sent = await digestService.sendDigestForOrganisation(orgId, MONDAY);
 
     expect(sent).toBe(1);
     const countsAfter = await emailQueue.getJobCounts(

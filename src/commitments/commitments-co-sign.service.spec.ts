@@ -11,6 +11,7 @@ import { SequentialCoSignOrchestrator } from '../signing/sequential-co-sign.orch
 import { TripartiteParty } from '../signing/tripartite-party.enum.js';
 
 import { CommitmentStatementStatusService } from './commitment-statement-status.service.js';
+import { CommitmentStatementsService } from './commitment-statements.service.js';
 import { CommitmentsCoSignService } from './commitments-co-sign.service.js';
 import { CommitmentSignature } from './entities/commitment-signature.entity.js';
 import { CommitmentStatementGroup } from './entities/commitment-statement-group.entity.js';
@@ -32,6 +33,7 @@ describe('CommitmentsCoSignService', () => {
   const notificationsService = { createForUser: jest.fn() };
   const eifScoreCache = { invalidate: jest.fn() };
   const enrolmentsService = { syncParticipantsIfUnset: jest.fn() };
+  const findStatementAsParty = jest.fn();
 
   let service: CommitmentsCoSignService;
 
@@ -57,6 +59,12 @@ describe('CommitmentsCoSignService', () => {
         { provide: NotificationsService, useValue: notificationsService },
         { provide: EifScoreCacheService, useValue: eifScoreCache },
         { provide: EnrolmentsService, useValue: enrolmentsService },
+        {
+          provide: CommitmentStatementsService,
+          // F1.3.2 — the sign path resolves the statement as a *party* now,
+          // not as its owner, so this stands in for that lookup.
+          useValue: { findStatementAsParty },
+        },
       ],
     }).compile();
 
@@ -118,6 +126,7 @@ describe('CommitmentsCoSignService', () => {
       version: 1,
     };
     statementRepo.findOne.mockResolvedValue(statement);
+    findStatementAsParty.mockResolvedValue(statement);
     signatureRepo.find.mockResolvedValue(signatures);
     signatureRepo.count.mockResolvedValue(3);
     pdfJobRepo.findOne.mockResolvedValue({

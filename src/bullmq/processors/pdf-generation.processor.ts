@@ -5,6 +5,7 @@ import { Job } from 'bullmq';
 import { Repository } from 'typeorm';
 
 import { CommitmentChaseService } from '../../commitments/commitment-chase.service.js';
+import { COMMITMENT_SIGNING_ORDER } from '../../commitments/commitment-signing-order.js';
 import { CommitmentSignature } from '../../commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatement } from '../../commitments/entities/commitment-statement.entity.js';
 import { CommitmentSignatureStatus } from '../../commitments/enums/commitment-signature-status.enum.js';
@@ -337,20 +338,24 @@ export class PdfGenerationProcessor extends WorkerHost {
       where: { statementId },
     });
     if (existing === 0) {
-      const parties = [
-        {
-          party: TripartiteParty.APPRENTICE,
-          signerUserId: statement.apprenticeUserId,
-        },
-        {
-          party: TripartiteParty.TUTOR,
-          signerUserId: statement.tutorUserId,
-        },
-        {
-          party: TripartiteParty.EMPLOYER_MANAGER,
-          signerUserId: statement.employerManagerUserId,
-        },
-      ];
+      /**
+       * Derived from COMMITMENT_SIGNING_ORDER rather than listed again.
+       *
+       * This array previously hardcoded apprentice-tutor-employer, a second
+       * copy of the same order that `commitments-co-sign.service.ts` held —
+       * so the PRD's provider-employer-apprentice sequence had to be fixed in
+       * two places or the two paths would create signature slots in different
+       * orders depending on which one ran first.
+       */
+      const signerIdByParty = {
+        [TripartiteParty.APPRENTICE]: statement.apprenticeUserId,
+        [TripartiteParty.TUTOR]: statement.tutorUserId,
+        [TripartiteParty.EMPLOYER_MANAGER]: statement.employerManagerUserId,
+      };
+      const parties = COMMITMENT_SIGNING_ORDER.map((party) => ({
+        party,
+        signerUserId: signerIdByParty[party],
+      }));
       await this.commitmentSignatureRepo.save(
         parties.map((p, index) =>
           this.commitmentSignatureRepo.create({

@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
@@ -6,6 +7,7 @@ import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
 import { TripartiteParty } from '../signing/tripartite-party.enum.js';
+import { User } from '../users/entities/user.entity.js';
 
 import { CommitmentBoardService } from './commitment-board.service.js';
 import { CommitmentPartyStatus } from './dto/commitment-board-row.dto.js';
@@ -19,12 +21,22 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
 
 describe('CommitmentBoardService', () => {
   const enrolmentRepo = { find: jest.fn() };
-  const groupRepo = { find: jest.fn() };
+  const groupRepo = {
+    find: jest.fn(),
+    createQueryBuilder: jest.fn(() => groupQueryBuilder),
+  };
   const statementRepo = { find: jest.fn() };
   const signatureRepo = { find: jest.fn() };
   const apprenticeRepo = { find: jest.fn() };
   const organisationRepo = { find: jest.fn() };
   const standardRepo = { find: jest.fn() };
+  const userRepo = { find: jest.fn() };
+  const groupQueryBuilder = {
+    innerJoin: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    getOne: jest.fn(),
+  };
 
   let service: CommitmentBoardService;
 
@@ -76,6 +88,7 @@ describe('CommitmentBoardService', () => {
           useValue: organisationRepo,
         },
         { provide: getRepositoryToken(Standard), useValue: standardRepo },
+        { provide: getRepositoryToken(User), useValue: userRepo },
       ],
     }).compile();
 
@@ -320,6 +333,131 @@ describe('CommitmentBoardService', () => {
     it('filters by standard', async () => {
       const { rows } = await service.getBoard(user, { standardId: 'std-1' });
       expect(rows).toHaveLength(1);
+    });
+  });
+
+  /**
+   * F1.3.2 AC5 — "version history shows all prior versions with dates and
+   * signatories".
+   */
+  describe('version history (F1.3.2 AC5)', () => {
+    beforeEach(() => {
+      groupQueryBuilder.getOne.mockResolvedValue({
+        id: 'grp-1',
+        enrolmentId: 'enr-1',
+        apprenticeId: 'app-1',
+      });
+      userRepo.find.mockResolvedValue([
+        { id: 'u-tutor', firstName: 'Tia', lastName: 'Tutor', email: 't@x' },
+        { id: 'u-mgr', firstName: 'Mo', lastName: 'Manager', email: 'm@x' },
+      ]);
+    });
+
+    it('returns every version, newest first', async () => {
+      statementRepo.find.mockResolvedValue([
+        {
+          id: 'stmt-2',
+          groupId: 'grp-1',
+          version: 2,
+          status: 'awaiting_signatures',
+        },
+        { id: 'stmt-1', groupId: 'grp-1', version: 1, status: 'superseded' },
+      ]);
+      signatureRepo.find.mockResolvedValue([]);
+
+      const { versions } = await service.getVersionHistory(user, 'grp-1');
+
+      expect(versions.map((v) => v.version)).toEqual([2, 1]);
+    });
+
+    it('resolves signatory names rather than returning user ids', async () => {
+      // "Who signed this, and when" is the whole point of the panel; a UUID
+      // answers neither question.
+      statementRepo.find.mockResolvedValue([
+        { id: 'stmt-1', groupId: 'grp-1', version: 1, status: 'signed' },
+      ]);
+      signatureRepo.find.mockResolvedValue([
+        {
+          statementId: 'stmt-1',
+          party: TripartiteParty.TUTOR,
+          signOrder: 1,
+          signerUserId: 'u-tutor',
+          status: CommitmentSignatureStatus.SIGNED,
+          updatedAt: new Date('2026-07-02T10:00:00Z'),
+        },
+      ]);
+
+      const { versions } = await service.getVersionHistory(user, 'grp-1');
+
+      expect(versions[0].signatories[0]).toMatchObject({
+        party: TripartiteParty.TUTOR,
+        name: 'Tia Tutor',
+        signed: true,
+      });
+      expect(versions[0].signatories[0].signedAt).toContain('2026-07-02');
+    });
+
+    it('leaves signedAt null while a party is still pending', async () => {
+      statementRepo.find.mockResolvedValue([
+        {
+          id: 'stmt-1',
+          groupId: 'grp-1',
+          version: 1,
+          status: 'awaiting_signatures',
+        },
+      ]);
+      signatureRepo.find.mockResolvedValue([
+        {
+          statementId: 'stmt-1',
+          party: TripartiteParty.EMPLOYER_MANAGER,
+          signOrder: 2,
+          signerUserId: 'u-mgr',
+          status: CommitmentSignatureStatus.PENDING,
+          updatedAt: new Date('2026-07-02T10:00:00Z'),
+        },
+      ]);
+
+      const { versions } = await service.getVersionHistory(user, 'grp-1');
+
+      expect(versions[0].signatories[0].signed).toBe(false);
+      expect(versions[0].signatories[0].signedAt).toBeNull();
+    });
+
+    it('orders signatories by signing order', async () => {
+      statementRepo.find.mockResolvedValue([
+        { id: 'stmt-1', groupId: 'grp-1', version: 1, status: 'signed' },
+      ]);
+      signatureRepo.find.mockResolvedValue([
+        {
+          statementId: 'stmt-1',
+          party: TripartiteParty.EMPLOYER_MANAGER,
+          signOrder: 2,
+          signerUserId: 'u-mgr',
+          status: CommitmentSignatureStatus.SIGNED,
+        },
+        {
+          statementId: 'stmt-1',
+          party: TripartiteParty.TUTOR,
+          signOrder: 1,
+          signerUserId: 'u-tutor',
+          status: CommitmentSignatureStatus.SIGNED,
+        },
+      ]);
+
+      const { versions } = await service.getVersionHistory(user, 'grp-1');
+
+      expect(versions[0].signatories.map((s) => s.party)).toEqual([
+        TripartiteParty.TUTOR,
+        TripartiteParty.EMPLOYER_MANAGER,
+      ]);
+    });
+
+    it('404s for an organisation that is not a party', async () => {
+      groupQueryBuilder.getOne.mockResolvedValue(null);
+
+      await expect(service.getVersionHistory(user, 'grp-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

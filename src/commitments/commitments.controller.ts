@@ -44,6 +44,10 @@ import {
 } from './dto/commitment-board-row.dto.js';
 import { CommitmentStatementContentDto } from './dto/commitment-statement-content.dto.js';
 import { CommitmentStatementResponseDto } from './dto/commitment-statement-response.dto.js';
+import {
+  CommitmentVersionDto,
+  CommitmentVersionHistoryResponseDto,
+} from './dto/commitment-version-history.dto.js';
 import { CreateCommitmentStatementDto } from './dto/create-commitment-statement.dto.js';
 import { ListCommitmentBoardQueryDto } from './dto/list-commitment-board-query.dto.js';
 import { ListCommitmentStatementsQueryDto } from './dto/list-commitment-statements-query.dto.js';
@@ -60,6 +64,8 @@ import type { Request } from 'express';
   CommitmentStatementContentDto,
   CommitmentBoardResponseDto,
   CommitmentBoardRowDto,
+  CommitmentVersionHistoryResponseDto,
+  CommitmentVersionDto,
   SignCommitmentResponseDto,
   PaginationMetaDto,
 )
@@ -160,6 +166,33 @@ export class CommitmentsController {
     @Query() query: ListCommitmentStatementsQueryDto,
   ): Promise<PaginatedResult<CommitmentStatementResponseDto>> {
     return this.statementsService.findAll(user, query);
+  }
+
+  @Get(':groupId/version-history')
+  @ResponseMessage('Commitment version history retrieved successfully')
+  @ApiOperation({
+    summary: 'Version history for a commitment statement group',
+    description:
+      'F1.3.2 AC5 — every version with its dates and signatories, newest ' +
+      'first. Resolved for any party to the enrolment, not only the ' +
+      'organisation that drafted the statement.',
+  })
+  @ApiOkResponse({
+    description: 'Versions with signatories',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(CommitmentVersionHistoryResponseDto) },
+      },
+    },
+  })
+  getVersionHistory(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('groupId', ParseUUIDPipe) groupId: string,
+  ): Promise<CommitmentVersionHistoryResponseDto> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.boardService.getVersionHistory(user, groupId);
   }
 
   @Post(':groupId/versions')

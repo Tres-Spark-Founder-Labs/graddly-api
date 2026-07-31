@@ -8944,6 +8944,115 @@
         ]
       }
     },
+    "/commitment-statements/board": {
+      "get": {
+        "description": "F1.3.1 — one row per apprentice with the signature state of all three parties. Scoped by the enrolment employer link, not by the statement owner, because statements are drafted by the provider. Rows the employer can sign now are sorted to the top, and the response carries the count for the sidebar badge.",
+        "operationId": "CommitmentsController_getBoard",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Statement status, not per-party signature status.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "submitted",
+                "awaiting_signatures",
+                "signed",
+                "superseded",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "name": "providerOrganisationId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "standardId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "actionRequiredOnly",
+            "required": false,
+            "in": "query",
+            "description": "Only statements the employer can sign right now (AC3). Backs the \"requiring action\" view without the client re-deriving it.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Board rows plus the requiring-action count",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CommitmentBoardResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Employer commitment statement status board",
+        "tags": [
+          "Commitment Statements"
+        ]
+      }
+    },
     "/commitment-statements": {
       "post": {
         "operationId": "CommitmentsController_create",
@@ -22813,6 +22922,143 @@
           "apprenticeUserId",
           "tutorUserId",
           "employerManagerUserId"
+        ]
+      },
+      "CommitmentBoardRowDto": {
+        "type": "object",
+        "properties": {
+          "statementId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "enrolmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "apprenticeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "apprenticeName": {
+            "type": "string",
+            "nullable": true,
+            "description": "F1.3.1 AC1 — column 1."
+          },
+          "providerName": {
+            "type": "string",
+            "nullable": true,
+            "description": "AC1 — column 2. Null when the enrolment has no provider linked yet."
+          },
+          "providerOrganisationId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "standardName": {
+            "type": "string",
+            "nullable": true,
+            "description": "Not an AC1 column, but AC4 filters by it."
+          },
+          "standardId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "version": {
+            "type": "number",
+            "description": "AC1 — column 3."
+          },
+          "statementStatus": {
+            "enum": [
+              "draft",
+              "submitted",
+              "awaiting_signatures",
+              "signed",
+              "superseded",
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "employerStatus": {
+            "description": "AC1 — columns 4, 5 and 6.",
+            "enum": [
+              "signed",
+              "pending",
+              "not_sent"
+            ],
+            "type": "string"
+          },
+          "apprenticeStatus": {
+            "enum": [
+              "signed",
+              "pending",
+              "not_sent"
+            ],
+            "type": "string"
+          },
+          "providerStatus": {
+            "enum": [
+              "signed",
+              "pending",
+              "not_sent"
+            ],
+            "type": "string"
+          },
+          "actionRequired": {
+            "type": "boolean",
+            "description": "AC3 — \"statements requiring employer signature are highlighted and sorted\nto the top\".\n\nTrue only when the employer can actually sign *now*: their own signature\nis pending, and every party ahead of them in the signing order has\nalready signed. A statement where the employer is pending but the\nprovider has not signed yet is waiting on someone else, and putting it at\nthe top of the employer's board would be asking them to do something the\nAPI would reject."
+          },
+          "publishedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "finalSignedPdfKey": {
+            "type": "string",
+            "nullable": true,
+            "description": "Set once every party has signed and the final PDF exists."
+          }
+        },
+        "required": [
+          "statementId",
+          "enrolmentId",
+          "apprenticeId",
+          "apprenticeName",
+          "providerName",
+          "providerOrganisationId",
+          "standardName",
+          "standardId",
+          "version",
+          "statementStatus",
+          "employerStatus",
+          "apprenticeStatus",
+          "providerStatus",
+          "actionRequired",
+          "publishedAt",
+          "finalSignedPdfKey"
+        ]
+      },
+      "CommitmentBoardResponseDto": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitmentBoardRowDto"
+            }
+          },
+          "actionRequiredCount": {
+            "type": "number",
+            "description": "F1.3.1 AC5 — \"'Statements requiring action' count is shown as a badge on\nthe sidebar navigation item\".\n\nReturned with the board rather than from a separate endpoint so the badge\nand the list can never disagree, and counted across the whole result set\nrather than the current filter — a badge that changed when you filtered\nthe table would be measuring the wrong thing."
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "rows",
+          "actionRequiredCount",
+          "total"
         ]
       },
       "SignCommitmentResponseDto": {

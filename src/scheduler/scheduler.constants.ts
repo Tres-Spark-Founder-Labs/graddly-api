@@ -28,5 +28,8 @@ export const LEVY_TRANSFER_STATUS_CRON_NAME = 'levy-transfer-status-daily';
 /** Daily levy expiry alert cron (90d and 30d). */
 export const LEVY_EXPIRY_ALERTS_CRON_NAME = 'levy-expiry-alerts-daily';
 
+/** Monthly levy ROI report email cron (F1.4.1 AC5). */
+export const LEVY_ROI_MONTHLY_CRON_NAME = 'levy-roi-report-monthly';
+
 /** Weekly GDPR data retention purge cron. */
 export const RETENTION_CRON_NAME = 'data-retention-weekly';

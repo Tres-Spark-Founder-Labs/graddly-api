@@ -1,0 +1,25 @@
+Hi {{ firstName }},
+
+Your levy ROI summary for {{ periodLabel }}.
+
+Active apprentices: {{ activeApprenticeCount }}
+Completions: {{ completionCount }}{% if hasPriorPeriodData and completionsChangePercent is not none %} ({% if completionsChangePercent > 0 %}+{% endif %}{{ completionsChangePercent }}% vs {{ priorPeriodLabel }}){% endif %}
+
+EPA pass rate: {% if epaPassRate is none %}No apprentices assessed yet{% else %}{{ epaPassRate }}% ({{ epaAssessedCount }} assessed){% endif %}
+
+Average cost per completion: {% if averageCostPerCompletion is none %}Not available{% else %}GBP {{ averageCostPerCompletion }}{% endif %}
+
+Total levy spend to date: GBP {{ totalLevySpend }}
+Available balance: {% if availableBalance is none %}Not available{% else %}GBP {{ availableBalance }}{% endif %}
+
+{% if not hasPriorPeriodData %}
+Year-on-year comparison is not yet available - there is no prior-year data
+recorded for your organisation.
+{% endif %}
+
+View the full report, including the breakdown by provider and standard and the
+board-ready PDF export:
+{{ reportUrl }}
+
+You receive this because you are on your organisation's levy report
+distribution list. An owner or admin can change who receives it in {{ appName }}.

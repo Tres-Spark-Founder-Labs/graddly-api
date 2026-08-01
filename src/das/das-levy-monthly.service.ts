@@ -68,10 +68,28 @@ export class DasLevyMonthlyService {
   async listLast12Months(
     organisationId: string,
   ): Promise<DasLevyMonthlyEntry[]> {
+    return this.listRecentMonths(organisationId, 12);
+  }
+
+  /**
+   * F1.4.1 AC3 — year-on-year needs two 12-month windows, so 24 months.
+   *
+   * Note what this can and cannot return. `upsertFromRawPayload` writes only
+   * the last 12 months of each DAS payload, but it never deletes, so rows
+   * accumulate as the platform runs: an organisation onboarded 18 months ago
+   * has 18 months here, one onboarded last week has one. A prior-year
+   * comparison is therefore genuinely unavailable for a while after go-live,
+   * which is why the caller reports its absence rather than substituting
+   * zeroes.
+   */
+  async listRecentMonths(
+    organisationId: string,
+    limit: number,
+  ): Promise<DasLevyMonthlyEntry[]> {
     return this.monthlyRepo.find({
       where: { organisationId, isDeleted: false },
       order: { month: 'DESC' },
-      take: 12,
+      take: limit,
     });
   }
 

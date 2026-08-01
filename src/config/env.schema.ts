@@ -15,6 +15,7 @@ export const DEPLOYED_CRON_FLAGS_DEFAULT_TRUE = [
   'CRON_DIGEST_ENABLED',
   'CRON_LEVY_EXPIRY_ALERTS_ENABLED',
   'CRON_LEVY_TRANSFER_STATUS_ENABLED',
+  'CRON_LEVY_ROI_MONTHLY_ENABLED',
   'CRON_RETENTION_ENABLED',
 ] as const;
 
@@ -302,6 +303,16 @@ export const envSchema = z
       .transform((v) => v === 'true'),
 
     CRON_LEVY_EXPIRY_ALERTS_SCHEDULE: z.string().min(1).default('0 8 * * *'),
+
+    // F1.4.1 AC5 — monthly levy ROI report to configured recipients.
+    CRON_LEVY_ROI_MONTHLY_ENABLED: z
+      .string()
+      .optional()
+      .default('false')
+      .transform((v) => v === 'true'),
+
+    // 07:00 on the 1st of each month.
+    CRON_LEVY_ROI_MONTHLY_SCHEDULE: z.string().min(1).default('0 7 1 * *'),
 
     CRON_LEVY_TRANSFER_STATUS_ENABLED: z
       .string()

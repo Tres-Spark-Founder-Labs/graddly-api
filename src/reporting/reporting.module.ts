@@ -5,6 +5,7 @@ import { AuthModule } from '../auth/auth.module.js';
 import { CommitmentStatementGroup } from '../commitments/entities/commitment-statement-group.entity.js';
 import { DasModule } from '../das/das.module.js';
 import { DasLevyBalance } from '../das/entities/das-levy-balance.entity.js';
+import { EmailModule } from '../email/email.module.js';
 import { EnrolmentsModule } from '../enrolments/enrolments.module.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EpaOutcomeRecord } from '../enrolments/entities/epa-outcome.entity.js';
@@ -47,6 +48,9 @@ import { SmeOverviewService } from './sme-overview.service.js';
   imports: [
     AuthModule,
     DasModule,
+    // F1.4.1 AC5 — LevyRoiMonthlyReportService queues the scheduled report
+    // through EmailDispatchService.
+    EmailModule,
     LevyExchangeModule,
     OfstedModule,
     PdfModule,
@@ -99,6 +103,9 @@ import { SmeOverviewService } from './sme-overview.service.js';
     ReportingPortalService,
     OtjProgressMetricsService,
     CommitmentPipelineService,
+    // F1.4.1 AC5 — consumed by LevyRoiMonthlyCronService in SchedulerModule.
+    LevyRoiMonthlyReportService,
+    ReportSubscriptionsService,
   ],
 })
 export class ReportingModule {}

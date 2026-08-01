@@ -69,6 +69,69 @@ describe('ErasureService', () => {
     });
   });
 
+  /**
+   * F1.3.3 AC4. The immutability trigger rejects any UPDATE touching the
+   * evidential columns, so an erasure that wrote more than these three would
+   * fail at the database with a `restrict_violation` — and an Article 17
+   * request the platform cannot honour is a regulatory problem, not a bug
+   * report. Asserted on the exact `set` payload because that is the contract
+   * with the trigger.
+   */
+  it('updates only the columns the immutability trigger permits', async () => {
+    const set = jest.fn().mockReturnThis();
+    const execute = jest.fn().mockResolvedValue({ affected: 1 });
+    auditRepo.createQueryBuilder.mockImplementation((alias?: string) =>
+      alias
+        ? {
+            where: jest.fn().mockReturnThis(),
+            orWhere: jest.fn().mockReturnThis(),
+            getMany: jest.fn().mockResolvedValue([
+              {
+                id: 'audit-1',
+                actorUserId: 'user-1',
+                changes: { email: { from: 'jane@example.com' } },
+              },
+              // Not the actor — the subject is the *entity* here, so their
+              // name is not on the row and must not be cleared.
+              {
+                id: 'audit-2',
+                actorUserId: 'other-user',
+                changes: { email: { to: 'jane@example.com' } },
+              },
+            ]),
+          }
+        : {
+            update: jest.fn().mockReturnThis(),
+            set,
+            where: jest.fn().mockReturnThis(),
+            execute,
+          },
+    );
+    userRepo.findOne.mockResolvedValue({
+      id: 'user-1',
+      firstName: 'Jane',
+      lastName: 'Doe',
+      email: 'jane@example.com',
+      isActive: true,
+    });
+    userRepo.save.mockImplementation((u: unknown) => Promise.resolve(u));
+
+    const result = await service.eraseUser('user-1');
+
+    expect(result.auditRowsScrubbed).toBe(2);
+    expect(set).toHaveBeenNthCalledWith(1, {
+      changes: { email: { from: ERASED } },
+      actorUserId: null,
+      actorName: null,
+    });
+    // actorRole and description are absent from both payloads: the role
+    // describes a position rather than a person, so the trail can still show
+    // that "an admin" acted without naming them.
+    expect(set).toHaveBeenNthCalledWith(2, {
+      changes: { email: { to: ERASED } },
+    });
+  });
+
   it('scrubs known PII fields in audit JSON', () => {
     const scrubbed = scrubAuditChanges({
       email: { from: 'a@b.com', to: 'c@d.com' },

@@ -22,6 +22,8 @@ import {
 } from './dto/erasure-request.dto.js';
 import { ErasureResponseDto } from './dto/erasure-response.dto.js';
 
+import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity.js';
+
 const ERASED_EMAIL_DOMAIN = '@invalid.graddly';
 
 @Injectable()
@@ -217,11 +219,46 @@ export class ErasureService {
 
     let scrubbed = 0;
     for (const row of rows) {
-      row.changes = scrubAuditChanges(row.changes, subjectEmail);
-      if (row.actorUserId === subjectId) {
-        row.actorUserId = null;
-      }
-      await this.auditRepo.save(row);
+      const isSubjectTheActor = row.actorUserId === subjectId;
+
+      /**
+       * F1.3.3 AC4 — written as an explicit column list rather than
+       * `repo.save(row)`.
+       *
+       * The immutability trigger added in migration 1781100000027 rejects any
+       * UPDATE that touches `entityType`, `entityId`, `action`,
+       * `organisationId`, `createdAt`, `actorRole` or `description`.
+       * `save()` would have worked only for as long as TypeORM kept emitting
+       * a diffed, partial UPDATE — an implementation detail, not a promise.
+       * The day it emitted every column, every erasure request would start
+       * failing on a `restrict_violation` from the database.
+       *
+       * These three columns are the entire pseudonymisable set:
+       *
+       *  - `changes` may hold the subject's email inside the diff payload.
+       *  - `actorUserId` identifies them directly.
+       *  - `actorName` was added by AC2 so the trail reports who acted *at the
+       *    time*; denormalising it is what makes the trail evidence, and it is
+       *    also what makes it personal data this routine has to clear.
+       *
+       * `actorRole` is deliberately kept, and the trigger enforces that: it
+       * describes a position, not a person, so the trail can still show that
+       * "an employer manager" signed without identifying who.
+       */
+      await this.auditRepo
+        .createQueryBuilder()
+        .update(AuditLogEntry)
+        .set({
+          // `set` takes QueryDeepPartialEntity, which does not accept the
+          // AuditChanges index signature directly.
+          changes: scrubAuditChanges(
+            row.changes,
+            subjectEmail,
+          ) as QueryDeepPartialEntity<AuditLogEntry>['changes'],
+          ...(isSubjectTheActor ? { actorUserId: null, actorName: null } : {}),
+        })
+        .where('id = :id', { id: row.id })
+        .execute();
       scrubbed += 1;
     }
     return scrubbed;

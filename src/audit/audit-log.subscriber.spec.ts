@@ -16,6 +16,11 @@ import type { InsertEvent, UpdateEvent } from 'typeorm';
 
 jest.mock('../common/context/correlation-id-context.js', () => ({
   getCurrentUserId: jest.fn(() => 'actor-1'),
+  // F1.3.3 AC2 — the subscriber now records who acted, not just their id.
+  getCurrentActor: jest.fn(() => ({
+    name: 'Ada Lovelace',
+    role: 'owner',
+  })),
   getRlsBootstrap: jest.fn(() => false),
   setRlsBootstrap: jest.fn(),
 }));

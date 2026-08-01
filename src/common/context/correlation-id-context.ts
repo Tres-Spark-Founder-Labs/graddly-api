@@ -8,6 +8,14 @@ export interface ICorrelationIdStore {
   currentOrganisationId?: string;
   /** Authenticated user UUID for Postgres RLS; set during JWT validation. */
   currentUserId?: string;
+  /**
+   * F1.3.3 AC2 — display name and organisation role of the acting user, for
+   * audit entries. Not used for authorisation; the guards do that from the
+   * JWT. These exist so the audit subscriber can record who acted without a
+   * query per audited row.
+   */
+  currentActorName?: string;
+  currentActorRole?: string;
   /** When true, RLS bootstrap policies apply (public auth routes). */
   rlsBootstrap?: boolean;
 }
@@ -86,6 +94,36 @@ export function setCurrentOrganisationId(id: string | undefined): void {
     store.currentOrganisationId = id;
   }
   setTenantRequestContext({ currentOrganisationId: id });
+}
+
+/**
+ * F1.3.3 AC2 — the acting user's name and role, for audit entries.
+ *
+ * Held on the request context rather than looked up per audit row. The audit
+ * subscriber runs inside the same transaction as the write it is recording,
+ * and issuing a `users` query there would add a round trip to every mutation
+ * in the platform to satisfy a reporting requirement.
+ *
+ * Set once by the audit context interceptor from the already-authenticated
+ * user, so it costs nothing.
+ */
+export function getCurrentActor(): {
+  name?: string;
+  role?: string;
+} {
+  const store = storage.getStore();
+  return {
+    name: store?.currentActorName,
+    role: store?.currentActorRole,
+  };
+}
+
+export function setCurrentActor(actor: { name?: string; role?: string }): void {
+  const store = storage.getStore();
+  if (store) {
+    store.currentActorName = actor.name;
+    store.currentActorRole = actor.role;
+  }
 }
 
 export function getCurrentUserId(): string | undefined {

@@ -34,7 +34,9 @@ import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
+import { PdfJobResponseDto } from '../pdf/dto/pdf-job-response.dto.js';
 
+import { CommitmentAuditTrailService } from './commitment-audit-trail.service.js';
 import { CommitmentBoardService } from './commitment-board.service.js';
 import { CommitmentStatementsService } from './commitment-statements.service.js';
 import { CommitmentsCoSignService } from './commitments-co-sign.service.js';
@@ -69,6 +71,7 @@ import type { Request } from 'express';
   CommitmentVersionDto,
   CommitmentSignedDocumentResponseDto,
   SignCommitmentResponseDto,
+  PdfJobResponseDto,
   PaginationMetaDto,
 )
 @Controller({ path: 'commitment-statements', version: '1' })
@@ -92,6 +95,7 @@ export class CommitmentsController {
     private readonly statementsService: CommitmentStatementsService,
     private readonly coSignService: CommitmentsCoSignService,
     private readonly boardService: CommitmentBoardService,
+    private readonly auditTrailService: CommitmentAuditTrailService,
   ) {}
 
   /**
@@ -196,6 +200,36 @@ export class CommitmentsController {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
     return this.boardService.getSignedDocumentUrl(user, id);
+  }
+
+  @Post(':id/audit-trail/export')
+  @ResponseMessage('Audit trail export queued successfully')
+  @ApiOperation({
+    summary: 'Export the audit trail for a commitment statement as PDF',
+    description:
+      'F1.3.3 AC3 — queues an Ofsted-ready PDF of the full audit trail for ' +
+      'this statement: every version, every signature, every view, with the ' +
+      "actor's name and role as they were at the time. Poll " +
+      '`GET /pdf/jobs/{jobId}` for the result. Available to any party to the ' +
+      'enrolment, because the statement is drafted by the provider but the ' +
+      'employer is the one Ofsted asks for evidence.',
+  })
+  @ApiCreatedResponse({
+    description: 'Queued PDF job',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(PdfJobResponseDto) },
+      },
+    },
+  })
+  exportAuditTrail(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<PdfJobResponseDto> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.auditTrailService.requestExport(user, id);
   }
 
   @Get(':groupId/version-history')

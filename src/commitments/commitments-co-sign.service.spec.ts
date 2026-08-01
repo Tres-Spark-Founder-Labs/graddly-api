@@ -2,6 +2,7 @@ import { ConflictException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { AuditEventService } from '../audit/audit-event.service.js';
 import { EnrolmentsService } from '../enrolments/enrolments.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
@@ -34,6 +35,12 @@ describe('CommitmentsCoSignService', () => {
   const eifScoreCache = { invalidate: jest.fn() };
   const enrolmentsService = { syncParticipantsIfUnset: jest.fn() };
   const findStatementAsParty = jest.fn();
+  /** F1.3.3 AC1 — "each signature action" is recorded in domain language. */
+  const auditEvents = {
+    recordView: jest.fn(),
+    recordSignature: jest.fn(),
+    recordVersionChange: jest.fn(),
+  };
 
   let service: CommitmentsCoSignService;
 
@@ -65,6 +72,7 @@ describe('CommitmentsCoSignService', () => {
           // not as its owner, so this stands in for that lookup.
           useValue: { findStatementAsParty },
         },
+        { provide: AuditEventService, useValue: auditEvents },
       ],
     }).compile();
 

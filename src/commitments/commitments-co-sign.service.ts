@@ -6,6 +6,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+import { AUDIT_ENTITY_TYPE } from '../audit/audit-entity-types.js';
+import { AuditEventService } from '../audit/audit-event.service.js';
 import { EnrolmentsService } from '../enrolments/enrolments.service.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
@@ -45,6 +47,7 @@ export class CommitmentsCoSignService {
     private readonly eifScoreCache: EifScoreCacheService,
     private readonly enrolmentsService: EnrolmentsService,
     private readonly statementsService: CommitmentStatementsService,
+    private readonly auditEvents: AuditEventService,
   ) {}
 
   async sign(
@@ -133,6 +136,24 @@ export class CommitmentsCoSignService {
       nextSlot.signatureRecordId = result.signatureRecordId;
       await this.signatureRepo.save(nextSlot);
     }
+
+    /**
+     * F1.3.3 AC1 — "each signature action".
+     *
+     * The subscriber does see the save above, as an `update` to a
+     * `commitment_signatures` row with `status` moving pending → signed. That
+     * is accurate and unreadable: an inspector gets a column diff on a table
+     * they have never heard of. This records what happened in the language
+     * the document is written in, alongside the signature record that holds
+     * the timestamp and IP address.
+     */
+    await this.auditEvents.recordSignature({
+      user,
+      entityType: AUDIT_ENTITY_TYPE.COMMITMENT_STATEMENT,
+      entityId: refreshed.id,
+      organisationId: refreshed.organisationId,
+      detail: `version ${refreshed.version} signed as ${dto.party}`,
+    });
 
     const remaining = signatures.filter(
       (s) =>

@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Job } from 'bullmq';
 
 import { PdfGenerationProcessor } from '../../bullmq/processors/pdf-generation.processor.js';
+import { CommitmentAuditTrailService } from '../../commitments/commitment-audit-trail.service.js';
 import { CommitmentChaseService } from '../../commitments/commitment-chase.service.js';
 import { CommitmentSignature } from '../../commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatement } from '../../commitments/entities/commitment-statement.entity.js';
@@ -94,6 +95,11 @@ describe('PdfGenerationProcessor', () => {
         {
           provide: getRepositoryToken(Organisation),
           useValue: { findOne: jest.fn() },
+        },
+        {
+          // F1.3.3 AC3 — the audit trail export template.
+          provide: CommitmentAuditTrailService,
+          useValue: { buildPdfContent: jest.fn() },
         },
         {
           provide: LevyRoiReportService,

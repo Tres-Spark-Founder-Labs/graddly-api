@@ -87,7 +87,7 @@ export class LearnerProfileService {
         where: { organisationId, enrolmentId, isDeleted: false },
         select: ['id'],
       }),
-      this.otjMetricsService.percentForEnrolment(organisationId, enrolment),
+      this.otjMetricsService.percentForEnrolment(enrolment),
       enrolment.tutorUserId
         ? this.userRepo.findOne({ where: { id: enrolment.tutorUserId } })
         : Promise.resolve(null),

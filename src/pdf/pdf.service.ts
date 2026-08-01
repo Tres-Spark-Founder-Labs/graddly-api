@@ -3,10 +3,12 @@ import { Inject, Injectable } from '@nestjs/common';
 import { PDF_RENDERER } from './pdf.constants.js';
 
 import type {
+  ICommitmentAuditTrailContent,
   ICommitmentSnapshotContent,
   ILevyRoiReportContent,
   ILevyTransferAgreementContent,
   IPdfRenderer,
+  IProviderComparisonContent,
   IReviewSnapshotContent,
   ISignedPdfOptions,
 } from './interfaces/pdf-renderer.interface.js';
@@ -37,6 +39,18 @@ export class PdfService {
 
   renderLevyRoiReport(content: ILevyRoiReportContent): Promise<Buffer> {
     return this.renderer.renderLevyRoiReport(content);
+  }
+
+  renderCommitmentAuditTrail(
+    content: ICommitmentAuditTrailContent,
+  ): Promise<Buffer> {
+    return this.renderer.renderCommitmentAuditTrail(content);
+  }
+
+  renderProviderComparison(
+    content: IProviderComparisonContent,
+  ): Promise<Buffer> {
+    return this.renderer.renderProviderComparison(content);
   }
 
   embedSignature(

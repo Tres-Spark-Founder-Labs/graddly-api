@@ -27,7 +27,10 @@ import { Review } from '../reviews/entities/review.entity.js';
 import { ReviewStatus } from '../reviews/enums/review-status.enum.js';
 
 import { LevyRoiBreakdownGroup } from './enums/levy-roi-breakdown-group.enum.js';
+import { EpaOutcomeMetricsService } from './epa-outcome-metrics.service.js';
+import { LevyRoiYearOnYearService } from './levy-roi-year-on-year.service.js';
 import { OtjProgressMetricsService } from './otj-progress-metrics.service.js';
+import { providerComparisonToCsv } from './provider-comparison-csv.util.js';
 import { ReportingPortalService } from './reporting-portal.service.js';
 
 import type {
@@ -35,7 +38,10 @@ import type {
   LevyRoiReportResponseDto,
 } from './dto/levy-roi-report-response.dto.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
-import type { ILevyRoiReportContent } from '../pdf/interfaces/pdf-renderer.interface.js';
+import type {
+  ILevyRoiReportContent,
+  IProviderComparisonContent,
+} from '../pdf/interfaces/pdf-renderer.interface.js';
 
 /** v1 productivity uplift estimate per completed apprenticeship (GBP). */
 const PRODUCTIVITY_UPLIFT_FACTOR = 5000;
@@ -50,6 +56,8 @@ export class LevyRoiReportService {
     private readonly forecastService: DasLevyForecastService,
     private readonly surplusService: LevySurplusService,
     private readonly otjMetricsService: OtjProgressMetricsService,
+    private readonly epaMetricsService: EpaOutcomeMetricsService,
+    private readonly yearOnYearService: LevyRoiYearOnYearService,
     private readonly pdfDispatch: PdfDispatchService,
     @InjectRepository(DasLevyBalance)
     private readonly levyBalanceRepo: Repository<DasLevyBalance>,
@@ -98,6 +106,19 @@ export class LevyRoiReportService {
       (e) => e.status === EnrolmentStatus.COMPLETED,
     );
 
+    /**
+     * F1.4.1 AC1 and AC3, both derived from the enrolments already loaded.
+     *
+     * The pass rate is scoped by enrolment id rather than organisation:
+     * `epa_outcomes` rows are stamped with whoever recorded the assessment,
+     * which is the training provider, so an employer-scoped query would
+     * return nothing for the employer's own apprentices.
+     */
+    const [epa, yearOnYear] = await Promise.all([
+      this.epaMetricsService.passRateForEnrolments(enrolments.map((e) => e.id)),
+      this.yearOnYearService.compare(organisationId, enrolments),
+    ]);
+
     const availableBalance =
       balance.balance !== null ? Number(balance.balance) : null;
     const totalLevySpendToDate = (availableBalance ?? 0) + transferTotal;
@@ -124,13 +145,15 @@ export class LevyRoiReportService {
       activeApprenticeCount: activeEnrolments.length,
       completionCount: completedEnrolments.length,
       averageCostPerCompletion: this.averageAgreedPrice(completedEnrolments),
-      epaPassRate: null,
+      epaPassRate: epa.passRate,
+      epaAssessedCount: epa.assessedCount,
       estimatedProductivityUplift:
         completedEnrolments.length * PRODUCTIVITY_UPLIFT_FACTOR,
       monthlyContributions: this.monthlyService
         .toMonthlyContributionDtos(monthlyEntries)
         .map((row) => ({ month: row.month, amount: row.amount })),
       fundingSummary,
+      yearOnYear,
       generatedAt: new Date().toISOString(),
     };
   }
@@ -180,6 +203,73 @@ export class LevyRoiReportService {
     };
   }
 
+  /**
+   * F1.4.2 AC3 — the comparison as CSV, served inline.
+   *
+   * Synchronous rather than a queued job: it is a handful of rows of text and
+   * the browser can have it on the click. The PDF goes through the job
+   * pipeline because rendering is slower and shared with every other
+   * document here.
+   */
+  async exportComparisonCsv(organisationId: string): Promise<string> {
+    const rows = await this.getBreakdown(
+      organisationId,
+      LevyRoiBreakdownGroup.PROVIDER,
+    );
+    return providerComparisonToCsv(rows);
+  }
+
+  /** F1.4.2 AC3 — the comparison as a standalone PDF. */
+  async exportComparisonPdf(
+    user: AuthenticatedUser,
+  ): Promise<PdfJobResponseDto> {
+    const organisationId = user.organisationId!;
+    await this.portalService.assertPortalType(
+      organisationId,
+      PortalType.EMPLOYER,
+    );
+
+    const job = await this.pdfDispatch.enqueue({
+      organisationId,
+      userId: user.id,
+      template: PdfJobTemplate.PROVIDER_COMPARISON,
+    });
+
+    return {
+      jobId: job.id,
+      status: job.status,
+      template: job.template,
+      outputKey: job.outputKey,
+      errorMessage: job.errorMessage,
+      createdAt: job.createdAt.toISOString(),
+      completedAt: job.completedAt?.toISOString() ?? null,
+    };
+  }
+
+  async buildProviderComparisonContent(
+    organisationId: string,
+  ): Promise<IProviderComparisonContent> {
+    const [organisation, rows] = await Promise.all([
+      this.loadOrganisationWithBootstrap(organisationId),
+      this.getBreakdown(organisationId, LevyRoiBreakdownGroup.PROVIDER),
+    ]);
+
+    return {
+      organisationName: organisation.name,
+      rows: rows.map((row) => ({
+        label: row.label,
+        activeApprenticeCount: row.activeApprenticeCount,
+        completionCount: row.completionCount,
+        averageOtjPercent: row.averageOtjPercent,
+        reviewComplianceRate: row.reviewComplianceRate,
+        epaPassRate: row.epaPassRate,
+        epaAssessedCount: row.epaAssessedCount,
+        withdrawalRate: row.withdrawalRate,
+      })),
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
   async buildPdfContent(
     organisationId: string,
   ): Promise<ILevyRoiReportContent> {
@@ -215,6 +305,7 @@ export class LevyRoiReportService {
         completionCount: summary.completionCount,
         averageCostPerCompletion: summary.averageCostPerCompletion,
         epaPassRate: summary.epaPassRate,
+        epaAssessedCount: summary.epaAssessedCount,
         estimatedProductivityUplift: summary.estimatedProductivityUplift,
         monthlyContributions: summary.monthlyContributions,
         utilisationSegments: balance?.utilisationSegments ?? null,
@@ -226,6 +317,10 @@ export class LevyRoiReportService {
         projectedCompletionLiability: forecast.projectedCompletionLiability,
         estimatedRunwayMonths: forecast.estimatedRunwayMonths,
       },
+      // F1.4.1 AC3 — the comparison reaches the PDF, not only the screen.
+      // AC4 asks for a board-ready export; a board paper without the
+      // year-on-year movement is the one thing a board would ask for.
+      yearOnYear: summary.yearOnYear,
       breakdownByProvider: providerBreakdown,
       breakdownByStandard: standardBreakdown,
       generatedAt: new Date().toISOString(),
@@ -314,12 +409,20 @@ export class LevyRoiReportService {
     );
     const inFlightIds = [...active, ...completed].map((e) => e.id);
 
-    const [averageOtjPercent, reviewComplianceRate] = await Promise.all([
+    const [averageOtjPercent, reviewComplianceRate, epa] = await Promise.all([
       this.otjMetricsService.averageOtjPercentForEnrolments(
         organisationId,
         inFlightIds,
       ),
       this.reviewComplianceRateForEnrolments(organisationId, inFlightIds),
+      /**
+       * F1.4.1 AC2. Scoped to *completed* enrolments rather than in-flight
+       * ones: an EPA outcome can only exist for an enrolment that finished,
+       * and including active ones in the denominator would depress every
+       * provider's rate in proportion to how many apprentices they currently
+       * have mid-programme — penalising growth.
+       */
+      this.epaMetricsService.passRateForEnrolments(completed.map((e) => e.id)),
     ]);
 
     return {
@@ -331,6 +434,8 @@ export class LevyRoiReportService {
       averageOtjPercent,
       reviewComplianceRate,
       withdrawalRate: this.withdrawalRate(enrolments),
+      epaPassRate: epa.passRate,
+      epaAssessedCount: epa.assessedCount,
     };
   }
 

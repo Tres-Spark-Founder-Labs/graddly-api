@@ -60,6 +60,8 @@ export interface ILevyRoiReportContent {
     completionCount: number;
     averageCostPerCompletion: number | null;
     epaPassRate: number | null;
+    /** How many assessments the rate rests on — see AC1. */
+    epaAssessedCount?: number;
     estimatedProductivityUplift: number;
     monthlyContributions: Array<{ month: string; amount: number }>;
     utilisationSegments?: {
@@ -82,11 +84,33 @@ export interface ILevyRoiReportContent {
     projectedCompletionLiability: number;
     estimatedRunwayMonths: number | null;
   } | null;
+  /**
+   * F1.4.1 AC3 — the year-on-year comparison.
+   *
+   * Optional, and omitted rather than zeroed when there is no prior year:
+   * the renderer prints a line saying the comparison is unavailable, which
+   * is a statement a board can act on. "0%" is not.
+   */
+  yearOnYear?: {
+    currentPeriod: ILevyRoiPeriod;
+    priorPeriod: ILevyRoiPeriod | null;
+    hasPriorPeriodData: boolean;
+    startsChangePercent: number | null;
+    completionsChangePercent: number | null;
+    levySpendChangePercent: number | null;
+    epaPassRatePointChange: number | null;
+  } | null;
+
   breakdownByProvider: Array<{
     label: string;
     activeApprenticeCount: number;
     completionCount: number;
     averageCostPerCompletion: number | null;
+    /** F1.4.1 AC2 — side-by-side comparison includes the outcome measure. */
+    epaPassRate?: number | null;
+    epaAssessedCount?: number;
+    reviewComplianceRate?: number | null;
+    withdrawalRate?: number | null;
   }>;
   breakdownByStandard: Array<{
     label: string;
@@ -94,6 +118,101 @@ export interface ILevyRoiReportContent {
     activeApprenticeCount: number;
     completionCount: number;
     averageCostPerCompletion: number | null;
+    epaPassRate?: number | null;
+    epaAssessedCount?: number;
+    reviewComplianceRate?: number | null;
+    withdrawalRate?: number | null;
+  }>;
+  generatedAt: string;
+}
+
+export interface ILevyRoiPeriod {
+  label: string;
+  starts: number;
+  completions: number;
+  withdrawals: number;
+  levySpend: number;
+  averageCostPerCompletion: number | null;
+  epaPassRate: number | null;
+}
+
+/**
+ * F1.3.3 AC3 — "audit trail is exportable as PDF in Ofsted-ready format".
+ *
+ * "Ofsted-ready" is not a defined file format, so it is read here as what an
+ * inspector needs to accept a document as evidence: it must identify the
+ * record it belongs to, be readable without knowing the schema, state its own
+ * completeness (the filter applied and the number of entries), and say when
+ * and by whom it was produced. A CSV of column diffs satisfies none of that,
+ * which is why the existing export was not enough.
+ */
+export interface ICommitmentAuditTrailContent {
+  organisationName: string;
+
+  /** Identity of the record the trail belongs to. */
+  statementId: string;
+  currentVersion: number;
+  status: string;
+  apprenticeName: string;
+  employerName: string | null;
+  providerName: string | null;
+
+  /**
+   * Every version of the statement, so a reader can see the entries below
+   * refer to more than one document.
+   */
+  versions: Array<{
+    version: number;
+    statementId: string;
+    status: string;
+    createdAt: string;
+    supersededAt: string | null;
+  }>;
+
+  entries: Array<{
+    /** ISO 8601 UTC — an audit timestamp with no zone is not evidence. */
+    at: string;
+    actorName: string;
+    actorRole: string;
+    action: string;
+    description: string;
+    /** Rendered as a readable list, not raw JSON. */
+    changeSummary: string | null;
+  }>;
+
+  /**
+   * Provenance. An export with no stated scope invites the question "is this
+   * all of it?", which is the one question an evidence document must answer.
+   */
+  entryCount: number;
+  rangeFrom: string | null;
+  rangeTo: string | null;
+  generatedAt: string;
+  generatedByName: string;
+}
+
+/**
+ * F1.4.2 AC3 — "comparison is exportable as … PDF".
+ *
+ * A document of its own rather than the breakdown section buried in the levy
+ * ROI report. This is the artefact an employer takes into a provider review
+ * meeting, and it has to stand alone: name the providers, state the five
+ * metrics, and say plainly that the figures come from the platform rather
+ * than from the providers themselves (AC2), because that is the claim which
+ * makes the comparison worth having.
+ */
+export interface IProviderComparisonContent {
+  organisationName: string;
+  logoBytes?: Buffer | null;
+  rows: Array<{
+    label: string;
+    activeApprenticeCount: number;
+    completionCount: number;
+    averageOtjPercent: number | null;
+    reviewComplianceRate: number | null;
+    epaPassRate: number | null;
+    epaAssessedCount: number;
+    withdrawalRate: number | null;
   }>;
   generatedAt: string;
 }
@@ -108,6 +227,12 @@ export interface IPdfRenderer {
     content: ILevyTransferAgreementContent,
   ): Promise<Buffer>;
   renderLevyRoiReport(content: ILevyRoiReportContent): Promise<Buffer>;
+  renderCommitmentAuditTrail(
+    content: ICommitmentAuditTrailContent,
+  ): Promise<Buffer>;
+  renderProviderComparison(
+    content: IProviderComparisonContent,
+  ): Promise<Buffer>;
   embedSignature(
     unsignedPdf: Buffer,
     signaturePng: Buffer,

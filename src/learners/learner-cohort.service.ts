@@ -54,7 +54,6 @@ export class LearnerCohortService {
       contexts.map(async (ctx) => ({
         enrolmentId: ctx.enrolment.id,
         percent: await this.otjMetricsService.percentForEnrolment(
-          organisationId,
           ctx.enrolment,
         ),
       })),

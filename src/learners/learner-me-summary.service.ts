@@ -65,7 +65,7 @@ export class LearnerMeSummaryService {
 
     const [journey, otjPercent, nextReviewDate] = await Promise.all([
       this.journeyService.getJourney(user, enrolment.id),
-      this.otjMetrics.percentForEnrolment(organisationId, enrolment),
+      this.otjMetrics.percentForEnrolment(enrolment),
       this.loadNextReviewDate(enrolment.id, organisationId),
     ]);
 

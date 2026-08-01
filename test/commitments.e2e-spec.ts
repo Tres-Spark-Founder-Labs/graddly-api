@@ -231,10 +231,18 @@ describe('Commitments (e2e)', () => {
       })
       .expect(409);
 
+    /**
+     * COMMITMENT_SIGNING_ORDER, not TRIPARTITE_PARTY_ORDER.
+     *
+     * F1.3.2 corrected the sequence to the PRD's "Provider creates → Employer
+     * e-signs → Apprentice e-signs" (migration 1781100000025). This loop still
+     * had the old apprentice-first order, so the first request was rejected
+     * out of turn with 409.
+     */
     for (const party of [
-      TripartiteParty.APPRENTICE,
       TripartiteParty.TUTOR,
       TripartiteParty.EMPLOYER_MANAGER,
+      TripartiteParty.APPRENTICE,
     ]) {
       await request(app.getHttpServer())
         .post(`/api/v1/commitment-statements/${statementId}/sign`)

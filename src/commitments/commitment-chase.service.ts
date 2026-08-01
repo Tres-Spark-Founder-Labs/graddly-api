@@ -3,6 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+import {
+  getRlsBootstrap,
+  setRlsBootstrap,
+} from '../common/context/correlation-id-context.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
@@ -76,10 +80,28 @@ export class CommitmentChaseService {
       }
 
       try {
-        await this.notifySigner(statement, pending, {
+        const notified = await this.notifySigner(statement, pending, {
           isChase: true,
           daysUnsigned: 7,
         });
+
+        /**
+         * Only record the dispatch when something was actually sent.
+         *
+         * This used to write the row unconditionally and count the chase as
+         * sent, even when `notifySigner` had silently done nothing because it
+         * could not resolve the signer. The row then matched the `existing`
+         * check above on every subsequent run, so a signature that had never
+         * been chased was permanently excluded from chasing — the failure
+         * hid itself.
+         */
+        if (!notified) {
+          this.logger.warn(
+            `Commitment chase skipped for signature ${pending.id}: signer ${pending.signerUserId} could not be notified`,
+          );
+          continue;
+        }
+
         await this.dispatchRepo.save(
           this.dispatchRepo.create({
             organisationId: statement.organisationId,
@@ -146,16 +168,41 @@ export class CommitmentChaseService {
     return predecessor?.updatedAt ?? pending.createdAt;
   }
 
+  /**
+   * Returns whether the signer was actually reached.
+   *
+   * The whole body runs under the RLS bootstrap flag, not just the user
+   * lookup. Chasing is a system action: it runs from a nightly cron with no
+   * user and no organisation in context, and it addresses a signer who may
+   * belong to a different organisation from the one that owns the statement —
+   * the provider drafts it, the employer and apprentice sign it. Both the
+   * `users` read and the `notifications` write are scoped to the current
+   * tenant, so both need the flag or the chase silently reaches nobody.
+   */
   private async notifySigner(
     statement: CommitmentStatement,
     signature: CommitmentSignature,
     options: { isChase: boolean; daysUnsigned?: number },
-  ): Promise<void> {
+  ): Promise<boolean> {
+    const previousBootstrap = getRlsBootstrap();
+    setRlsBootstrap(true);
+    try {
+      return await this.deliverToSigner(statement, signature, options);
+    } finally {
+      setRlsBootstrap(previousBootstrap);
+    }
+  }
+
+  private async deliverToSigner(
+    statement: CommitmentStatement,
+    signature: CommitmentSignature,
+    options: { isChase: boolean; daysUnsigned?: number },
+  ): Promise<boolean> {
     const user = await this.userRepo.findOne({
       where: { id: signature.signerUserId, isDeleted: false },
     });
     if (!user) {
-      return;
+      return false;
     }
 
     const title = options.isChase
@@ -179,7 +226,10 @@ export class CommitmentChaseService {
     });
 
     if (!user.email) {
-      return;
+      // The in-app notification landed, but "chased" in this platform means
+      // an email went out, and the caller decides whether to record a
+      // dispatch on that basis.
+      return false;
     }
 
     const template = options.isChase
@@ -195,7 +245,27 @@ export class CommitmentChaseService {
         appName: this.config.get<string>('app.email.appName', 'Graddly'),
       }),
     );
+    return true;
   }
+
+  /**
+   * Why the flag is needed at all.
+   *
+   * `users_select` is
+   * `app_rls_bootstrap() OR id = app_current_user() OR app_user_in_current_org(id)`.
+   * From the cron neither of the last two arms can hold, so every signer
+   * looks deleted and the chase notifies nobody while reporting that it did.
+   *
+   * It went unnoticed because the signer at position 1 used to be the
+   * apprentice, who in the e2e fixture is also the acting user and so passed
+   * the `id = app_current_user()` arm by coincidence. F1.3.2 moved the
+   * provider into position 1 and the coincidence stopped holding.
+   *
+   * Reading and writing system-wide is correct here: the statement has
+   * already been selected by the chase criteria, the signer is by definition
+   * a party to it, and nothing is returned to a caller — the result addresses
+   * an email to that person.
+   */
 
   private partyLabel(party: TripartiteParty): string {
     switch (party) {

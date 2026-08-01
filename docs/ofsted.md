@@ -117,18 +117,91 @@ Example response shape:
 }
 ```
 
+## EIF score trend (F2.1.1 AC5)
+
+```http
+GET /api/v1/ofsted/eif-scores/trend
+→ {
+    "data": {
+      "criteria": [
+        {
+          "slug": "safeguarding",
+          "label": "Safeguarding",
+          "points": [{ "capturedOn": "2026-07-01", "percent": 72, "rag": "amber" }]
+        }
+      ],
+      "overall": [{ "capturedOn": "2026-07-01", "percent": 68, "rag": "amber" }],
+      "pointCount": 1,
+      "hasTrendData": false,
+      "earliestCapturedOn": "2026-07-01",
+      "windowMonths": 12
+    }
+  }
+```
+
+One series per criterion plus `overall`, oldest point first, over a rolling
+12-month window. Series come from the **criteria catalogue**, not from the
+snapshots, so a criterion added part-way through the window still appears with
+a shorter series instead of vanishing.
+
+Built from `eif_score_snapshots`, **not** from the live score — scores are
+computed on demand and cached for an hour, so nothing retained them before
+this. It also cannot be back-filled: a score is a function of the OTJ logs,
+reviews, evidence and documents *as they stood on a given day*.
+
+`hasTrendData` is `false` below two captured days. One reading is a fact, not a
+trend, and a line through a single point reads as *flat* rather than *we have
+only just started recording*.
+
+Capture runs nightly via `CRON_EIF_SNAPSHOT_ENABLED` (see Configuration), is
+idempotent per organisation per day, and defaults **off** outside production
+and staging — so no history accrues in an environment where nobody enabled it.
+
 ## QIP actions
 
-Routes live at `/api/v1/qip-actions` (not under `/ofsted/`). Any org member with a valid token may CRUD actions in the active organisation.
+Routes live at `/api/v1/qip-actions` (not under `/ofsted/`). Reads are open to any org member; writes are capability-guarded — see [Capabilities](#capabilities) below.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/v1/qip-actions` | Create action |
-| `GET` | `/api/v1/qip-actions` | Paginated list (`status`, `eifCriterionSlug`, `overdue`) |
-| `GET` | `/api/v1/qip-actions/summary` | Hub totals: `{ total, completed, overdue, percentComplete }` |
-| `GET` | `/api/v1/qip-actions/:id` | Get one |
-| `PATCH` | `/api/v1/qip-actions/:id` | Partial update |
-| `DELETE` | `/api/v1/qip-actions/:id` | Soft delete (204) |
+| Method | Path | Description | Capability |
+|--------|------|-------------|------------|
+| `POST` | `/api/v1/qip-actions` | Create action | `MANAGE_QIP` |
+| `GET` | `/api/v1/qip-actions` | Paginated list (`status`, `eifCriterionSlug`, `overdue`) | — |
+| `GET` | `/api/v1/qip-actions/summary` | Hub totals: `{ total, completed, overdue, percentComplete }` | — |
+| `GET` | `/api/v1/qip-actions/:id` | Get one | — |
+| `PATCH` | `/api/v1/qip-actions/:id` | Partial update (every field) | `MANAGE_QIP` |
+| `PATCH` | `/api/v1/qip-actions/:id/progress` | Status, evidence notes and attachments only | `COMPLETE_QIP_ACTION` |
+| `POST` | `/api/v1/qip-actions/export` | Queue the plan as a PDF; poll `GET /pdf/jobs/{jobId}` | `DOWNLOAD_EVIDENCE_PACK` |
+| `DELETE` | `/api/v1/qip-actions/:id` | Soft delete (204) | `MANAGE_QIP` |
+
+### Capabilities
+
+Roles for each capability are defined in one place —
+`src/auth/capabilities/capability-roles.ts` — because the client has not yet
+confirmed how their five job titles map onto three permission levels. Current
+defaults:
+
+| Capability | Roles | Why |
+|---|---|---|
+| `MANAGE_QIP` | owner, admin | Deciding what the plan contains is a leadership act an inspector reads |
+| `COMPLETE_QIP_ACTION` | owner, admin, **member** | The tutor who did the work is the right person to record it |
+| `DOWNLOAD_EVIDENCE_PACK` | owner, admin, member | Being unable to produce the plan mid-inspection because the one admin is on leave is the worse failure |
+
+`PATCH /:id/progress` exists so the wider capability can be granted safely: its
+DTO holds only `status`, `evidenceNotes` and `evidenceAttachmentKeys`, and the
+global validation pipe runs `forbidNonWhitelisted`, so a `title` sent to it is
+a `400` rather than a silently ignored field.
+
+### Export the plan (F2.1.2 AC5)
+
+```http
+POST /api/v1/qip-actions/export
+→ 201 { "data": { "jobId": "…", "status": "queued" } }
+```
+
+Grouped by EIF criterion in catalogue order, progress stated first, owners
+resolved to names (`Unassigned` when the user cannot be resolved). Attachments
+are **counted, not embedded** — the documents themselves ship in the evidence
+pack (F2.1.4), and duplicating them here would create two versions of the same
+evidence. An empty plan still renders a document saying so.
 
 ### Create QIP action
 
@@ -205,12 +278,13 @@ custom/…                        # from additionalStorageKeys
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `EIF_SCORE_CACHE_TTL_SECONDS` | `3600` | Redis TTL for EIF scores (`0` = no cache) |
+| `CRON_EIF_SNAPSHOT_ENABLED` | `false` | Nightly EIF score capture. **No history accrues while this is off**, and it cannot be back-filled |
+| `CRON_EIF_SNAPSHOT_SCHEDULE` | `0 2 * * *` | 02:00 daily |
 
 See also [file-storage.md](./file-storage.md) for export upload settings (`STORAGE_PROVIDER`, S3).
 
 ## Deferred (out of Phase R scope)
 
 - SAR auto-generation (F2.1.3)
-- QIP / SAR PDF export
-- 12-month EIF trend charts (snapshots + cron)
+- SAR export (the QIP half shipped — see `POST /api/v1/qip-actions/export`)
 - Staging UI for custom documents (pass `additionalStorageKeys` on job create only)

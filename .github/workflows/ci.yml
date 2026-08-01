@@ -32,6 +32,16 @@ jobs:
       - name: Prettier
         run: npx prettier --check "src/**/*.ts" "test/**/*.ts"
 
+      # ts-jest transpiles without type checking and tsconfig.build.json
+      # excludes test/, so nothing checked the e2e helpers. A helper that
+      # constructs a service by hand then silently drifted from its
+      # constructor: PdfGenerationProcessor gained a parameter, the helper
+      # kept passing the old count, every argument after the gap shifted one
+      # place, and seven e2e suites failed with the processor updating the
+      # wrong table. This catches that class in about a second.
+      - name: Type-check e2e helpers
+        run: yarn typecheck:test-helpers
+
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest

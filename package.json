@@ -31,6 +31,7 @@
     "migration:generate": "yarn build && yarn typeorm migration:generate",
     "openapi:emit": "yarn build && node dist/scripts/emit-openapi.js",
     "db:provision-role": "tsx scripts/provision-app-role.ts",
+    "typecheck:test-helpers": "tsc --noEmit -p tsconfig.test-helpers.json",
     "db:verify-grants": "tsx scripts/verify-app-grants.ts",
     "db:verify-audit-immutability": "tsx scripts/verify-audit-immutability.ts",
     "db:setup": "yarn migration:run && yarn db:provision-role && yarn db:verify-grants && yarn db:verify-audit-immutability",

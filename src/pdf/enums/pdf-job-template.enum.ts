@@ -8,4 +8,6 @@ export enum PdfJobTemplate {
   COMMITMENT_AUDIT_TRAIL = 'commitment_audit_trail',
   /** F1.4.2 AC3 — the provider performance comparison as a standalone PDF. */
   PROVIDER_COMPARISON = 'provider_comparison',
+  /** F2.1.2 AC5 — the Quality Improvement Plan as an inspection document. */
+  QIP_PLAN = 'qip_plan',
 }

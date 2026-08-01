@@ -9,6 +9,7 @@ import type {
   ILevyTransferAgreementContent,
   IPdfRenderer,
   IProviderComparisonContent,
+  IQipPlanContent,
   IReviewSnapshotContent,
   ISignedPdfOptions,
 } from './interfaces/pdf-renderer.interface.js';
@@ -51,6 +52,10 @@ export class PdfService {
     content: IProviderComparisonContent,
   ): Promise<Buffer> {
     return this.renderer.renderProviderComparison(content);
+  }
+
+  renderQipPlan(content: IQipPlanContent): Promise<Buffer> {
+    return this.renderer.renderQipPlan(content);
   }
 
   embedSignature(

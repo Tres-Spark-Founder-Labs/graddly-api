@@ -8,6 +8,7 @@ import { CommitmentChaseService } from '../../commitments/commitment-chase.servi
 import { CommitmentSignature } from '../../commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatement } from '../../commitments/entities/commitment-statement.entity.js';
 import { LevyTransfer } from '../../levy-exchange/entities/levy-transfer.entity.js';
+import { QipActionsService } from '../../ofsted/qip-actions.service.js';
 import { Organisation } from '../../organisations/entities/organisation.entity.js';
 import { PdfGenerationJob } from '../../pdf/entities/pdf-generation-job.entity.js';
 import { PdfJobStatus } from '../../pdf/enums/pdf-job-status.enum.js';
@@ -108,6 +109,11 @@ describe('PdfGenerationProcessor', () => {
         {
           provide: CommitmentChaseService,
           useValue: { notifyFirstSigner: jest.fn() },
+        },
+        {
+          // F2.1.2 AC5 — the QIP plan export template.
+          provide: QipActionsService,
+          useValue: { buildPlanContent: jest.fn() },
         },
       ],
     }).compile();

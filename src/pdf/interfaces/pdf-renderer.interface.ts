@@ -217,6 +217,46 @@ export interface IProviderComparisonContent {
   generatedAt: string;
 }
 
+/**
+ * F2.1.2 AC5 — "QIP is exportable as PDF in Ofsted-standard format".
+ *
+ * "Ofsted-standard" is not a published template, so it is read here as what an
+ * inspector expects a quality improvement plan to demonstrate: that the
+ * provider knows what is weak, has named someone accountable for each
+ * weakness, has given it a date, and can show what has been done. That means
+ * grouping by EIF criterion rather than listing actions flat — the criterion
+ * is the thing being inspected — and stating progress and overdue counts up
+ * front rather than leaving them to be counted off the page.
+ */
+export interface IQipPlanContent {
+  organisationName: string;
+  logoBytes?: Buffer | null;
+
+  total: number;
+  completed: number;
+  overdue: number;
+  percentComplete: number;
+
+  /** One group per EIF criterion that has actions, in catalogue order. */
+  groups: Array<{
+    slug: string;
+    label: string;
+    actions: Array<{
+      title: string;
+      description: string | null;
+      ownerName: string;
+      targetCompletionDate: string;
+      status: string;
+      isOverdue: boolean;
+      evidenceNotes: string | null;
+      evidenceAttachmentCount: number;
+    }>;
+  }>;
+
+  generatedAt: string;
+  generatedByName: string;
+}
+
 export interface IPdfRenderer {
   renderHelloPdf(): Promise<Buffer>;
   renderReviewSnapshot(content: IReviewSnapshotContent): Promise<Buffer>;
@@ -233,6 +273,7 @@ export interface IPdfRenderer {
   renderProviderComparison(
     content: IProviderComparisonContent,
   ): Promise<Buffer>;
+  renderQipPlan(content: IQipPlanContent): Promise<Buffer>;
   embedSignature(
     unsignedPdf: Buffer,
     signaturePng: Buffer,

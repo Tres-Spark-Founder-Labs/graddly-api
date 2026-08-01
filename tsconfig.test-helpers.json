@@ -1,0 +1,10 @@
+{
+  "//": "Type-checks test/helpers only. See package.json `typecheck:test-helpers`.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["jest", "node"]
+  },
+  "include": ["test/helpers/**/*.ts", "src/typings/**/*.d.ts"],
+  "exclude": ["node_modules", "dist"]
+}

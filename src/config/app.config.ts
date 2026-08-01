@@ -68,6 +68,8 @@ export default registerAs('app', () => {
       levyExpiryAlertsSchedule: e.CRON_LEVY_EXPIRY_ALERTS_SCHEDULE,
       levyRoiMonthlyEnabled: e.CRON_LEVY_ROI_MONTHLY_ENABLED,
       levyRoiMonthlySchedule: e.CRON_LEVY_ROI_MONTHLY_SCHEDULE,
+      eifSnapshotEnabled: e.CRON_EIF_SNAPSHOT_ENABLED,
+      eifSnapshotSchedule: e.CRON_EIF_SNAPSHOT_SCHEDULE,
       levyTransferStatusEnabled: e.CRON_LEVY_TRANSFER_STATUS_ENABLED,
       levyTransferStatusSchedule: e.CRON_LEVY_TRANSFER_STATUS_SCHEDULE,
       retentionEnabled: e.CRON_RETENTION_ENABLED,

@@ -248,12 +248,20 @@ export function mockDasForLevyExchange(app: INestApplication<App>): void {
       tranches: [{ amount: 50000, expiresOn: '2028-06-01' }],
     },
   });
+  // Complete payloads rather than only the fields the assertions read. A
+  // partial mock silently diverges from the interface the real client
+  // satisfies, so a test can keep passing against a shape production never
+  // returns.
   jest.spyOn(client, 'createLevyTransferConsent').mockResolvedValue({
     reference: 'ESFA-TRANSFER-REF-1',
+    status: 'confirmed',
     raw: { status: 'confirmed', reference: 'ESFA-TRANSFER-REF-1' },
   });
   jest.spyOn(client, 'fetchTransferStatus').mockResolvedValue({
+    reference: 'ESFA-TRANSFER-REF-1',
     status: 'active',
+    amountsReleased: null,
+    paymentDates: null,
     raw: { status: 'active' },
   });
 }

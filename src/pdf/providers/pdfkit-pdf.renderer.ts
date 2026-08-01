@@ -8,6 +8,7 @@ import type {
   ILevyTransferAgreementContent,
   IPdfRenderer,
   IProviderComparisonContent,
+  IQipPlanContent,
   IReviewSnapshotContent,
   ISignedPdfOptions,
 } from '../interfaces/pdf-renderer.interface.js';
@@ -549,6 +550,116 @@ export class PdfKitPdfRenderer implements IPdfRenderer {
           doc.y,
         )
         .text(`Generated ${content.generatedAt.slice(0, 10)}.`)
+        .fillColor('black');
+    });
+  }
+
+  /**
+   * F2.1.2 AC5 — the Quality Improvement Plan as an inspection document.
+   *
+   * Grouped by EIF criterion because that is the unit an inspector works in:
+   * they ask "what are you doing about personal development?", not "show me
+   * action 14". A flat chronological list is how the plan is *managed*; this
+   * is how it is *read*.
+   */
+  renderQipPlan(content: IQipPlanContent): Promise<Buffer> {
+    return renderToBuffer((doc) => {
+      if (content.logoBytes) {
+        try {
+          doc.image(content.logoBytes, { fit: [140, 48], align: 'center' });
+          doc.moveDown(0.5);
+        } catch {
+          // A bad logo must not fail the plan.
+        }
+      }
+      doc
+        .fontSize(9)
+        .fillColor('#666666')
+        .text('Gradlly', { align: 'center' })
+        .fillColor('black');
+      doc.moveDown(0.5);
+      doc.fontSize(20).text('Quality Improvement Plan', { align: 'center' });
+      doc.moveDown(0.5);
+      doc.fontSize(12).text(content.organisationName, { align: 'center' });
+      doc.moveDown();
+
+      // Progress first. An inspector's opening question about a QIP is how
+      // much of it has actually been done.
+      doc.fontSize(14).text('Progress');
+      doc.fontSize(11);
+      doc.text(
+        `${content.completed} of ${content.total} actions complete (${content.percentComplete}%).`,
+      );
+      if (content.overdue > 0) {
+        doc
+          .fillColor('#c0392b')
+          .text(
+            `${content.overdue} action${content.overdue === 1 ? '' : 's'} past target date.`,
+          )
+          .fillColor('black');
+      } else {
+        doc.text('No actions are past their target date.');
+      }
+
+      if (content.groups.length === 0) {
+        doc.moveDown().fontSize(11).text('No actions have been recorded yet.');
+      }
+
+      for (const group of content.groups) {
+        doc.moveDown().fontSize(14).text(group.label);
+        doc
+          .fontSize(9)
+          .fillColor('#666666')
+          .text(`EIF criterion: ${group.slug}`)
+          .fillColor('black');
+        doc.moveDown(0.3);
+
+        for (const action of group.actions) {
+          // Start a new page rather than splitting an action across the
+          // boundary — a target date orphaned from its title is unreadable.
+          if (doc.y > doc.page.height - doc.page.margins.bottom - 120) {
+            doc.addPage();
+          }
+
+          doc.fontSize(11).text(action.title, { continued: false });
+          doc.fontSize(9).fillColor('#666666');
+          doc.text(
+            `Owner: ${action.ownerName}   Target: ${action.targetCompletionDate}   Status: ${action.status}`,
+          );
+          if (action.isOverdue) {
+            doc.fillColor('#c0392b').text('OVERDUE').fillColor('#666666');
+          }
+          if (action.description) {
+            doc.fillColor('black').fontSize(10).text(action.description);
+            doc.fontSize(9).fillColor('#666666');
+          }
+          if (action.evidenceNotes) {
+            doc.text(`Evidence: ${action.evidenceNotes}`);
+          }
+          if (action.evidenceAttachmentCount > 0) {
+            // Counted rather than embedded: the documents live in the
+            // evidence pack (F2.1.4), and duplicating them here would make
+            // two versions of the same evidence with no way to tell which an
+            // inspector was shown.
+            doc.text(
+              `${action.evidenceAttachmentCount} supporting document${
+                action.evidenceAttachmentCount === 1 ? '' : 's'
+              } attached — included in the Ofsted evidence pack.`,
+            );
+          }
+          doc.fillColor('black');
+          doc.moveDown(0.5);
+        }
+      }
+
+      doc.moveDown();
+      doc
+        .fontSize(9)
+        .fillColor('#666666')
+        .text(
+          `Generated ${content.generatedAt.slice(0, 10)} by ${content.generatedByName}.`,
+          { align: 'center' },
+        )
         .fillColor('black');
     });
   }

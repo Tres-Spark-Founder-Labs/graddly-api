@@ -21,14 +21,26 @@ import { ResponseMessage } from '../common/interceptors/response-message.decorat
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { EifCriterionDefinitionDto } from './dto/eif-criterion-response.dto.js';
+import {
+  EifCriterionTrendDto,
+  EifScoreTrendResponseDto,
+  EifTrendPointDto,
+} from './dto/eif-score-trend-response.dto.js';
 import { EifScoresPayloadDto } from './dto/eif-scores-response.dto.js';
 import { loadEifCriteriaConfig } from './eif-criteria.config.js';
+import { EifScoreSnapshotService } from './eif-score-snapshot.service.js';
 import { EifScoreService } from './eif-score.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 
 @ApiTags('Ofsted')
-@ApiExtraModels(EifScoresPayloadDto, EifCriterionDefinitionDto)
+@ApiExtraModels(
+  EifScoresPayloadDto,
+  EifCriterionDefinitionDto,
+  EifScoreTrendResponseDto,
+  EifCriterionTrendDto,
+  EifTrendPointDto,
+)
 @Controller({ path: 'ofsted', version: '1' })
 @UseGuards(JwtAuthGuard, ActiveOrganisationGuard)
 @ApiBearerAuth()
@@ -46,7 +58,10 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
   type: ErrorResponseDto,
 })
 export class EifScoresController {
-  constructor(private readonly eifScoreService: EifScoreService) {}
+  constructor(
+    private readonly eifScoreService: EifScoreService,
+    private readonly snapshotService: EifScoreSnapshotService,
+  ) {}
 
   @Get('eif-criteria')
   @ResponseMessage('EIF criteria retrieved successfully')
@@ -102,5 +117,35 @@ export class EifScoresController {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
     return this.eifScoreService.getScores(user);
+  }
+
+  @Get('eif-scores/trend')
+  @ResponseMessage('EIF score trend retrieved successfully')
+  @ApiOperation({
+    summary: 'Twelve-month EIF score trend, per criterion',
+    description:
+      'F2.1.1 — one series per criterion plus overall readiness, oldest ' +
+      'first, from the nightly snapshot. Not derived from the live score: ' +
+      'the score is a function of the OTJ logs, reviews and documents as ' +
+      'they stood on a given day, so history cannot be recomputed after the ' +
+      'fact and is only as long as the snapshot has been running. ' +
+      '`hasTrendData` is false until at least two days have been captured — ' +
+      'one reading is a fact, not a trend.',
+  })
+  @ApiOkResponse({
+    description: 'Trend series for the active organisation',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(EifScoreTrendResponseDto) },
+      },
+    },
+  })
+  getTrend(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<EifScoreTrendResponseDto> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.snapshotService.getTrend(user.organisationId!);
   }
 }

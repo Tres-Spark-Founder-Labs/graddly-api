@@ -4,24 +4,45 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
+import {
+  getRlsBootstrap,
+  setRlsBootstrap,
+} from '../common/context/correlation-id-context.js';
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
+import { Organisation } from '../organisations/entities/organisation.entity.js';
+import { PdfJobResponseDto } from '../pdf/dto/pdf-job-response.dto.js';
+import { PdfJobTemplate } from '../pdf/enums/pdf-job-template.enum.js';
+import { PdfDispatchService } from '../pdf/pdf-dispatch.service.js';
 import { StorageKeyBuilder } from '../storage/storage-key.builder.js';
+import { User } from '../users/entities/user.entity.js';
 
 import { CreateQipActionDto } from './dto/create-qip-action.dto.js';
 import { ListQipActionsQueryDto } from './dto/list-qip-actions-query.dto.js';
 import { QipActionResponseDto } from './dto/qip-action-response.dto.js';
 import { QipActionsSummaryDto } from './dto/qip-actions-summary.dto.js';
+import { UpdateQipActionProgressDto } from './dto/update-qip-action-progress.dto.js';
 import { UpdateQipActionDto } from './dto/update-qip-action.dto.js';
-import { getEifCriterionSlugs } from './eif-criteria.config.js';
+import {
+  getEifCriterionSlugs,
+  loadEifCriteriaConfig,
+} from './eif-criteria.config.js';
 import { EifScoreCacheService } from './eif-score-cache.service.js';
 import { QipAction } from './entities/qip-action.entity.js';
 import { QipActionStatus } from './enums/qip-action-status.enum.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
+import type { IQipPlanContent } from '../pdf/interfaces/pdf-renderer.interface.js';
+
+/** Plain-English status wording for the exported plan. */
+const QIP_STATUS_LABELS: Record<QipActionStatus, string> = {
+  [QipActionStatus.NOT_STARTED]: 'Not started',
+  [QipActionStatus.IN_PROGRESS]: 'In progress',
+  [QipActionStatus.COMPLETED]: 'Completed',
+};
 
 @Injectable()
 export class QipActionsService {
@@ -30,8 +51,13 @@ export class QipActionsService {
     private readonly repo: Repository<QipAction>,
     @InjectRepository(OrganisationMembership)
     private readonly membershipRepo: Repository<OrganisationMembership>,
+    @InjectRepository(Organisation)
+    private readonly organisationRepo: Repository<Organisation>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     private readonly keyBuilder: StorageKeyBuilder,
     private readonly eifScoreCache: EifScoreCacheService,
+    private readonly pdfDispatch: PdfDispatchService,
   ) {}
 
   async create(
@@ -121,6 +147,23 @@ export class QipActionsService {
   ): Promise<QipActionResponseDto> {
     const row = await this.findEntity(user, id);
     return this.toResponse(row);
+  }
+
+  /**
+   * F2.1.2 — records progress without touching the plan.
+   *
+   * Delegates to `update` rather than duplicating its validation and cache
+   * invalidation; the narrowing is the DTO's job, not a second write path.
+   * Two implementations of "save a QIP action" would eventually disagree
+   * about something, and the one nobody looks at would be the one that
+   * skipped invalidating the EIF score.
+   */
+  async updateProgress(
+    user: AuthenticatedUser,
+    id: string,
+    dto: UpdateQipActionProgressDto,
+  ): Promise<QipActionResponseDto> {
+    return this.update(user, id, dto);
   }
 
   async update(
@@ -213,6 +256,103 @@ export class QipActionsService {
       if (!this.keyBuilder.belongsToOrganisation(key, organisationId)) {
         throw new BadRequestException(`Invalid storage key: ${key}`);
       }
+    }
+  }
+
+  /** F2.1.2 AC5 — queue the plan as a PDF. */
+  async exportPdf(user: AuthenticatedUser): Promise<PdfJobResponseDto> {
+    const organisationId = user.organisationId!;
+    const job = await this.pdfDispatch.enqueue({
+      organisationId,
+      userId: user.id,
+      template: PdfJobTemplate.QIP_PLAN,
+    });
+
+    return {
+      jobId: job.id,
+      status: job.status,
+      template: job.template,
+      outputKey: job.outputKey,
+      errorMessage: job.errorMessage,
+      createdAt: job.createdAt.toISOString(),
+      completedAt: job.completedAt?.toISOString() ?? null,
+    };
+  }
+
+  /**
+   * Builds the plan document.
+   *
+   * Grouped by EIF criterion in catalogue order, because that is the unit an
+   * inspector works in — and because it makes an empty criterion visible.
+   * A plan with nothing against "safeguarding" is itself a finding, which a
+   * flat list of whatever happens to exist would hide.
+   */
+  async buildPlanContent(
+    organisationId: string,
+    requestedByUserId: string,
+  ): Promise<IQipPlanContent> {
+    const previousBootstrap = getRlsBootstrap();
+    setRlsBootstrap(true);
+    try {
+      const [rows, organisation, requester] = await Promise.all([
+        this.repo.find({
+          where: { organisationId, isDeleted: false },
+          order: { targetCompletionDate: 'ASC' },
+        }),
+        this.organisationRepo.findOne({ where: { id: organisationId } }),
+        this.userRepo.findOne({ where: { id: requestedByUserId } }),
+      ]);
+
+      const ownerIds = [...new Set(rows.map((r) => r.assignedOwnerUserId))];
+      const owners = ownerIds.length
+        ? await this.userRepo.findBy({ id: In(ownerIds) })
+        : [];
+      const ownerNames = new Map(
+        owners.map((u) => [u.id, `${u.firstName} ${u.lastName}`.trim()]),
+      );
+
+      const completed = rows.filter(
+        (r) => r.status === QipActionStatus.COMPLETED,
+      ).length;
+      const overdue = rows.filter((r) => this.isOverdue(r)).length;
+
+      const catalogue = loadEifCriteriaConfig().criteria;
+      const groups = catalogue
+        .map((definition) => ({
+          slug: definition.slug,
+          label: definition.label,
+          actions: rows
+            .filter((r) => r.eifCriterionSlug === definition.slug)
+            .map((r) => ({
+              title: r.title,
+              description: r.description,
+              // Named, not a UUID: "assigned owner (staff member)" is the
+              // point of AC1, and an inspector cannot chase an identifier.
+              ownerName: ownerNames.get(r.assignedOwnerUserId) ?? 'Unassigned',
+              targetCompletionDate: r.targetCompletionDate,
+              status: QIP_STATUS_LABELS[r.status] ?? r.status,
+              isOverdue: this.isOverdue(r),
+              evidenceNotes: r.evidenceNotes,
+              evidenceAttachmentCount: r.evidenceAttachmentKeys?.length ?? 0,
+            })),
+        }))
+        .filter((group) => group.actions.length > 0);
+
+      return {
+        organisationName: organisation?.name ?? 'Organisation',
+        total: rows.length,
+        completed,
+        overdue,
+        percentComplete:
+          rows.length === 0 ? 0 : Math.round((completed / rows.length) * 100),
+        groups,
+        generatedAt: new Date().toISOString(),
+        generatedByName: requester
+          ? `${requester.firstName} ${requester.lastName}`.trim()
+          : 'Not recorded',
+      };
+    } finally {
+      setRlsBootstrap(previousBootstrap);
     }
   }
 

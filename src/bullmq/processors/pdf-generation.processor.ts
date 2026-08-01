@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Job } from 'bullmq';
 import { Repository } from 'typeorm';
 
+import { CommitmentAuditTrailService } from '../../commitments/commitment-audit-trail.service.js';
 import { CommitmentChaseService } from '../../commitments/commitment-chase.service.js';
 import { COMMITMENT_SIGNING_ORDER } from '../../commitments/commitment-signing-order.js';
 import { CommitmentSignature } from '../../commitments/entities/commitment-signature.entity.js';
@@ -58,6 +59,7 @@ export class PdfGenerationProcessor extends WorkerHost {
     private readonly keyBuilder: StorageKeyBuilder,
     private readonly levyRoiReportService: LevyRoiReportService,
     private readonly commitmentChaseService: CommitmentChaseService,
+    private readonly commitmentAuditTrailService: CommitmentAuditTrailService,
     @InjectRepository(PdfGenerationJob)
     private readonly jobRepo: Repository<PdfGenerationJob>,
     @InjectRepository(Review)
@@ -148,6 +150,40 @@ export class PdfGenerationProcessor extends WorkerHost {
           logoBytes,
         });
         filename = `levy-report-${organisationId}.pdf`;
+      } else if (template === PdfJobTemplate.COMMITMENT_AUDIT_TRAIL) {
+        if (!statementId) {
+          throw new Error(
+            'statementId is required for commitment_audit_trail template',
+          );
+        }
+        // F1.3.3 AC3. The service re-checks party membership itself before
+        // it lifts the RLS bootstrap flag to read the provider's audit rows.
+        const content = await this.commitmentAuditTrailService.buildPdfContent({
+          organisationId,
+          statementId,
+          requestedByUserId: userId,
+        });
+        buffer = await this.pdfService.renderCommitmentAuditTrail(content);
+        filename = `commitment-audit-trail-${statementId}.pdf`;
+      } else if (template === PdfJobTemplate.PROVIDER_COMPARISON) {
+        // F1.4.2 AC3.
+        const content =
+          await this.levyRoiReportService.buildProviderComparisonContent(
+            organisationId,
+          );
+        const logoBytes = await this.fetchLogoBytes(
+          (
+            await this.organisationRepo.findOne({
+              where: { id: organisationId },
+              select: ['logoUrl'],
+            })
+          )?.logoUrl ?? null,
+        );
+        buffer = await this.pdfService.renderProviderComparison({
+          ...content,
+          logoBytes,
+        });
+        filename = `provider-comparison-${organisationId}.pdf`;
       } else {
         buffer = await this.pdfService.renderHelloPdf();
         filename = `hello-${jobId}.pdf`;

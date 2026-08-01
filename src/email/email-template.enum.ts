@@ -12,5 +12,7 @@ export enum EmailTemplate {
   MESSAGE_RECEIVED = 'message-received',
   LEVY_EXPIRY_90 = 'levy-expiry-90',
   LEVY_EXPIRY_30 = 'levy-expiry-30',
+  /** F1.4.1 AC5 — scheduled monthly ROI report to configured recipients. */
+  LEVY_ROI_MONTHLY = 'levy-roi-monthly',
   FLOWPORTAL_REGISTRATION_COMPLETE = 'flowportal-registration-complete',
 }

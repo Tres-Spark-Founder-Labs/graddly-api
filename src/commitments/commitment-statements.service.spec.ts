@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { AuditEventService } from '../audit/audit-event.service.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { PdfDispatchService } from '../pdf/pdf-dispatch.service.js';
 
@@ -61,6 +62,16 @@ describe('CommitmentStatementsService', () => {
     }),
   };
   const pdfDispatch = { enqueue: jest.fn() };
+  /**
+   * F1.3.3 AC1 — views and version changes are recorded explicitly, because a
+   * TypeORM subscriber never sees a read and sees a version bump only as two
+   * unrelated row writes.
+   */
+  const auditEvents = {
+    recordView: jest.fn(),
+    recordSignature: jest.fn(),
+    recordVersionChange: jest.fn(),
+  };
 
   let service: CommitmentStatementsService;
 
@@ -79,6 +90,7 @@ describe('CommitmentStatementsService', () => {
         },
         { provide: getRepositoryToken(Enrolment), useValue: enrolmentRepo },
         { provide: PdfDispatchService, useValue: pdfDispatch },
+        { provide: AuditEventService, useValue: auditEvents },
       ],
     }).compile();
 

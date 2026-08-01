@@ -62,7 +62,6 @@ export class SmeOverviewService {
     const apprentices = await Promise.all(
       contexts.map(async (ctx) => {
         const otjPercent = await this.otjMetrics.percentForEnrolment(
-          organisationId,
           ctx.enrolment,
         );
         const apprentice = ctx.enrolment.apprentice;

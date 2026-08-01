@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
 
 import type {
+  ICommitmentAuditTrailContent,
   ICommitmentSnapshotContent,
   ILevyRoiReportContent,
   ILevyTransferAgreementContent,
   IPdfRenderer,
+  IProviderComparisonContent,
   IReviewSnapshotContent,
   ISignedPdfOptions,
 } from '../interfaces/pdf-renderer.interface.js';
@@ -36,6 +38,18 @@ export class NoopPdfRenderer implements IPdfRenderer {
   }
 
   renderLevyRoiReport(_content: ILevyRoiReportContent): Promise<Buffer> {
+    return Promise.resolve(MINIMAL_PDF);
+  }
+
+  renderCommitmentAuditTrail(
+    _content: ICommitmentAuditTrailContent,
+  ): Promise<Buffer> {
+    return Promise.resolve(MINIMAL_PDF);
+  }
+
+  renderProviderComparison(
+    _content: IProviderComparisonContent,
+  ): Promise<Buffer> {
     return Promise.resolve(MINIMAL_PDF);
   }
 

@@ -1,0 +1,55 @@
+{% extends "layouts/base.html.njk" %}
+
+{% block title %}Monthly levy ROI report{% endblock %}
+
+{% block content %}
+<p>Hi {{ firstName }},</p>
+<p>Your levy ROI summary for <strong>{{ periodLabel }}</strong>.</p>
+
+<table role="presentation" cellpadding="6" cellspacing="0" style="border-collapse:collapse;">
+  <tr>
+    <td><strong>Active apprentices</strong></td>
+    <td>{{ activeApprenticeCount }}</td>
+  </tr>
+  <tr>
+    <td><strong>Completions</strong></td>
+    <td>
+      {{ completionCount }}{% if hasPriorPeriodData and completionsChangePercent is not none %} ({% if completionsChangePercent > 0 %}+{% endif %}{{ completionsChangePercent }}% vs {{ priorPeriodLabel }}){% endif %}
+    </td>
+  </tr>
+  <tr>
+    <td><strong>EPA pass rate</strong></td>
+    {# Null means nothing has been assessed. Printing 0% would report a
+       cohort that has not sat EPA as one that failed it. #}
+    <td>{% if epaPassRate is none %}No apprentices assessed yet{% else %}{{ epaPassRate }}% ({{ epaAssessedCount }} assessed){% endif %}</td>
+  </tr>
+  <tr>
+    <td><strong>Average cost per completion</strong></td>
+    <td>{% if averageCostPerCompletion is none %}Not available{% else %}£{{ averageCostPerCompletion }}{% endif %}</td>
+  </tr>
+  <tr>
+    <td><strong>Total levy spend to date</strong></td>
+    <td>£{{ totalLevySpend }}</td>
+  </tr>
+  <tr>
+    <td><strong>Available balance</strong></td>
+    <td>{% if availableBalance is none %}Not available{% else %}£{{ availableBalance }}{% endif %}</td>
+  </tr>
+</table>
+
+{% if not hasPriorPeriodData %}
+<p style="color:#666;font-size:13px;">
+  Year-on-year comparison is not yet available — there is no prior-year data
+  recorded for your organisation.
+</p>
+{% endif %}
+
+<p><a href="{{ reportUrl }}">View the full report in {{ appName }}</a>, including the
+breakdown by provider and standard, and the board-ready PDF export.</p>
+
+<p style="color:#666;font-size:13px;">
+  You receive this because you are on your organisation's levy report
+  distribution list. An owner or admin can change who receives it in
+  {{ appName }}.
+</p>
+{% endblock %}

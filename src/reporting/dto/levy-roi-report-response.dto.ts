@@ -38,6 +38,85 @@ export class LevyRoiMonthlyContributionDto {
   amount!: number;
 }
 
+/** F1.4.1 AC3 — one 12-month window of the year-on-year comparison. */
+export class LevyRoiPeriodDto {
+  @ApiProperty({ example: '2025-08 to 2026-07' })
+  label!: string;
+
+  @ApiProperty({ format: 'date-time' })
+  from!: string;
+
+  @ApiProperty({ format: 'date-time' })
+  to!: string;
+
+  @ApiProperty({ example: 14, description: 'Enrolments activated in period' })
+  starts!: number;
+
+  @ApiProperty({ example: 8, description: 'Enrolments completed in period' })
+  completions!: number;
+
+  @ApiProperty({ example: 2, description: 'Enrolments cancelled in period' })
+  withdrawals!: number;
+
+  @ApiProperty({
+    example: 182000,
+    description: 'Levy spend drawn from monthly DAS history for these months',
+  })
+  levySpend!: number;
+
+  @ApiProperty({ nullable: true, example: 18500 })
+  averageCostPerCompletion!: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    example: 87.5,
+    description: 'Null when nothing was assessed in the period',
+  })
+  epaPassRate!: number | null;
+}
+
+export class LevyRoiYearOnYearDto {
+  @ApiProperty({ type: LevyRoiPeriodDto })
+  currentPeriod!: LevyRoiPeriodDto;
+
+  @ApiProperty({
+    type: LevyRoiPeriodDto,
+    nullable: true,
+    description:
+      'Null when no prior-year data exists. Not a zeroed period — the ' +
+      'distinction between "no activity" and "no records" matters on a ' +
+      'board report.',
+  })
+  priorPeriod!: LevyRoiPeriodDto | null;
+
+  @ApiProperty({
+    example: true,
+    description:
+      'False for organisations less than two years live, or before the ' +
+      'monthly levy history has accumulated. Every delta below is null when ' +
+      'this is false.',
+  })
+  hasPriorPeriodData!: boolean;
+
+  @ApiProperty({ nullable: true, example: 16.67 })
+  startsChangePercent!: number | null;
+
+  @ApiProperty({ nullable: true, example: -12.5 })
+  completionsChangePercent!: number | null;
+
+  @ApiProperty({ nullable: true, example: 8.4 })
+  levySpendChangePercent!: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    example: 4.5,
+    description:
+      'Percentage *points*, not percent: 50% → 75% is +25 points. Rates are ' +
+      'read as point movements on a board report.',
+  })
+  epaPassRatePointChange!: number | null;
+}
+
 export class LevyRoiReportResponseDto {
   @ApiProperty({ format: 'uuid' })
   organisationId!: string;
@@ -89,12 +168,25 @@ export class LevyRoiReportResponseDto {
   })
   averageCostPerCompletion!: number | null;
 
+  /**
+   * F1.4.1 AC1. Previously a hardcoded null described as "reserved until EPA
+   * outcomes entity exists" — long after `epa_outcomes` was built and had a
+   * recording endpoint. Merit and distinction count as passes.
+   */
   @ApiProperty({
     nullable: true,
-    description: 'Reserved until EPA outcomes entity exists (F1.4.1 stub)',
-    example: null,
+    example: 87.5,
+    description:
+      '% of assessed apprentices who passed (pass, merit or distinction). ' +
+      'Null when no EPA outcome has been recorded yet — not zero.',
   })
   epaPassRate!: number | null;
+
+  @ApiProperty({
+    example: 8,
+    description: 'How many apprentices the pass rate is calculated from',
+  })
+  epaAssessedCount!: number;
 
   @ApiProperty({
     example: 40000,
@@ -112,6 +204,9 @@ export class LevyRoiReportResponseDto {
 
   @ApiProperty({ type: LevyRoiFundingSummaryDto })
   fundingSummary!: LevyRoiFundingSummaryDto;
+
+  @ApiProperty({ type: LevyRoiYearOnYearDto })
+  yearOnYear!: LevyRoiYearOnYearDto;
 
   @ApiProperty({
     format: 'date-time',
@@ -170,4 +265,28 @@ export class LevyRoiBreakdownEntryResponseDto {
       '% of all enrolments in this group (any status) where the apprentice withdrew or the enrolment was cancelled.',
   })
   withdrawalRate!: number | null;
+
+  /**
+   * F1.4.1 AC2 — "compares outcomes across providers and standards side by
+   * side". EPA pass rate is the outcome measure AC1 names, so comparing
+   * providers without it compares everything except whether apprentices
+   * actually passed.
+   */
+  @ApiProperty({
+    nullable: true,
+    example: 92.3,
+    description:
+      '% of assessed apprentices in this group who passed. Null when none ' +
+      'have been assessed yet.',
+  })
+  epaPassRate!: number | null;
+
+  @ApiProperty({
+    example: 3,
+    description:
+      'Assessments behind the rate. A 100% pass rate from one apprentice is ' +
+      'not comparable to one from thirty, and a side-by-side table has to ' +
+      'say so.',
+  })
+  epaAssessedCount!: number;
 }

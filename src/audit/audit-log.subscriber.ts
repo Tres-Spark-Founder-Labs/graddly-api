@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 
 import {
+  getCurrentActor,
   getCurrentUserId,
   getRlsBootstrap,
   setRlsBootstrap,
@@ -18,6 +19,7 @@ import {
   buildInsertChanges,
   buildUpdateChanges,
 } from './audit-changes.util.js';
+import { describeAuditEvent } from './audit-description.util.js';
 import {
   isAuditedEntity,
   resolveAuditOrganisationId,
@@ -51,8 +53,14 @@ export class AuditLogSubscriber implements EntitySubscriberInterface {
     action: AuditAction,
     changes: AuditLogEntry['changes'],
   ): QueryDeepPartialEntity<AuditLogEntry> {
+    // F1.3.3 AC2 — name and role as they were at the time of the action.
+    const actor = getCurrentActor();
+
     return {
       actorUserId: getCurrentUserId() ?? null,
+      actorName: actor.name ?? null,
+      actorRole: actor.role ?? null,
+      description: describeAuditEvent(entityType, action),
       organisationId: resolveAuditOrganisationId(entity, entityType),
       entityType,
       entityId,

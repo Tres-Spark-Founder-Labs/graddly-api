@@ -2,10 +2,12 @@ import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 
 import type {
+  ICommitmentAuditTrailContent,
   ICommitmentSnapshotContent,
   ILevyRoiReportContent,
   ILevyTransferAgreementContent,
   IPdfRenderer,
+  IProviderComparisonContent,
   IReviewSnapshotContent,
   ISignedPdfOptions,
 } from '../interfaces/pdf-renderer.interface.js';
@@ -175,7 +177,20 @@ export class PdfKitPdfRenderer implements IPdfRenderer {
           `Average cost per completion: GBP ${summary.averageCostPerCompletion}`,
         );
       }
-      doc.text(`EPA pass rate: ${summary.epaPassRate ?? 'n/a'}`);
+      /**
+       * F1.4.1 AC1. Reported with its denominator: a 100% pass rate from two
+       * apprentices and one from forty are different facts, and a board paper
+       * that prints only "100%" invites the wrong conclusion. "Not yet
+       * assessed" is stated rather than shown as 0%.
+       */
+      doc.text(
+        summary.epaPassRate === null
+          ? 'EPA pass rate: no apprentices assessed yet'
+          : `EPA pass rate: ${summary.epaPassRate}%` +
+              (summary.epaAssessedCount
+                ? ` (${summary.epaAssessedCount} assessed)`
+                : ''),
+      );
       doc.text(
         `Estimated productivity uplift: GBP ${summary.estimatedProductivityUplift}`,
       );
@@ -225,6 +240,50 @@ export class PdfKitPdfRenderer implements IPdfRenderer {
         );
       }
 
+      /**
+       * F1.4.1 AC3 — year-on-year, printed before the breakdowns because it
+       * is the movement a board reads first.
+       */
+      if (content.yearOnYear) {
+        const yoy = content.yearOnYear;
+        doc.moveDown().fontSize(16).text('Year on year');
+        doc.fontSize(11);
+
+        if (!yoy.hasPriorPeriodData || !yoy.priorPeriod) {
+          doc.text(
+            'No prior-year data available for comparison. This is the first ' +
+              'reporting period with recorded activity.',
+          );
+        } else {
+          const prior = yoy.priorPeriod;
+          const current = yoy.currentPeriod;
+          const delta = (value: number | null, suffix = '%') =>
+            value === null ? 'n/a' : `${value > 0 ? '+' : ''}${value}${suffix}`;
+
+          doc.text(`This period:  ${current.label}`);
+          doc.text(`Prior period: ${prior.label}`);
+          doc.moveDown(0.3);
+          doc.text(
+            `Starts: ${current.starts} vs ${prior.starts} (${delta(yoy.startsChangePercent)})`,
+          );
+          doc.text(
+            `Completions: ${current.completions} vs ${prior.completions} (${delta(yoy.completionsChangePercent)})`,
+          );
+          doc.text(
+            `Withdrawals: ${current.withdrawals} vs ${prior.withdrawals}`,
+          );
+          doc.text(
+            `Levy spend: GBP ${current.levySpend} vs GBP ${prior.levySpend} (${delta(yoy.levySpendChangePercent)})`,
+          );
+          doc.text(
+            `EPA pass rate: ${current.epaPassRate ?? 'n/a'} vs ${prior.epaPassRate ?? 'n/a'}` +
+              (yoy.epaPassRatePointChange === null
+                ? ''
+                : ` (${delta(yoy.epaPassRatePointChange, ' pts')})`),
+          );
+        }
+      }
+
       const renderBreakdownTable = (
         title: string,
         rows: ILevyRoiReportContent['breakdownByProvider'],
@@ -235,10 +294,22 @@ export class PdfKitPdfRenderer implements IPdfRenderer {
           return;
         }
         for (const row of rows) {
+          // AC2 — outcomes side by side, not just volumes. Without the pass
+          // rate and withdrawal rate this compares how *many* apprentices
+          // each provider has, not how well they do.
+          const epa =
+            row.epaPassRate === null || row.epaPassRate === undefined
+              ? 'EPA n/a'
+              : `EPA ${row.epaPassRate}%${row.epaAssessedCount ? ` (${row.epaAssessedCount})` : ''}`;
+          const withdrawals =
+            row.withdrawalRate === null || row.withdrawalRate === undefined
+              ? ''
+              : `, withdrawn ${row.withdrawalRate}%`;
           doc
             .fontSize(11)
             .text(
-              `${row.label}: active ${row.activeApprenticeCount}, completed ${row.completionCount}, avg cost ${row.averageCostPerCompletion ?? 'n/a'}`,
+              `${row.label}: active ${row.activeApprenticeCount}, completed ${row.completionCount}, ` +
+                `avg cost ${row.averageCostPerCompletion ?? 'n/a'}, ${epa}${withdrawals}`,
             );
         }
       };
@@ -258,6 +329,227 @@ export class PdfKitPdfRenderer implements IPdfRenderer {
         .text('Graddly — board-ready levy report export', {
           align: 'center',
         });
+    });
+  }
+
+  /**
+   * F1.3.3 AC3 — the audit trail as an Ofsted evidence document.
+   *
+   * Laid out as a chronological record rather than a table of columns: each
+   * entry is a short paragraph headed by its UTC timestamp, because a reader
+   * scanning for "when was this signed and by whom" should not have to align
+   * columns across a page break. Entries are printed oldest-first — the API
+   * serves newest-first for screens, but evidence reads as a narrative.
+   */
+  renderCommitmentAuditTrail(
+    content: ICommitmentAuditTrailContent,
+  ): Promise<Buffer> {
+    return renderToBuffer((doc) => {
+      doc
+        .fontSize(9)
+        .fillColor('#666666')
+        .text('Gradlly', { align: 'center' })
+        .fillColor('black');
+      doc.moveDown(0.5);
+      doc
+        .fontSize(20)
+        .text('Commitment statement audit trail', { align: 'center' });
+      doc.moveDown(0.5);
+      doc.fontSize(12).text(content.organisationName, { align: 'center' });
+      doc.moveDown();
+
+      doc.fontSize(14).text('Record');
+      doc.fontSize(11);
+      doc.text(`Apprentice: ${content.apprenticeName}`);
+      doc.text(`Employer: ${content.employerName ?? 'Not recorded'}`);
+      doc.text(`Training provider: ${content.providerName ?? 'Not recorded'}`);
+      doc.text(`Statement reference: ${content.statementId}`);
+      doc.text(`Current version: ${content.currentVersion}`);
+      doc.text(`Current status: ${content.status}`);
+
+      doc.moveDown().fontSize(14).text('Versions');
+      doc.fontSize(11);
+      if (content.versions.length === 0) {
+        doc.text('No versions recorded.');
+      } else {
+        for (const version of content.versions) {
+          const superseded = version.supersededAt
+            ? `, superseded ${version.supersededAt}`
+            : '';
+          doc.text(
+            `v${version.version} — ${version.status}, created ${version.createdAt}${superseded}`,
+          );
+        }
+      }
+
+      doc.moveDown().fontSize(14).text('Audit trail');
+      doc.fontSize(10).fillColor('#666666');
+      const scope =
+        content.rangeFrom || content.rangeTo
+          ? `${content.rangeFrom ?? 'the beginning'} to ${content.rangeTo ?? 'now'}`
+          : 'the full history of this record';
+      doc.text(`${content.entryCount} entries covering ${scope}.`);
+      doc.fillColor('black');
+      doc.moveDown(0.5);
+
+      if (content.entries.length === 0) {
+        doc.fontSize(11).text('No audit entries recorded for this statement.');
+      } else {
+        for (const entry of content.entries) {
+          doc.fontSize(10).fillColor('#666666').text(entry.at);
+          doc.fillColor('black').fontSize(11).text(entry.description);
+          doc.fontSize(10).text(`${entry.actorName} — ${entry.actorRole}`);
+          if (entry.changeSummary) {
+            doc.fontSize(9).fillColor('#444444').text(entry.changeSummary);
+            doc.fillColor('black');
+          }
+          doc.moveDown(0.5);
+        }
+      }
+
+      doc.moveDown();
+      doc.fontSize(9).fillColor('#666666');
+      doc.text(
+        `Generated ${content.generatedAt} by ${content.generatedByName}.`,
+        { align: 'center' },
+      );
+      // Stated in the document because an inspector reading a PDF cannot see
+      // the database trigger that makes it true.
+      doc.text(
+        'Audit entries are protected against modification and deletion at the database level.',
+        { align: 'center' },
+      );
+      doc.fillColor('black');
+    });
+  }
+
+  /**
+   * F1.4.2 AC3 — the provider comparison as a standalone document.
+   *
+   * Laid out as a real table with fixed columns rather than the run-on text
+   * lines the levy report uses for its breakdown: the whole point of this
+   * page is reading *across* providers, which needs the numbers to line up.
+   */
+  renderProviderComparison(
+    content: IProviderComparisonContent,
+  ): Promise<Buffer> {
+    return renderToBuffer((doc) => {
+      if (content.logoBytes) {
+        try {
+          doc.image(content.logoBytes, { fit: [140, 48], align: 'center' });
+          doc.moveDown(0.5);
+        } catch {
+          // A bad logo must not fail the report.
+        }
+      }
+      doc
+        .fontSize(9)
+        .fillColor('#666666')
+        .text('Gradlly', { align: 'center' })
+        .fillColor('black');
+      doc.moveDown(0.5);
+      doc.fontSize(20).text('Provider performance', { align: 'center' });
+      doc.moveDown(0.5);
+      doc.fontSize(12).text(content.organisationName, { align: 'center' });
+      doc.moveDown();
+
+      // AC2, stated on the document. A comparison whose provenance is
+      // unclear invites "our figures say otherwise" in the meeting it is
+      // taken into.
+      doc
+        .fontSize(9)
+        .fillColor('#666666')
+        .text(
+          'All figures are calculated from live platform data — apprentice ' +
+            'off-the-job logs, scheduled reviews, recorded EPA outcomes and ' +
+            'enrolment status. None are self-reported by providers.',
+          { align: 'center' },
+        )
+        .fillColor('black');
+      doc.moveDown();
+
+      if (content.rows.length === 0) {
+        doc
+          .fontSize(11)
+          .text(
+            'No linked providers with active or completed apprentices yet.',
+          );
+      } else {
+        const columns = [
+          { key: 'label', label: 'Provider', width: 150 },
+          { key: 'activeApprenticeCount', label: 'Active', width: 45 },
+          { key: 'averageOtjPercent', label: 'OTJ %', width: 55 },
+          { key: 'reviewComplianceRate', label: 'Reviews', width: 55 },
+          { key: 'epaPassRate', label: 'EPA %', width: 55 },
+          { key: 'withdrawalRate', label: 'Withdrawn', width: 65 },
+        ] as const;
+
+        const startX = doc.page.margins.left;
+        let y = doc.y;
+
+        doc.fontSize(9).fillColor('#666666');
+        let x = startX;
+        for (const column of columns) {
+          doc.text(column.label, x, y, { width: column.width });
+          x += column.width;
+        }
+        doc.fillColor('black');
+        y += 16;
+        doc
+          .moveTo(startX, y - 4)
+          .lineTo(startX + 425, y - 4)
+          .strokeColor('#dddddd')
+          .stroke();
+
+        doc.fontSize(10);
+        for (const row of content.rows) {
+          // "—" rather than 0 for an unmeasurable metric: a provider with no
+          // reviews due yet has not scored zero on review compliance.
+          const cells = [
+            row.label,
+            String(row.activeApprenticeCount),
+            row.averageOtjPercent === null ? '—' : `${row.averageOtjPercent}%`,
+            row.reviewComplianceRate === null
+              ? '—'
+              : `${row.reviewComplianceRate}%`,
+            row.epaPassRate === null
+              ? '—'
+              : `${row.epaPassRate}% (${row.epaAssessedCount})`,
+            row.withdrawalRate === null ? '—' : `${row.withdrawalRate}%`,
+          ];
+
+          x = startX;
+          for (const [index, column] of columns.entries()) {
+            doc.text(cells[index], x, y, {
+              width: column.width,
+              lineBreak: false,
+            });
+            x += column.width;
+          }
+          y += 18;
+
+          // Start a new page before running off the bottom.
+          if (y > doc.page.height - doc.page.margins.bottom - 40) {
+            doc.addPage();
+            y = doc.page.margins.top;
+          }
+        }
+        doc.y = y;
+      }
+
+      doc.moveDown(1.5);
+      doc
+        .fontSize(9)
+        .fillColor('#666666')
+        .text(
+          'EPA pass rate counts pass, merit and distinction, with the number ' +
+            'assessed in brackets. A dash means the metric cannot be ' +
+            'calculated yet, not zero.',
+          doc.page.margins.left,
+          doc.y,
+        )
+        .text(`Generated ${content.generatedAt.slice(0, 10)}.`)
+        .fillColor('black');
     });
   }
 

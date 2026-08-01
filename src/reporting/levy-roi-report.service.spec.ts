@@ -18,7 +18,9 @@ import { Standard } from '../programmes/entities/standard.entity.js';
 import { Review } from '../reviews/entities/review.entity.js';
 
 import { LevyRoiBreakdownGroup } from './enums/levy-roi-breakdown-group.enum.js';
+import { EpaOutcomeMetricsService } from './epa-outcome-metrics.service.js';
 import { LevyRoiReportService } from './levy-roi-report.service.js';
+import { LevyRoiYearOnYearService } from './levy-roi-year-on-year.service.js';
 import { OtjProgressMetricsService } from './otj-progress-metrics.service.js';
 import { ReportingPortalService } from './reporting-portal.service.js';
 
@@ -47,6 +49,13 @@ describe('LevyRoiReportService', () => {
   const otjMetricsService = {
     averageOtjPercentForEnrolments: jest.fn(),
   };
+  // F1.4.1 AC1/AC3.
+  const epaMetricsService = {
+    passRateForEnrolments: jest.fn(),
+  };
+  const yearOnYearService = {
+    compare: jest.fn(),
+  };
   const pdfDispatch = {
     enqueue: jest.fn(),
   };
@@ -65,6 +74,8 @@ describe('LevyRoiReportService', () => {
         { provide: DasLevyForecastService, useValue: forecastService },
         { provide: LevySurplusService, useValue: surplusService },
         { provide: OtjProgressMetricsService, useValue: otjMetricsService },
+        { provide: EpaOutcomeMetricsService, useValue: epaMetricsService },
+        { provide: LevyRoiYearOnYearService, useValue: yearOnYearService },
         { provide: PdfDispatchService, useValue: pdfDispatch },
         {
           provide: getRepositoryToken(Enrolment),
@@ -95,6 +106,24 @@ describe('LevyRoiReportService', () => {
 
     service = moduleRef.get(LevyRoiReportService);
     jest.clearAllMocks();
+
+    // F1.4.1 — defaults for the two metrics the summary now folds in. Both
+    // return "nothing recorded yet", so existing assertions keep describing
+    // an organisation with no EPA outcomes and no prior year.
+    epaMetricsService.passRateForEnrolments.mockResolvedValue({
+      passRate: null,
+      assessedCount: 0,
+      passCount: 0,
+    });
+    yearOnYearService.compare.mockResolvedValue({
+      currentPeriod: { label: '2025-08 to 2026-07' },
+      priorPeriod: null,
+      hasPriorPeriodData: false,
+      startsChangePercent: null,
+      completionsChangePercent: null,
+      levySpendChangePercent: null,
+      epaPassRatePointChange: null,
+    });
   });
 
   it('aggregates summary metrics for employer portal orgs', async () => {
@@ -143,6 +172,59 @@ describe('LevyRoiReportService', () => {
       { month: '2025-01', amount: 2000 },
     ]);
     expect(summary.fundingSummary.totalReceived).toBe(1500);
+  });
+
+  /**
+   * F1.4.1 AC1. `epaPassRate` was a hardcoded `null` described as "reserved
+   * until EPA outcomes entity exists" — years after the entity and its
+   * recording endpoint were built. This asserts the value now comes from the
+   * data rather than from a constant.
+   */
+  it('reports the EPA pass rate from recorded outcomes', async () => {
+    portalService.assertPortalType.mockResolvedValue({
+      portalType: PortalType.EMPLOYER,
+    });
+    dasSyncService.getLatestForOrganisation.mockResolvedValue({
+      balance: null,
+      currency: null,
+    });
+    forecastService.forecastForOrganisation.mockResolvedValue({
+      horizonMonths: 12,
+      activeEnrolmentCount: 0,
+      projectedMonthlySpend: 0,
+      projectedCompletionLiability: 0,
+      estimatedRunwayMonths: null,
+    });
+    surplusService.getSurplus.mockResolvedValue([]);
+    enrolmentFind.mockResolvedValue([
+      { id: 'enr-1', status: EnrolmentStatus.COMPLETED, agreedPrice: '18000' },
+    ]);
+    transferFind.mockResolvedValue([]);
+    monthlyService.listLast12Months.mockResolvedValue([]);
+    monthlyService.toMonthlyContributionDtos.mockReturnValue([]);
+    fundingSyncService.getFundingSummary.mockResolvedValue({
+      totalReceived: 0,
+      lastPaymentDate: null,
+      pendingClawbackCount: 0,
+      currency: 'GBP',
+    });
+    epaMetricsService.passRateForEnrolments.mockResolvedValue({
+      passRate: 87.5,
+      assessedCount: 8,
+      passCount: 7,
+    });
+
+    const summary = await service.getSummary('org-employer');
+
+    expect(summary.epaPassRate).toBe(87.5);
+    expect(summary.epaAssessedCount).toBe(8);
+    // Scoped by enrolment id, never by organisation: epa_outcomes rows belong
+    // to the provider who recorded the assessment.
+    expect(epaMetricsService.passRateForEnrolments).toHaveBeenCalledWith([
+      'enr-1',
+    ]);
+    // AC3 rides along on the same summary.
+    expect(summary.yearOnYear.hasPriorPeriodData).toBe(false);
   });
 
   it('rejects non-employer portal organisations via portal service', async () => {
@@ -197,6 +279,8 @@ describe('LevyRoiReportService', () => {
         { provide: DasLevyForecastService, useValue: forecastService },
         { provide: LevySurplusService, useValue: surplusService },
         { provide: OtjProgressMetricsService, useValue: otjMetricsService },
+        { provide: EpaOutcomeMetricsService, useValue: epaMetricsService },
+        { provide: LevyRoiYearOnYearService, useValue: yearOnYearService },
         { provide: PdfDispatchService, useValue: pdfDispatch },
         {
           provide: getRepositoryToken(Enrolment),
@@ -300,6 +384,8 @@ describe('LevyRoiReportService', () => {
         { provide: DasLevyForecastService, useValue: forecastService },
         { provide: LevySurplusService, useValue: surplusService },
         { provide: OtjProgressMetricsService, useValue: otjMetricsService },
+        { provide: EpaOutcomeMetricsService, useValue: epaMetricsService },
+        { provide: LevyRoiYearOnYearService, useValue: yearOnYearService },
         { provide: PdfDispatchService, useValue: pdfDispatch },
         {
           provide: getRepositoryToken(Enrolment),

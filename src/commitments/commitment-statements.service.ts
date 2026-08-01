@@ -7,6 +7,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+import { AUDIT_ENTITY_TYPE } from '../audit/audit-entity-types.js';
+import { AuditEventService } from '../audit/audit-event.service.js';
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
@@ -37,6 +39,7 @@ export class CommitmentStatementsService {
     private readonly enrolmentRepo: Repository<Enrolment>,
     private readonly statusService: CommitmentStatementStatusService,
     private readonly pdfDispatch: PdfDispatchService,
+    private readonly auditEvents: AuditEventService,
   ) {}
 
   async create(
@@ -136,6 +139,21 @@ export class CommitmentStatementsService {
     group.currentVersionId = statement.id;
     await this.groupRepo.save(group);
 
+    /**
+     * F1.3.3 AC1 — "any version changes".
+     *
+     * The subscriber sees this as an insert on `commitment_statements` plus
+     * an update to the superseded row: two entries describing one act, and
+     * neither of them says a new version was raised. This records the act.
+     */
+    await this.auditEvents.recordVersionChange({
+      user,
+      entityType: AUDIT_ENTITY_TYPE.COMMITMENT_STATEMENT,
+      entityId: statement.id,
+      organisationId,
+      detail: `version ${current.version} superseded by version ${statement.version}`,
+    });
+
     return this.toResponse(statement, group);
   }
 
@@ -183,6 +201,27 @@ export class CommitmentStatementsService {
   ): Promise<CommitmentStatementResponseDto> {
     const row = await this.findStatementAsParty(user, id);
     const group = await this.findGroupAsParty(user, row.groupId);
+
+    /**
+     * F1.3.3 AC1 — "audit trail records … each view".
+     *
+     * Recorded here rather than by the entity subscriber, which only observes
+     * writes. Reading a commitment statement changes no row, so without this
+     * line a view leaves no trace anywhere — and "who has seen this document"
+     * is a question an Ofsted inspector actually asks.
+     *
+     * Awaited rather than fired and forgotten so the entry is written inside
+     * the request, but `record` never throws: a failed audit write must not
+     * stop the employer reading a document they are a party to.
+     */
+    await this.auditEvents.recordView({
+      user,
+      entityType: AUDIT_ENTITY_TYPE.COMMITMENT_STATEMENT,
+      entityId: row.id,
+      organisationId: row.organisationId,
+      detail: `version ${row.version}`,
+    });
+
     return this.toResponse(row, group);
   }
 

@@ -28,7 +28,14 @@ COPY --from=build /app/dist ./dist
 COPY package.json ./
 COPY templates ./templates
 
+# Migrations run on boot; see the script for why it fails hard rather than
+# starting against a schema it does not match. Set RUN_MIGRATIONS_ON_BOOT=false
+# to opt out (e.g. a one-off container that must not touch the schema).
+COPY docker-entrypoint.sh ./
+RUN chmod +x ./docker-entrypoint.sh
+
 ENV NODE_ENV=production
 EXPOSE 3000
 
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["node", "node_modules/concurrently/dist/bin/concurrently.js", "-k", "-n", "api,worker", "node", "dist/src/main.js", "node", "dist/src/worker.js"]

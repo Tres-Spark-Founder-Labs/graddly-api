@@ -9,6 +9,7 @@ import type {
   ILevyTransferAgreementContent,
   IPdfRenderer,
   IProviderComparisonContent,
+  ILearnerCohortContent,
   IQipPlanContent,
   IReviewSnapshotContent,
   ISignedPdfOptions,
@@ -56,6 +57,10 @@ export class PdfService {
 
   renderQipPlan(content: IQipPlanContent): Promise<Buffer> {
     return this.renderer.renderQipPlan(content);
+  }
+
+  renderLearnerCohort(content: ILearnerCohortContent): Promise<Buffer> {
+    return this.renderer.renderLearnerCohort(content);
   }
 
   embedSignature(

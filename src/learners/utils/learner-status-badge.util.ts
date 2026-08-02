@@ -12,6 +12,23 @@ export enum LearnerStatusBadge {
   EPA_READY = 'epa_ready',
 }
 
+/**
+ * F2.2.1 AC3 wording, verbatim from the PRD. Exported so the CSV and PDF
+ * exports print what the screen prints — a document that says `at_risk` where
+ * the dashboard says "At Risk" invites the reader to wonder if they are the
+ * same thing.
+ */
+export const LEARNER_STATUS_BADGE_LABELS: Readonly<
+  Record<LearnerStatusBadge, string>
+> = Object.freeze({
+  [LearnerStatusBadge.ON_TRACK]: 'On Track',
+  [LearnerStatusBadge.AT_RISK]: 'At Risk',
+  [LearnerStatusBadge.OVERDUE]: 'Overdue',
+  [LearnerStatusBadge.BREAK_IN_LEARNING]: 'Break in Learning',
+  [LearnerStatusBadge.WITHDRAWN]: 'Withdrawn',
+  [LearnerStatusBadge.EPA_READY]: 'EPA Ready',
+});
+
 export interface ILearnerStatusBadgeInput {
   apprenticeStatus: ApprenticeStatus;
   enrolmentStatus: EnrolmentStatus;

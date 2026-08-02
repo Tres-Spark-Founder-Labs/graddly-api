@@ -7,6 +7,7 @@ import { CommitmentAuditTrailService } from '../../commitments/commitment-audit-
 import { CommitmentChaseService } from '../../commitments/commitment-chase.service.js';
 import { CommitmentSignature } from '../../commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatement } from '../../commitments/entities/commitment-statement.entity.js';
+import { LearnerCohortService } from '../../learners/learner-cohort.service.js';
 import { LevyTransfer } from '../../levy-exchange/entities/levy-transfer.entity.js';
 import { QipActionsService } from '../../ofsted/qip-actions.service.js';
 import { Organisation } from '../../organisations/entities/organisation.entity.js';
@@ -96,6 +97,11 @@ describe('PdfGenerationProcessor', () => {
         {
           provide: getRepositoryToken(Organisation),
           useValue: { findOne: jest.fn() },
+        },
+        {
+          // F2.2.1 AC5 — the cohort PDF branch.
+          provide: LearnerCohortService,
+          useValue: { buildPdfContent: jest.fn() },
         },
         {
           // F1.3.3 AC3 — the audit trail export template.

@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
-import { ApprenticeStatus } from '../apprentices/enums/apprentice-status.enum.js';
 import {
   getRlsBootstrap,
   setRlsBootstrap,
@@ -23,11 +22,10 @@ import { PdfJobResponseDto } from '../pdf/dto/pdf-job-response.dto.js';
 import { PdfJobTemplate } from '../pdf/enums/pdf-job-template.enum.js';
 import { PdfDispatchService } from '../pdf/pdf-dispatch.service.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
-import { Review } from '../reviews/entities/review.entity.js';
-import { ReviewStatus } from '../reviews/enums/review-status.enum.js';
 
 import { LevyRoiBreakdownGroup } from './enums/levy-roi-breakdown-group.enum.js';
 import { EpaOutcomeMetricsService } from './epa-outcome-metrics.service.js';
+import { LearnerOutcomeMetricsService } from './learner-outcome-metrics.service.js';
 import { LevyRoiYearOnYearService } from './levy-roi-year-on-year.service.js';
 import { OtjProgressMetricsService } from './otj-progress-metrics.service.js';
 import { providerComparisonToCsv } from './provider-comparison-csv.util.js';
@@ -69,8 +67,7 @@ export class LevyRoiReportService {
     private readonly organisationRepo: Repository<Organisation>,
     @InjectRepository(LevyTransfer)
     private readonly transferRepo: Repository<LevyTransfer>,
-    @InjectRepository(Review)
-    private readonly reviewRepo: Repository<Review>,
+    private readonly outcomeMetrics: LearnerOutcomeMetricsService,
   ) {}
 
   async getSummary(organisationId: string): Promise<LevyRoiReportResponseDto> {
@@ -414,7 +411,7 @@ export class LevyRoiReportService {
         organisationId,
         inFlightIds,
       ),
-      this.reviewComplianceRateForEnrolments(organisationId, inFlightIds),
+      this.outcomeMetrics.reviewComplianceRate(organisationId, inFlightIds),
       /**
        * F1.4.1 AC2. Scoped to *completed* enrolments rather than in-flight
        * ones: an EPA outcome can only exist for an enrolment that finished,
@@ -433,52 +430,10 @@ export class LevyRoiReportService {
       averageCostPerCompletion: this.averageAgreedPrice(completed),
       averageOtjPercent,
       reviewComplianceRate,
-      withdrawalRate: this.withdrawalRate(enrolments),
+      withdrawalRate: this.outcomeMetrics.withdrawalRate(enrolments),
       epaPassRate: epa.passRate,
       epaAssessedCount: epa.assessedCount,
     };
-  }
-
-  /** % of reviews scheduled up to now that reached `completed` status. */
-  private async reviewComplianceRateForEnrolments(
-    organisationId: string,
-    enrolmentIds: string[],
-  ): Promise<number | null> {
-    if (enrolmentIds.length === 0) {
-      return null;
-    }
-
-    const dueReviews = await this.reviewRepo.find({
-      where: {
-        organisationId,
-        enrolmentId: In(enrolmentIds),
-        isDeleted: false,
-      },
-      select: ['status', 'scheduledAt'],
-    });
-
-    const now = new Date();
-    const due = dueReviews.filter((r) => r.scheduledAt <= now);
-    if (due.length === 0) {
-      return null;
-    }
-    const compliant = due.filter(
-      (r) => r.status === ReviewStatus.COMPLETED,
-    ).length;
-    return Number(((compliant / due.length) * 100).toFixed(2));
-  }
-
-  /** % of the group's enrolments (any status) withdrawn or cancelled. */
-  private withdrawalRate(enrolments: Enrolment[]): number | null {
-    if (enrolments.length === 0) {
-      return null;
-    }
-    const withdrawn = enrolments.filter(
-      (e) =>
-        e.status === EnrolmentStatus.CANCELLED ||
-        e.apprentice?.status === ApprenticeStatus.WITHDRAWN,
-    ).length;
-    return Number(((withdrawn / enrolments.length) * 100).toFixed(2));
   }
 
   private groupEnrolments(

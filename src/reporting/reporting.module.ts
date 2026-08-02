@@ -29,7 +29,6 @@ import { EmployerDashboardService } from './employer-dashboard.service.js';
 import { EmployerDirectoryController } from './employer-directory.controller.js';
 import { EmployerDirectoryService } from './employer-directory.service.js';
 import { ReportSubscription } from './entities/report-subscription.entity.js';
-import { EpaOutcomeMetricsService } from './epa-outcome-metrics.service.js';
 import { LevyRoiMonthlyReportService } from './levy-roi-monthly-report.service.js';
 import { LevyRoiReportController } from './levy-roi-report.controller.js';
 import { LevyRoiReportService } from './levy-roi-report.service.js';
@@ -37,6 +36,7 @@ import { LevyRoiYearOnYearService } from './levy-roi-year-on-year.service.js';
 import { LevyUtilisationController } from './levy-utilisation.controller.js';
 import { LevyUtilisationService } from './levy-utilisation.service.js';
 import { OtjProgressMetricsService } from './otj-progress-metrics.service.js';
+import { OutcomeMetricsModule } from './outcome-metrics.module.js';
 import { ProviderDashboardController } from './provider-dashboard.controller.js';
 import { ProviderDashboardService } from './provider-dashboard.service.js';
 import { ReportSubscriptionsService } from './report-subscriptions.service.js';
@@ -57,6 +57,7 @@ import { SmeOverviewService } from './sme-overview.service.js';
     EnrolmentsModule,
     OtjModule,
     forwardRef(() => LearnersModule),
+    OutcomeMetricsModule,
     TypeOrmModule.forFeature([
       Enrolment,
       Standard,
@@ -86,7 +87,6 @@ import { SmeOverviewService } from './sme-overview.service.js';
   providers: [
     ReportingPortalService,
     OtjProgressMetricsService,
-    EpaOutcomeMetricsService,
     LevyRoiYearOnYearService,
     ReportSubscriptionsService,
     LevyRoiMonthlyReportService,

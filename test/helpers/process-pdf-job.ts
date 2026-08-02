@@ -6,6 +6,7 @@ import { CommitmentAuditTrailService } from '../../src/commitments/commitment-au
 import { CommitmentChaseService } from '../../src/commitments/commitment-chase.service.js';
 import { CommitmentSignature } from '../../src/commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatement } from '../../src/commitments/entities/commitment-statement.entity.js';
+import { LearnerCohortService } from '../../src/learners/learner-cohort.service.js';
 import { LevyTransfer } from '../../src/levy-exchange/entities/levy-transfer.entity.js';
 import { QipActionsService } from '../../src/ofsted/qip-actions.service.js';
 import { Organisation } from '../../src/organisations/entities/organisation.entity.js';
@@ -61,6 +62,7 @@ export async function processPdfJobInApp(
     ),
     app.get<Repository<LevyTransfer>>(getRepositoryToken(LevyTransfer)),
     app.get<Repository<Organisation>>(getRepositoryToken(Organisation)),
+    app.get(LearnerCohortService),
   );
 
   const job = {

@@ -8,6 +8,7 @@ import type {
   ILevyTransferAgreementContent,
   IPdfRenderer,
   IProviderComparisonContent,
+  ILearnerCohortContent,
   IQipPlanContent,
   IReviewSnapshotContent,
   ISignedPdfOptions,
@@ -24,9 +25,10 @@ function isPng(buffer: Buffer): boolean {
 
 function renderToBuffer(
   build: (doc: InstanceType<typeof PDFDocument>) => void,
+  options: { layout?: 'portrait' | 'landscape' } = {},
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 50 });
+    const doc = new PDFDocument({ margin: 50, layout: options.layout });
     const chunks: Buffer[] = [];
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -662,6 +664,151 @@ export class PdfKitPdfRenderer implements IPdfRenderer {
         )
         .fillColor('black');
     });
+  }
+
+  /**
+   * F2.2.1 AC5 — the cohort table as a PDF.
+   *
+   * Landscape, because the criterion names nine columns and portrait A4
+   * cannot carry them without truncating learner names — and a cohort list
+   * where you cannot tell two learners apart is not a cohort list.
+   */
+  renderLearnerCohort(content: ILearnerCohortContent): Promise<Buffer> {
+    return renderToBuffer(
+      (doc) => {
+        if (content.logoBytes) {
+          try {
+            doc.image(content.logoBytes, { fit: [140, 48], align: 'center' });
+            doc.moveDown(0.5);
+          } catch {
+            // A bad logo must not fail the export.
+          }
+        }
+        doc
+          .fontSize(9)
+          .fillColor('#666666')
+          .text('Gradlly', { align: 'center' })
+          .fillColor('black');
+        doc.moveDown(0.5);
+        doc.fontSize(18).text('Learner cohort', { align: 'center' });
+        doc.moveDown(0.3);
+        doc.fontSize(11).text(content.organisationName, { align: 'center' });
+        doc.moveDown(0.5);
+
+        /**
+         * The filters, on the face of the document. A printed cohort table with
+         * no record of what it was filtered to is a page of numbers nobody in
+         * the room can check — and the reader is not the person who applied
+         * them.
+         */
+        doc.fontSize(9).fillColor('#666666');
+        doc.text(
+          content.filterSummary
+            ? `Filtered: ${content.filterSummary}`
+            : 'No filters applied — every learner in the organisation.',
+          { align: 'center' },
+        );
+        doc.text(`${content.totalCount} learners.`, { align: 'center' });
+        if (content.statusCounts.length > 0) {
+          doc.text(
+            content.statusCounts
+              .map((s) => `${s.label}: ${s.count}`)
+              .join('   '),
+            { align: 'center' },
+          );
+        }
+        doc.fillColor('black');
+        doc.moveDown();
+
+        if (content.rows.length === 0) {
+          doc.fontSize(11).text('No learners match these filters.');
+        } else {
+          const columns = [
+            { label: 'Learner', width: 105 },
+            { label: 'Employer', width: 95 },
+            { label: 'Standard', width: 110 },
+            { label: 'Start', width: 58 },
+            { label: 'OTJ %', width: 42 },
+            { label: 'Next review', width: 62 },
+            { label: 'EPA', width: 58 },
+            { label: 'Status', width: 72 },
+            { label: 'Tutor', width: 80 },
+          ] as const;
+          const tableWidth = columns.reduce((sum, c) => sum + c.width, 0);
+
+          const startX = doc.page.margins.left;
+          let y = doc.y;
+
+          const drawHeader = () => {
+            doc.fontSize(8).fillColor('#666666');
+            let x = startX;
+            for (const column of columns) {
+              doc.text(column.label, x, y, {
+                width: column.width,
+                lineBreak: false,
+              });
+              x += column.width;
+            }
+            doc.fillColor('black');
+            y += 14;
+            doc
+              .moveTo(startX, y - 4)
+              .lineTo(startX + tableWidth, y - 4)
+              .strokeColor('#dddddd')
+              .stroke();
+            doc.fontSize(9);
+          };
+
+          drawHeader();
+
+          for (const row of content.rows) {
+            // "—" rather than 0 or a blank: an apprentice with no logged hours
+            // has not achieved 0% off-the-job, and a blank cell reads as a bug.
+            const cells = [
+              row.learnerName,
+              row.employerName ?? '—',
+              row.standardTitle,
+              row.startDate ?? '—',
+              row.otjPercent === null ? '—' : `${row.otjPercent}%`,
+              row.nextReviewDate ?? '—',
+              row.epaDate ?? '—',
+              row.statusLabel,
+              row.tutorName ?? 'Unassigned',
+            ];
+
+            let x = startX;
+            for (const [index, column] of columns.entries()) {
+              doc.text(cells[index], x, y, {
+                width: column.width,
+                lineBreak: false,
+                ellipsis: true,
+              });
+              x += column.width;
+            }
+            y += 15;
+
+            if (y > doc.page.height - doc.page.margins.bottom - 30) {
+              doc.addPage();
+              y = doc.page.margins.top;
+              // Repeat the header: a cohort table running to twenty pages is
+              // unreadable if only page one says what the columns are.
+              drawHeader();
+            }
+          }
+          doc.y = y;
+        }
+
+        doc.moveDown(1.5);
+        doc
+          .fontSize(8)
+          .fillColor('#666666')
+          .text(`Generated ${content.generatedAt.slice(0, 10)}.`, {
+            align: 'center',
+          })
+          .fillColor('black');
+      },
+      { layout: 'landscape' },
+    );
   }
 
   embedSignature(

@@ -13,6 +13,7 @@ import { EnrolmentPushProcessor } from '../enrolment-push/enrolment-push.process
 import { EnrolmentsModule } from '../enrolments/enrolments.module.js';
 import { IlrSubmitProcessor } from '../ilr/ilr-submit.processor.js';
 import { IlrModule } from '../ilr/ilr.module.js';
+import { LearnersModule } from '../learners/learners.module.js';
 import { LevyTransfer } from '../levy-exchange/entities/levy-transfer.entity.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { EvidencePackJob } from '../ofsted/entities/evidence-pack-job.entity.js';
@@ -56,6 +57,8 @@ import { SystemPingProcessor } from './processors/system-ping.processor.js';
     PortfolioModule,
     ReportingModule,
     CommitmentsModule,
+    // F2.2.1 AC5 — PdfGenerationProcessor builds the cohort PDF content.
+    LearnersModule,
     TypeOrmModule.forFeature([
       EvidencePackJob,
       EpaPackJob,

@@ -19,6 +19,7 @@ import { Review } from '../reviews/entities/review.entity.js';
 
 import { LevyRoiBreakdownGroup } from './enums/levy-roi-breakdown-group.enum.js';
 import { EpaOutcomeMetricsService } from './epa-outcome-metrics.service.js';
+import { LearnerOutcomeMetricsService } from './learner-outcome-metrics.service.js';
 import { LevyRoiReportService } from './levy-roi-report.service.js';
 import { LevyRoiYearOnYearService } from './levy-roi-year-on-year.service.js';
 import { OtjProgressMetricsService } from './otj-progress-metrics.service.js';
@@ -101,6 +102,10 @@ describe('LevyRoiReportService', () => {
           provide: getRepositoryToken(Review),
           useValue: { find: reviewFind },
         },
+        // The real extracted service, not a stub: review compliance and
+        // withdrawal rate moved out of this class in F2.1.3, and stubbing
+        // them here would turn the assertions below into tests of a mock.
+        LearnerOutcomeMetricsService,
       ],
     }).compile();
 
@@ -306,6 +311,10 @@ describe('LevyRoiReportService', () => {
           provide: getRepositoryToken(Review),
           useValue: { find: reviewFind },
         },
+        // The real extracted service, not a stub: review compliance and
+        // withdrawal rate moved out of this class in F2.1.3, and stubbing
+        // them here would turn the assertions below into tests of a mock.
+        LearnerOutcomeMetricsService,
       ],
     }).compile();
     const localService = moduleRef.get(LevyRoiReportService);
@@ -411,6 +420,10 @@ describe('LevyRoiReportService', () => {
           provide: getRepositoryToken(Review),
           useValue: { find: reviewFind },
         },
+        // The real extracted service, not a stub: review compliance and
+        // withdrawal rate moved out of this class in F2.1.3, and stubbing
+        // them here would turn the assertions below into tests of a mock.
+        LearnerOutcomeMetricsService,
       ],
     }).compile();
     const localService = moduleRef.get(LevyRoiReportService);

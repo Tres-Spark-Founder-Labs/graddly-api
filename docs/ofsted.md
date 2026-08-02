@@ -229,7 +229,117 @@ Content-Type: application/json
 | 400 | Invalid `eifCriterionSlug`, owner not an org member, or invalid storage key |
 | 404 | `:id` not found (get/patch/delete) |
 
-## Evidence pack (async ZIP)
+## Self-Assessment Report (F2.1.3)
+
+| Method | Path | Description | Capability |
+|--------|------|-------------|------------|
+| `POST` | `/api/v1/sar-reports` | Generate the draft for an academic year | `MANAGE_SAR` |
+| `GET` | `/api/v1/sar-reports` | List, newest academic year first | — |
+| `GET` | `/api/v1/sar-reports/:id` | Get one | — |
+| `PATCH` | `/api/v1/sar-reports/:id` | Edit section narratives and grades | `MANAGE_SAR` |
+| `POST` | `/api/v1/sar-reports/:id/lock` | Lock for the period (no unlock) | `MANAGE_SAR` |
+| `GET` | `/api/v1/sar-reports/:id/export` | Download as `.docx` | — |
+
+`MANAGE_SAR` is owner/admin. Reading and downloading are open to any member —
+a self-assessment is circulated to staff and governors, and gating the
+download would mean only its two authors could send it to anyone.
+
+### Structure
+
+Ten sections: provider context, the seven EIF judgement areas in framework
+order, overall effectiveness, and areas for improvement. The seven middle
+sections are keyed to the **same slugs as the EIF criteria catalogue**, which
+is what lets each be seeded with its own live score;
+`sar-docx.renderer.spec.ts` fails if the two lists drift apart.
+
+**On "standard Ofsted SAR template structure" (AC2):** Ofsted publishes no
+mandated SAR template. What the sector means by the phrase is a
+self-assessment organised around the EIF judgement areas, each carrying a
+self-assessed grade and its evidence. That is what this produces. It is not a
+submission to a schema.
+
+### What generation does and does not do
+
+Generation assembles evidence and writes a factual opening sentence per
+section. **It never sets a grade** — `grade` starts `null` and only moves
+because a human moved it. A grade the platform inferred from a readiness
+percentage is one nobody in the inspection room could defend.
+
+Generation is idempotent: asking twice for the same year returns the draft
+already in progress rather than overwriting what the provider has written.
+One SAR per organisation per academic year, enforced by a unique index.
+
+### Locking (AC4)
+
+`POST /:id/lock` recomputes the figures, stores them in `metrics`, and sets
+`status = 'locked'`. Two things about this are deliberate:
+
+- **The figures are refreshed at lock time**, not carried over from
+  generation. A SAR written over three weeks is locked against the numbers on
+  the day it is signed off.
+- **Immutability is enforced by a database trigger**, not only by the service.
+  `sar_reports_locked_is_immutable` allows exactly two things on a locked row:
+  nothing, and a soft delete. Three code paths write this table, so a
+  service-only check would be one forgotten `save()` away from a "historical
+  record" that silently rewrote itself.
+
+There is no unlock endpoint. A record that can be reopened is not one.
+
+### Word export (AC3)
+
+A real `.docx` via the `docx` package — the criterion's point is that the
+provider takes it away and keeps working in it. Rendered **synchronously**
+rather than through the PDF job queue: a few pages of text with no images,
+built in milliseconds, where a queue would add a poll cycle and a failure mode
+for nothing.
+
+Returned as a `StreamableFile` with `@SkipResponseEnvelope()`. Both matter: a
+bare `Buffer` is serialised by `res.json()` into `{"type":"Buffer","data":[…]}`,
+and without the decorator the global interceptor wraps it in the success
+envelope. Either produces a file that downloads and then fails to open.
+
+## Evidence pack (async ZIP) — F2.1.4
+
+Contents, one folder per EIF theme:
+
+| Theme | Source |
+|---|---|
+| `curriculum_intent` | programme documents (curriculum map, assessment strategy, industry engagement) |
+| `curriculum_implementation` | accepted portfolio evidence |
+| `curriculum_impact` | ILR learner records |
+| `behaviour_attitudes` | approved off-the-job log summary (CSV) |
+| `personal_development` | completed reviews + signed review snapshots |
+| `leadership_management` | signed commitment statements |
+| `safeguarding` | the full checklist + its evidence files |
+| `custom` | documents the provider adds before building (AC5) |
+
+Completed QIP actions and their attachments are filed under whichever EIF
+criterion the action is linked to.
+
+**Every theme gets a folder, including empty ones.** Archiver only creates a
+directory when something is written into it, so a theme with no evidence used
+to be absent from the zip entirely — and an inspector cannot tell "considered
+and empty" from "quietly dropped". Empty themes now contain a `README.txt`
+saying which it is.
+
+**A file that cannot be read leaves a visible gap.** Platform-sourced
+documents degrade to a metadata stub recording that the file exists and could
+not be included. Custom documents are the exception: the provider explicitly
+chose those, so a failure fails the whole job rather than handing them a pack
+silently missing what they added.
+
+### Performance (AC4 — 60s for 500 learner records)
+
+Object-store round trips dominate, not zipping. Fetches run at
+`STORAGE_FETCH_CONCURRENCY = 16` — bounded, because `Promise.all` over every
+key would trade a slow pack for an exhausted connection pool. Review snapshots
+are resolved with one batched `In(...)` query rather than a `findOne` per
+review.
+
+`evidence-pack-builder.service.spec.ts` asserts this with simulated latency
+(500 objects × 20ms), which serially would take ~10s.
+
+## Evidence pack API
 
 **Roles:** `owner` or `admin` only.
 
@@ -285,6 +395,4 @@ See also [file-storage.md](./file-storage.md) for export upload settings (`STORA
 
 ## Deferred (out of Phase R scope)
 
-- SAR auto-generation (F2.1.3)
-- SAR export (the QIP half shipped — see `POST /api/v1/qip-actions/export`)
 - Staging UI for custom documents (pass `additionalStorageKeys` on job create only)

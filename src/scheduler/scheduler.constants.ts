@@ -31,5 +31,8 @@ export const LEVY_EXPIRY_ALERTS_CRON_NAME = 'levy-expiry-alerts-daily';
 /** Monthly levy ROI report email cron (F1.4.1 AC5). */
 export const LEVY_ROI_MONTHLY_CRON_NAME = 'levy-roi-report-monthly';
 
+/** Nightly EIF score snapshot, feeding the F2.1.1 twelve-month trend. */
+export const EIF_SNAPSHOT_CRON_NAME = 'eif-score-snapshot-nightly';
+
 /** Weekly GDPR data retention purge cron. */
 export const RETENTION_CRON_NAME = 'data-retention-weekly';

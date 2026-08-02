@@ -7,6 +7,7 @@ import type {
   ILevyTransferAgreementContent,
   IPdfRenderer,
   IProviderComparisonContent,
+  IQipPlanContent,
   IReviewSnapshotContent,
   ISignedPdfOptions,
 } from '../interfaces/pdf-renderer.interface.js';
@@ -50,6 +51,10 @@ export class NoopPdfRenderer implements IPdfRenderer {
   renderProviderComparison(
     _content: IProviderComparisonContent,
   ): Promise<Buffer> {
+    return Promise.resolve(MINIMAL_PDF);
+  }
+
+  renderQipPlan(_content: IQipPlanContent): Promise<Buffer> {
     return Promise.resolve(MINIMAL_PDF);
   }
 

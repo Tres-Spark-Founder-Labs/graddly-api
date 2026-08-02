@@ -130,6 +130,83 @@ describe('PdfKitPdfRenderer', () => {
     expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
   });
 
+  /** F2.1.2 AC5 — the Quality Improvement Plan as an inspection document. */
+  it('renderQipPlan returns a PDF buffer', async () => {
+    const buffer = await renderer.renderQipPlan({
+      organisationName: 'Northstar Training',
+      total: 2,
+      completed: 1,
+      overdue: 1,
+      percentComplete: 50,
+      groups: [
+        {
+          slug: 'safeguarding',
+          label: 'Safeguarding',
+          actions: [
+            {
+              title: 'Monthly safeguarding audit',
+              description: 'Audit every learner file',
+              ownerName: 'Priya Shah',
+              targetCompletionDate: '2026-12-31',
+              status: 'In progress',
+              isOverdue: true,
+              evidenceNotes: 'First audit complete',
+              evidenceAttachmentCount: 2,
+            },
+          ],
+        },
+      ],
+      generatedAt: '2026-08-01T09:00:00.000Z',
+      generatedByName: 'Ada Lovelace',
+    });
+    expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+  });
+
+  /** A provider with no plan yet still has to be able to produce the file. */
+  it('renderQipPlan handles an empty plan', async () => {
+    const buffer = await renderer.renderQipPlan({
+      organisationName: 'Northstar Training',
+      total: 0,
+      completed: 0,
+      overdue: 0,
+      percentComplete: 0,
+      groups: [],
+      generatedAt: '2026-08-01T09:00:00.000Z',
+      generatedByName: 'Ada Lovelace',
+    });
+    expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+  });
+
+  /** Enough actions to cross a page boundary, exercising the paging branch. */
+  it('renderQipPlan pages a long plan', async () => {
+    const buffer = await renderer.renderQipPlan({
+      organisationName: 'Northstar Training',
+      total: 40,
+      completed: 0,
+      overdue: 0,
+      percentComplete: 0,
+      groups: [
+        {
+          slug: 'safeguarding',
+          label: 'Safeguarding',
+          actions: Array.from({ length: 40 }, (_, i) => ({
+            title: `Action ${i + 1}`,
+            description: 'A description long enough to take a line or two.',
+            ownerName: 'Priya Shah',
+            targetCompletionDate: '2026-12-31',
+            status: 'Not started',
+            isOverdue: false,
+            evidenceNotes: null,
+            evidenceAttachmentCount: 0,
+          })),
+        },
+      ],
+      generatedAt: '2026-08-01T09:00:00.000Z',
+      generatedByName: 'Ada Lovelace',
+    });
+    expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+  });
+
   it('embedSignature returns a PDF buffer without a valid PNG', async () => {
     const unsigned = await renderer.renderHelloPdf();
     const signed = await renderer.embedSignature(

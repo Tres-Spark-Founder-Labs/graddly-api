@@ -24,11 +24,12 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 
+import { Capability } from '../auth/capabilities/capability.enum.js';
+import { RequiresCapability } from '../auth/capabilities/requires-capability.decorator.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { Roles } from '../auth/decorators/roles.decorator.js';
 import { ActiveOrganisationGuard } from '../auth/guards/active-organisation.guard.js';
+import { CapabilityGuard } from '../auth/guards/capability.guard.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers.js';
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
@@ -36,7 +37,6 @@ import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
-import { OrganisationRole } from '../organisations/organisation-role.enum.js';
 
 import { BuildIlrLearnerRecordDto } from './dto/build-ilr-learner-record.dto.js';
 import { IlrLearnerRecordResponseDto } from './dto/ilr-learner-record-response.dto.js';
@@ -202,8 +202,8 @@ export class IlrLearnerRecordsController {
   }
 
   @Post(':id/submit')
-  @UseGuards(RolesGuard)
-  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
+  @UseGuards(CapabilityGuard)
+  @RequiresCapability(Capability.SUBMIT_ILR)
   @ResponseMessage('ILR submission queued successfully')
   @ApiOperation({
     summary: 'Queue ILR submit to ESFA (async, owner or admin)',
@@ -243,8 +243,8 @@ export class IlrLearnerRecordsController {
   }
 
   @Post(':id/amend')
-  @UseGuards(RolesGuard)
-  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
+  @UseGuards(CapabilityGuard)
+  @RequiresCapability(Capability.SUBMIT_ILR)
   @ResponseMessage('ILR amendment queued successfully')
   @ApiOperation({
     summary: 'Queue ILR amendment to ESFA (async, owner or admin)',

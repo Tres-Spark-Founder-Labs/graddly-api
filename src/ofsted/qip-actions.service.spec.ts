@@ -3,7 +3,10 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
+import { Organisation } from '../organisations/entities/organisation.entity.js';
+import { PdfDispatchService } from '../pdf/pdf-dispatch.service.js';
 import { StorageKeyBuilder } from '../storage/storage-key.builder.js';
+import { User } from '../users/entities/user.entity.js';
 
 import { EifScoreCacheService } from './eif-score-cache.service.js';
 import { QipAction } from './entities/qip-action.entity.js';
@@ -22,6 +25,9 @@ describe('QipActionsService', () => {
   const membershipRepo = { findOne: jest.fn() };
   const keyBuilder = { belongsToOrganisation: jest.fn().mockReturnValue(true) };
   const eifScoreCache = { invalidate: jest.fn() };
+  const organisationRepo = { findOne: jest.fn() };
+  const userRepo = { findOne: jest.fn(), findBy: jest.fn() };
+  const pdfDispatch = { enqueue: jest.fn() };
 
   let service: QipActionsService;
 
@@ -42,6 +48,13 @@ describe('QipActionsService', () => {
         },
         { provide: StorageKeyBuilder, useValue: keyBuilder },
         { provide: EifScoreCacheService, useValue: eifScoreCache },
+        // F2.1.2 AC5 — the plan export names its owners and queues a PDF.
+        {
+          provide: getRepositoryToken(Organisation),
+          useValue: organisationRepo,
+        },
+        { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: PdfDispatchService, useValue: pdfDispatch },
       ],
     }).compile();
     service = moduleRef.get(QipActionsService);
@@ -158,6 +171,99 @@ describe('QipActionsService', () => {
 
     expect(result.title).toBe('New');
     expect(eifScoreCache.invalidate).toHaveBeenCalledWith('org-1');
+  });
+
+  describe('buildPlanContent (F2.1.2 AC5)', () => {
+    const action = (over: Record<string, unknown> = {}) => ({
+      id: 'qip-1',
+      organisationId: 'org-1',
+      title: 'Tighten safeguarding checks',
+      description: 'Monthly audit',
+      assignedOwnerUserId: 'user-9',
+      targetCompletionDate: '2026-12-31',
+      eifCriterionSlug: 'safeguarding',
+      evidenceNotes: null,
+      evidenceAttachmentKeys: null,
+      status: QipActionStatus.IN_PROGRESS,
+      ...over,
+    });
+
+    beforeEach(() => {
+      organisationRepo.findOne.mockResolvedValue({ name: 'Northstar' });
+      userRepo.findOne.mockResolvedValue({
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+      });
+      userRepo.findBy.mockResolvedValue([
+        { id: 'user-9', firstName: 'Priya', lastName: 'Shah' },
+      ]);
+    });
+
+    /**
+     * "Assigned owner (staff member)" is the point of AC1, and an inspector
+     * cannot chase a UUID.
+     */
+    it('names the owner rather than printing their id', async () => {
+      repo.find.mockResolvedValue([action()]);
+
+      const content = await service.buildPlanContent('org-1', 'user-1');
+
+      expect(content.groups[0].actions[0].ownerName).toBe('Priya Shah');
+      expect(content.generatedByName).toBe('Ada Lovelace');
+      expect(content.organisationName).toBe('Northstar');
+    });
+
+    it('groups by EIF criterion and drops criteria with no actions', async () => {
+      repo.find.mockResolvedValue([action()]);
+
+      const content = await service.buildPlanContent('org-1', 'user-1');
+
+      expect(content.groups).toHaveLength(1);
+      expect(content.groups[0].slug).toBe('safeguarding');
+    });
+
+    it('reports progress and overdue counts', async () => {
+      repo.find.mockResolvedValue([
+        action({ status: QipActionStatus.COMPLETED }),
+        action({ id: 'qip-2', targetCompletionDate: '2020-01-01' }),
+      ]);
+
+      const content = await service.buildPlanContent('org-1', 'user-1');
+
+      expect(content.total).toBe(2);
+      expect(content.completed).toBe(1);
+      expect(content.overdue).toBe(1);
+      expect(content.percentComplete).toBe(50);
+    });
+
+    it('falls back to Unassigned when the owner cannot be resolved', async () => {
+      repo.find.mockResolvedValue([action()]);
+      userRepo.findBy.mockResolvedValue([]);
+
+      const content = await service.buildPlanContent('org-1', 'user-1');
+
+      expect(content.groups[0].actions[0].ownerName).toBe('Unassigned');
+    });
+
+    it('counts attachments rather than embedding them', async () => {
+      repo.find.mockResolvedValue([
+        action({ evidenceAttachmentKeys: ['a', 'b'] }),
+      ]);
+
+      const content = await service.buildPlanContent('org-1', 'user-1');
+
+      expect(content.groups[0].actions[0].evidenceAttachmentCount).toBe(2);
+    });
+
+    it('handles an empty plan without dividing by zero', async () => {
+      repo.find.mockResolvedValue([]);
+
+      const content = await service.buildPlanContent('org-1', 'user-1');
+
+      expect(content.total).toBe(0);
+      expect(content.percentComplete).toBe(0);
+      expect(content.groups).toEqual([]);
+    });
   });
 
   it('soft-removes QIP action', async () => {

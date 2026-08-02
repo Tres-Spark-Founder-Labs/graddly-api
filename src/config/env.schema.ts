@@ -16,6 +16,7 @@ export const DEPLOYED_CRON_FLAGS_DEFAULT_TRUE = [
   'CRON_LEVY_EXPIRY_ALERTS_ENABLED',
   'CRON_LEVY_TRANSFER_STATUS_ENABLED',
   'CRON_LEVY_ROI_MONTHLY_ENABLED',
+  'CRON_EIF_SNAPSHOT_ENABLED',
   'CRON_RETENTION_ENABLED',
 ] as const;
 
@@ -313,6 +314,15 @@ export const envSchema = z
 
     // 07:00 on the 1st of each month.
     CRON_LEVY_ROI_MONTHLY_SCHEDULE: z.string().min(1).default('0 7 1 * *'),
+
+    // F2.1.1 — nightly EIF score snapshot for the twelve-month trend.
+    CRON_EIF_SNAPSHOT_ENABLED: z
+      .string()
+      .optional()
+      .default('false')
+      .transform((v) => v === 'true'),
+
+    CRON_EIF_SNAPSHOT_SCHEDULE: z.string().min(1).default('0 2 * * *'),
 
     CRON_LEVY_TRANSFER_STATUS_ENABLED: z
       .string()

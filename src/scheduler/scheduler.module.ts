@@ -24,6 +24,7 @@ import { CronLockService } from './cron-lock.service.js';
 import { DasFundingSyncCronService } from './das-funding-sync-cron.service.js';
 import { DasSyncCronService } from './das-sync-cron.service.js';
 import { DigestCronService } from './digest-cron.service.js';
+import { EifSnapshotCronService } from './eif-snapshot-cron.service.js';
 import { HealthCronService } from './health-cron.service.js';
 import { LevyExpiryAlertsCronService } from './levy-expiry-alerts-cron.service.js';
 import { LevyRoiMonthlyCronService } from './levy-roi-monthly-cron.service.js';
@@ -67,6 +68,7 @@ import { ReviewRemindersCronService } from './review-reminders-cron.service.js';
     CommitmentChaseCronService,
     LevyExpiryAlertsCronService,
     LevyRoiMonthlyCronService,
+    EifSnapshotCronService,
     LevyTransferStatusCronService,
     DataRetentionCronService,
   ],

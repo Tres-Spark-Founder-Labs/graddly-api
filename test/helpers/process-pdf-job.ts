@@ -7,6 +7,7 @@ import { CommitmentChaseService } from '../../src/commitments/commitment-chase.s
 import { CommitmentSignature } from '../../src/commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatement } from '../../src/commitments/entities/commitment-statement.entity.js';
 import { LevyTransfer } from '../../src/levy-exchange/entities/levy-transfer.entity.js';
+import { QipActionsService } from '../../src/ofsted/qip-actions.service.js';
 import { Organisation } from '../../src/organisations/entities/organisation.entity.js';
 import { PdfGenerationJob } from '../../src/pdf/entities/pdf-generation-job.entity.js';
 import { PDF_JOB_GENERATE } from '../../src/pdf/pdf-job.constants.js';
@@ -47,6 +48,7 @@ export async function processPdfJobInApp(
     app.get(LevyRoiReportService),
     app.get(CommitmentChaseService),
     app.get(CommitmentAuditTrailService),
+    app.get(QipActionsService),
     app.get<Repository<PdfGenerationJob>>(getRepositoryToken(PdfGenerationJob)),
     app.get<Repository<Review>>(getRepositoryToken(Review)),
     app.get<Repository<ReviewRecord>>(getRepositoryToken(ReviewRecord)),

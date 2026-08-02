@@ -29,8 +29,11 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 
+import { Capability } from '../auth/capabilities/capability.enum.js';
+import { RequiresCapability } from '../auth/capabilities/requires-capability.decorator.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { ActiveOrganisationGuard } from '../auth/guards/active-organisation.guard.js';
+import { CapabilityGuard } from '../auth/guards/capability.guard.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers.js';
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
@@ -42,11 +45,13 @@ import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
+import { PdfJobResponseDto } from '../pdf/dto/pdf-job-response.dto.js';
 
 import { CreateQipActionDto } from './dto/create-qip-action.dto.js';
 import { ListQipActionsQueryDto } from './dto/list-qip-actions-query.dto.js';
 import { QipActionResponseDto } from './dto/qip-action-response.dto.js';
 import { QipActionsSummaryDto } from './dto/qip-actions-summary.dto.js';
+import { UpdateQipActionProgressDto } from './dto/update-qip-action-progress.dto.js';
 import { UpdateQipActionDto } from './dto/update-qip-action.dto.js';
 import { QipActionsService } from './qip-actions.service.js';
 
@@ -79,7 +84,44 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
 export class QipActionsController {
   constructor(private readonly service: QipActionsService) {}
 
+  /**
+   * F2.1.2 AC5 — the plan as an inspection document.
+   *
+   * Guarded by `DOWNLOAD_EVIDENCE_PACK` rather than `MANAGE_QIP`: producing
+   * the plan is reading it, and being unable to hand an inspector the QIP
+   * because the one admin is on leave is a worse failure than a tutor
+   * printing it.
+   */
+  @Post('export')
+  @UseGuards(CapabilityGuard)
+  @RequiresCapability(Capability.DOWNLOAD_EVIDENCE_PACK)
+  @ResponseMessage('QIP export queued successfully')
+  @ApiOperation({
+    summary: 'Queue the Quality Improvement Plan as a PDF',
+    description:
+      'F2.1.2 AC5 — grouped by EIF criterion, with owner names, target ' +
+      'dates, status and overdue count. Poll `GET /pdf/jobs/{jobId}`.',
+  })
+  @ApiCreatedResponse({
+    description: 'Queued PDF generation job',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(PdfJobResponseDto) },
+      },
+    },
+  })
+  exportPdf(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<PdfJobResponseDto> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.service.exportPdf(user);
+  }
+
   @Post()
+  @UseGuards(CapabilityGuard)
+  @RequiresCapability(Capability.MANAGE_QIP)
   @ResponseMessage('QIP action created successfully')
   @ApiOperation({
     summary: 'Create a QIP action',
@@ -196,7 +238,58 @@ export class QipActionsController {
     return this.service.findOne(user, id);
   }
 
+  /**
+   * Guarded as planning rather than completion, because this one endpoint
+   * does both: it accepts `status` alongside title, owner, target date and
+   * linked criterion. `Capability.COMPLETE_QIP_ACTION` exists for the wider
+   * rule but is not wired here — letting a tutor mark their own action done
+   * is reasonable, letting them rewrite the plan is not, and the endpoint
+   * cannot currently tell the two apart. F2.1.2 splits them.
+   */
+  /**
+   * F2.1.2 — the narrow half of updating an action.
+   *
+   * The groundwork restricted every QIP write to `MANAGE_QIP` because the
+   * single `PATCH` endpoint could not tell "I finished my action, here is the
+   * evidence" from "I rewrote the plan". This separates them: status, notes
+   * and attachments only, open to anyone who can record learner work.
+   *
+   * Without it AC6 would be unreachable for the people it is about — the
+   * tutor who did the work is the one holding the evidence, and making them
+   * ask an admin to upload it is how evidence stops being attached at all.
+   */
+  @Patch(':id/progress')
+  @UseGuards(CapabilityGuard)
+  @RequiresCapability(Capability.COMPLETE_QIP_ACTION)
+  @ResponseMessage('QIP action progress updated successfully')
+  @ApiOperation({
+    summary: 'Record progress on a QIP action',
+    description:
+      'F2.1.2 — status, evidence notes and supporting documents only. The ' +
+      "plan's content (title, owner, target date, linked criterion) cannot " +
+      'be changed here; use PATCH /qip-actions/{id} for that.',
+  })
+  @ApiOkResponse({
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(QipActionResponseDto) },
+      },
+    },
+  })
+  updateProgress(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateQipActionProgressDto,
+  ): Promise<QipActionResponseDto> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.service.updateProgress(user, id, dto);
+  }
+
   @Patch(':id')
+  @UseGuards(CapabilityGuard)
+  @RequiresCapability(Capability.MANAGE_QIP)
   @ResponseMessage('QIP action updated successfully')
   @ApiOperation({
     summary: 'Update a QIP action',
@@ -237,6 +330,8 @@ export class QipActionsController {
   }
 
   @Delete(':id')
+  @UseGuards(CapabilityGuard)
+  @RequiresCapability(Capability.MANAGE_QIP)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ResponseMessage('QIP action deleted successfully')
   @ApiOperation({ summary: 'Soft-delete a QIP action' })

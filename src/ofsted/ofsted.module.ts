@@ -6,18 +6,23 @@ import { CommitmentStatement } from '../commitments/entities/commitment-statemen
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { IlrLearnerRecord } from '../ilr/entities/ilr-learner-record.entity.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
+import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { PdfGenerationJob } from '../pdf/entities/pdf-generation-job.entity.js';
+import { PdfModule } from '../pdf/pdf.module.js';
 import { KsEvidenceItem } from '../portfolio/entities/ks-evidence-item.entity.js';
 import { Programme } from '../programmes/entities/programme.entity.js';
 import { RedisModule } from '../redis/redis.module.js';
 import { Review } from '../reviews/entities/review.entity.js';
 import { StorageModule } from '../storage/storage.module.js';
+import { User } from '../users/entities/user.entity.js';
 
 import { EifScoreCacheService } from './eif-score-cache.service.js';
 import { EifScoreCalculatorService } from './eif-score-calculator.service.js';
+import { EifScoreSnapshotService } from './eif-score-snapshot.service.js';
 import { EifScoreService } from './eif-score.service.js';
 import { EifScoresController } from './eif-scores.controller.js';
+import { EifScoreSnapshot } from './entities/eif-score-snapshot.entity.js';
 import { EvidencePackJob } from './entities/evidence-pack-job.entity.js';
 import { ProgrammeDocument } from './entities/programme-document.entity.js';
 import { QipAction } from './entities/qip-action.entity.js';
@@ -38,6 +43,8 @@ import { SafeguardingChecklistService } from './safeguarding-checklist.service.j
     AuthModule,
     StorageModule,
     RedisModule,
+    // F2.1.2 AC5 — the QIP plan export goes through the shared PDF pipeline.
+    PdfModule,
     TypeOrmModule.forFeature([
       QipAction,
       EvidencePackJob,
@@ -52,6 +59,11 @@ import { SafeguardingChecklistService } from './safeguarding-checklist.service.j
       KsEvidenceItem,
       Programme,
       PdfGenerationJob,
+      // F2.1.1 — twelve-month EIF trend storage.
+      EifScoreSnapshot,
+      Organisation,
+      // F2.1.2 AC5 — the exported plan names its owners, not their UUIDs.
+      User,
     ]),
   ],
   controllers: [
@@ -65,6 +77,7 @@ import { SafeguardingChecklistService } from './safeguarding-checklist.service.j
     EifScoreCacheService,
     EifScoreCalculatorService,
     EifScoreService,
+    EifScoreSnapshotService,
     QipActionsService,
     SafeguardingChecklistService,
     ProgrammeDocumentsService,
@@ -75,6 +88,7 @@ import { SafeguardingChecklistService } from './safeguarding-checklist.service.j
   exports: [
     EifScoreCacheService,
     EifScoreCalculatorService,
+    EifScoreSnapshotService,
     EvidencePackBuilderService,
     EvidencePackDispatchService,
     TypeOrmModule,

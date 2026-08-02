@@ -18,6 +18,7 @@ import {
 import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
 import { LevyTransfer } from '../../levy-exchange/entities/levy-transfer.entity.js';
 import { LevyTransferStatus } from '../../levy-exchange/enums/levy-transfer-status.enum.js';
+import { QipActionsService } from '../../ofsted/qip-actions.service.js';
 import { Organisation } from '../../organisations/entities/organisation.entity.js';
 import { PdfGenerationJob } from '../../pdf/entities/pdf-generation-job.entity.js';
 import { PdfJobStatus } from '../../pdf/enums/pdf-job-status.enum.js';
@@ -60,6 +61,7 @@ export class PdfGenerationProcessor extends WorkerHost {
     private readonly levyRoiReportService: LevyRoiReportService,
     private readonly commitmentChaseService: CommitmentChaseService,
     private readonly commitmentAuditTrailService: CommitmentAuditTrailService,
+    private readonly qipActionsService: QipActionsService,
     @InjectRepository(PdfGenerationJob)
     private readonly jobRepo: Repository<PdfGenerationJob>,
     @InjectRepository(Review)
@@ -184,6 +186,25 @@ export class PdfGenerationProcessor extends WorkerHost {
           logoBytes,
         });
         filename = `provider-comparison-${organisationId}.pdf`;
+      } else if (template === PdfJobTemplate.QIP_PLAN) {
+        // F2.1.2 AC5.
+        const content = await this.qipActionsService.buildPlanContent(
+          organisationId,
+          userId,
+        );
+        const logoBytes = await this.fetchLogoBytes(
+          (
+            await this.organisationRepo.findOne({
+              where: { id: organisationId },
+              select: ['logoUrl'],
+            })
+          )?.logoUrl ?? null,
+        );
+        buffer = await this.pdfService.renderQipPlan({
+          ...content,
+          logoBytes,
+        });
+        filename = `quality-improvement-plan-${organisationId}.pdf`;
       } else {
         buffer = await this.pdfService.renderHelloPdf();
         filename = `hello-${jobId}.pdf`;

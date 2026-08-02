@@ -49,6 +49,15 @@ export const CAPABILITY_ROLES: Readonly<
     OrganisationRole.MEMBER,
   ],
 
+  /**
+   * Narrower than MANAGE_QIP in spirit even though the roles match. The SAR
+   * is the provider's own judgement of itself, and locking one creates a
+   * record they will be held to at inspection. There is no wider sibling
+   * capability here because there is no part of writing a self-assessment
+   * that is day-to-day delivery work.
+   */
+  [Capability.MANAGE_SAR]: [OrganisationRole.OWNER, OrganisationRole.ADMIN],
+
   /** Core tutor work. */
   [Capability.RECORD_REVIEW]: [
     OrganisationRole.OWNER,

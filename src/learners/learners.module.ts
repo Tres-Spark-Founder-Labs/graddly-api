@@ -10,8 +10,10 @@ import { MessageThread } from '../messaging/entities/message-thread.entity.js';
 import { Message } from '../messaging/entities/message.entity.js';
 import { MessagingModule } from '../messaging/messaging.module.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
+import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { PdfGenerationJob } from '../pdf/entities/pdf-generation-job.entity.js';
+import { PdfModule } from '../pdf/pdf.module.js';
 import { KsEvidenceItem } from '../portfolio/entities/ks-evidence-item.entity.js';
 import { ReportingModule } from '../reporting/reporting.module.js';
 import { ReviewSignature } from '../reviews/entities/review-signature.entity.js';
@@ -36,6 +38,8 @@ import { LearnersController } from './learners.controller.js';
     forwardRef(() => ReportingModule),
     EnrolmentsModule,
     MessagingModule,
+    // F2.2.1 AC5 — the cohort PDF goes through the shared job pipeline.
+    PdfModule,
     TypeOrmModule.forFeature([
       Enrolment,
       InterventionAction,
@@ -50,6 +54,8 @@ import { LearnersController } from './learners.controller.js';
       Message,
       OrganisationMembership,
       User,
+      // F2.2.1 AC5 — the exported PDF names the provider.
+      Organisation,
     ]),
   ],
   controllers: [LearnersController],
@@ -62,6 +68,11 @@ import { LearnersController } from './learners.controller.js';
     LearnerProfileService,
     LearnerMeSummaryService,
   ],
-  exports: [LearnerDocumentsService, LearnerMetricsService],
+  exports: [
+    LearnerDocumentsService,
+    LearnerMetricsService,
+    // F2.2.1 AC5 — consumed by PdfGenerationProcessor in the worker module.
+    LearnerCohortService,
+  ],
 })
 export class LearnersModule {}

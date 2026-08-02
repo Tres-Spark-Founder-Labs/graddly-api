@@ -1,6 +1,9 @@
 import { Test } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
+import { PdfDispatchService } from '../pdf/pdf-dispatch.service.js';
 import { OtjProgressMetricsService } from '../reporting/otj-progress-metrics.service.js';
 import { ReportingPortalService } from '../reporting/reporting-portal.service.js';
 
@@ -16,6 +19,9 @@ describe('LearnerCohortService', () => {
     loadTutorNames: jest.fn(),
   };
   const otjMetricsService = { percentForEnrolment: jest.fn() };
+  // F2.2.1 AC5 — the PDF export names the org and queues a job.
+  const organisationRepo = { findOne: jest.fn() };
+  const pdfDispatch = { enqueue: jest.fn() };
 
   let service: LearnerCohortService;
 
@@ -31,6 +37,11 @@ describe('LearnerCohortService', () => {
         { provide: ReportingPortalService, useValue: portalService },
         { provide: LearnerMetricsService, useValue: metricsService },
         { provide: OtjProgressMetricsService, useValue: otjMetricsService },
+        {
+          provide: getRepositoryToken(Organisation),
+          useValue: organisationRepo,
+        },
+        { provide: PdfDispatchService, useValue: pdfDispatch },
       ],
     }).compile();
 

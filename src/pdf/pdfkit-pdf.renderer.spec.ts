@@ -207,6 +207,110 @@ describe('PdfKitPdfRenderer', () => {
     expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
   });
 
+  /** F2.2.1 AC5 — the cohort table as a PDF. */
+  it('renderLearnerCohort returns a PDF buffer', async () => {
+    const buffer = await renderer.renderLearnerCohort({
+      organisationName: 'Northstar Training',
+      filterSummary: 'status At Risk, EPA in 2026-09',
+      totalCount: 1,
+      statusCounts: [{ label: 'At Risk', count: 1 }],
+      rows: [
+        {
+          learnerName: 'Amara Diallo',
+          employerName: 'Midlands Engineering Ltd',
+          standardTitle: 'Engineering Technician',
+          startDate: '2025-09-01',
+          otjPercent: 62,
+          nextReviewDate: '2026-09-15',
+          epaDate: '2026-12-01',
+          statusLabel: 'At Risk',
+          tutorName: 'Priya Shah',
+        },
+      ],
+      generatedAt: '2026-08-01T09:00:00.000Z',
+    });
+    expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+  });
+
+  /**
+   * Every nullable column at once. "—" rather than 0 or a blank: an
+   * apprentice with no logged hours has not achieved 0% off-the-job, and a
+   * blank cell reads as a rendering bug.
+   */
+  it('renderLearnerCohort handles a row with nothing recorded', async () => {
+    const buffer = await renderer.renderLearnerCohort({
+      organisationName: 'Northstar Training',
+      filterSummary: null,
+      totalCount: 1,
+      statusCounts: [],
+      rows: [
+        {
+          learnerName: 'New Starter',
+          employerName: null,
+          standardTitle: 'Engineering Technician',
+          startDate: null,
+          otjPercent: null,
+          nextReviewDate: null,
+          epaDate: null,
+          statusLabel: 'On Track',
+          tutorName: null,
+        },
+      ],
+      generatedAt: '2026-08-01T09:00:00.000Z',
+    });
+    expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+  });
+
+  it('renderLearnerCohort handles an empty cohort', async () => {
+    const buffer = await renderer.renderLearnerCohort({
+      organisationName: 'Northstar Training',
+      filterSummary: 'status Withdrawn',
+      totalCount: 0,
+      statusCounts: [],
+      rows: [],
+      generatedAt: '2026-08-01T09:00:00.000Z',
+    });
+    expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+  });
+
+  /**
+   * F2.2.1 AC4 — "table loads within 2 seconds for up to 1,000 learner
+   * records". This pins the rendering half of that budget: a thousand rows
+   * across ~40 landscape pages, each repeating the header.
+   *
+   * It does not measure the query or the network, which are the other two
+   * thirds and depend on the client's environment — but a renderer that goes
+   * quadratic on row count would fail here rather than in front of a provider.
+   */
+  it('renders a 1,000-learner cohort well inside the AC4 budget', async () => {
+    const startedAt = Date.now();
+    const buffer = await renderer.renderLearnerCohort({
+      organisationName: 'Northstar Training',
+      filterSummary: null,
+      totalCount: 1000,
+      statusCounts: [
+        { label: 'On Track', count: 820 },
+        { label: 'At Risk', count: 180 },
+      ],
+      rows: Array.from({ length: 1000 }, (_, i) => ({
+        learnerName: `Learner Number ${i + 1}`,
+        employerName: `Employer ${i % 40}`,
+        standardTitle: 'Engineering Technician Level 3',
+        startDate: '2025-09-01',
+        otjPercent: i % 101,
+        nextReviewDate: '2026-09-15',
+        epaDate: '2026-12-01',
+        statusLabel: i % 5 === 0 ? 'At Risk' : 'On Track',
+        tutorName: `Tutor ${i % 12}`,
+      })),
+      generatedAt: '2026-08-01T09:00:00.000Z',
+    });
+    const elapsed = Date.now() - startedAt;
+
+    expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+    expect(elapsed).toBeLessThan(2000);
+  }, 30000);
+
   it('embedSignature returns a PDF buffer without a valid PNG', async () => {
     const unsigned = await renderer.renderHelloPdf();
     const signed = await renderer.embedSignature(

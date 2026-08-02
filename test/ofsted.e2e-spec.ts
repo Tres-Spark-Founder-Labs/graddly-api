@@ -19,6 +19,7 @@ import {
 import { findInvitationAcceptTokenForInvitationId } from './helpers/invitation-accept-redis.js';
 import { processEvidencePackJobInApp } from './helpers/process-evidence-pack-job.js';
 import { processPdfJobInApp } from './helpers/process-pdf-job.js';
+import { createE2ePgClient } from './helpers/rls-db.js';
 
 describe('OfstedController (e2e)', () => {
   let app: INestApplication<App>;
@@ -158,6 +159,32 @@ describe('OfstedController (e2e)', () => {
     expect(pack.status).toBe(EvidencePackJobStatus.COMPLETED);
     expect(pack.outputKey).toContain('/export/');
     expect(pack.downloadUrl).toBeTruthy();
+
+    /**
+     * F2.1.4 AC1 — every EIF theme is accounted for in the manifest, not just
+     * the ones that happened to have evidence. Two of the seven
+     * (`curriculum_intent`, `safeguarding`) had no content source at all
+     * until this feature, so the pack reported a score for them with nothing
+     * behind it.
+     */
+    const manifest = (
+      packStatusRes.body as {
+        data: { manifest: Record<string, number> };
+      }
+    ).data.manifest;
+
+    for (const slug of [
+      'curriculum_intent',
+      'curriculum_implementation',
+      'curriculum_impact',
+      'behaviour_attitudes',
+      'personal_development',
+      'leadership_management',
+      'safeguarding',
+    ]) {
+      expect(manifest).toHaveProperty(slug);
+    }
+    expect(manifest).toHaveProperty('custom');
   });
 
   /**
@@ -291,5 +318,182 @@ describe('OfstedController (e2e)', () => {
     ).data;
     expect(job.status).toBe(PdfJobStatus.COMPLETED);
     expect(job.outputKey).toContain('/export/');
+  });
+
+  /**
+   * F2.1.3 — generate, edit, export as Word, lock, and prove the lock holds
+   * at the database rather than only in the service.
+   */
+  it('generates, edits, exports and locks a SAR', async () => {
+    const suffix = Date.now();
+    const owner = await createVerifiedUser(app, {
+      email: `sar-owner-${suffix}@example.com`,
+    });
+
+    const orgRes = await request(app.getHttpServer())
+      .post('/api/v1/organisations')
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send(buildOrgPayload(`SAR Org ${suffix}`))
+      .expect(201);
+
+    const organisationId = (orgRes.body as { data: { id: string } }).data.id;
+
+    const { accessToken: ownerToken } = await loginVerifiedUser(
+      app,
+      owner.email,
+      owner.password,
+    );
+
+    // AC1 — the draft, pre-populated.
+    const generateRes = await request(app.getHttpServer())
+      .post('/api/v1/sar-reports')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ academicYear: '2025-26' })
+      .expect(201);
+
+    expectSuccessEnvelope(generateRes.body);
+    const draft = (
+      generateRes.body as {
+        data: {
+          id: string;
+          sections: { key: string; narrative: string; grade: string | null }[];
+          metrics: Record<string, unknown>;
+          editable: boolean;
+        };
+      }
+    ).data;
+
+    const sarId = draft.id;
+    expect(draft.editable).toBe(true);
+    expect(draft.sections.length).toBeGreaterThan(0);
+    // The platform supplies evidence, never the judgement.
+    expect(draft.sections.every((s) => s.grade === null)).toBe(true);
+    expect(draft.metrics).toHaveProperty('eifOverallPercent');
+    expect(draft.metrics).toHaveProperty('reviewComplianceRate');
+    expect(draft.metrics).toHaveProperty('withdrawalRate');
+
+    // Generating again returns the same draft rather than a second one.
+    const regenerateRes = await request(app.getHttpServer())
+      .post('/api/v1/sar-reports')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ academicYear: '2025-26' })
+      .expect(201);
+    expect((regenerateRes.body as { data: { id: string } }).data.id).toBe(
+      sarId,
+    );
+
+    // AC3 — editable in the platform.
+    const updateRes = await request(app.getHttpServer())
+      .patch(`/api/v1/sar-reports/${sarId}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        sections: [
+          {
+            key: 'safeguarding',
+            narrative: 'Our safeguarding culture is strong.',
+            grade: 'good',
+          },
+        ],
+      })
+      .expect(200);
+
+    const updated = (
+      updateRes.body as {
+        data: { sections: { key: string; narrative: string; grade: string }[] };
+      }
+    ).data;
+    const safeguarding = updated.sections.find((s) => s.key === 'safeguarding');
+    expect(safeguarding?.narrative).toBe('Our safeguarding culture is strong.');
+    expect(safeguarding?.grade).toBe('good');
+
+    // AC3 — a real Word document, not something merely named .docx.
+    const docxRes = await request(app.getHttpServer())
+      .get(`/api/v1/sar-reports/${sarId}/export`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .buffer()
+      .parse((res, cb) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => cb(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+
+    expect(docxRes.headers['content-type']).toContain('wordprocessingml');
+    expect((docxRes.body as Buffer).subarray(0, 2).toString()).toBe('PK');
+
+    // AC4 — lock it.
+    const lockRes = await request(app.getHttpServer())
+      .post(`/api/v1/sar-reports/${sarId}/lock`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({})
+      .expect(201);
+
+    const locked = (
+      lockRes.body as {
+        data: { status: string; lockedAt: string; editable: boolean };
+      }
+    ).data;
+    expect(locked.status).toBe('locked');
+    expect(locked.lockedAt).toBeTruthy();
+    expect(locked.editable).toBe(false);
+
+    // Editing a locked SAR is refused by the service.
+    await request(app.getHttpServer())
+      .patch(`/api/v1/sar-reports/${sarId}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ sections: [{ key: 'safeguarding', narrative: 'changed' }] })
+      .expect(409);
+
+    // …and by the database, which is the half that actually makes it a
+    // historical record. A service check is one forgotten save() away from
+    // being bypassed; this is not.
+    const pg = createE2ePgClient();
+    await pg.connect();
+    try {
+      await expect(
+        pg.query(
+          `UPDATE sar_reports SET "academicYear" = '2099-00' WHERE id = $1`,
+          [sarId],
+        ),
+      ).rejects.toThrow(/locked and cannot be modified/);
+    } finally {
+      await pg.end();
+    }
+
+    // A member may read the SAR and download it, but not write one.
+    const tutor = await createVerifiedUser(app, {
+      email: `sar-tutor-${suffix}@example.com`,
+    });
+    const inviteRes = await request(app.getHttpServer())
+      .post('/api/v1/invitations')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ email: tutor.email, role: 'member' })
+      .expect(201);
+    const invitationId = (inviteRes.body as { data: { id: string } }).data.id;
+    const acceptToken =
+      await findInvitationAcceptTokenForInvitationId(invitationId);
+    await request(app.getHttpServer())
+      .post('/api/v1/invitations/accept')
+      .set('Authorization', `Bearer ${tutor.accessToken}`)
+      .send({ token: acceptToken })
+      .expect(200);
+    const { accessToken: tutorToken } = await loginVerifiedUser(
+      app,
+      tutor.email,
+      tutor.password,
+    );
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/sar-reports/${sarId}`)
+      .set('Authorization', `Bearer ${tutorToken}`)
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post('/api/v1/sar-reports')
+      .set('Authorization', `Bearer ${tutorToken}`)
+      .send({ academicYear: '2026-27' })
+      .expect(403);
+
+    expect(organisationId).toBeTruthy();
   });
 });

@@ -257,6 +257,39 @@ export interface IQipPlanContent {
   generatedByName: string;
 }
 
+/**
+ * F2.2.1 AC5 — "table is exportable as CSV and PDF".
+ *
+ * The two exports are not interchangeable and are not meant to be. CSV is for
+ * someone who is going to keep working with the numbers; the PDF is for
+ * someone who is going to read it in a meeting or attach it to a report, so
+ * it carries the applied filters on its face. A cohort table with no record
+ * of what it was filtered to is a page of numbers nobody can check.
+ */
+export interface ILearnerCohortContent {
+  organisationName: string;
+  logoBytes?: Buffer | null;
+
+  /** Human-readable description of the filters, or null when unfiltered. */
+  filterSummary: string | null;
+  totalCount: number;
+  /** Counts per status badge, so the reader sees the shape before the rows. */
+  statusCounts: Array<{ label: string; count: number }>;
+
+  rows: Array<{
+    learnerName: string;
+    employerName: string | null;
+    standardTitle: string;
+    startDate: string | null;
+    otjPercent: number | null;
+    nextReviewDate: string | null;
+    epaDate: string | null;
+    statusLabel: string;
+    tutorName: string | null;
+  }>;
+  generatedAt: string;
+}
+
 export interface IPdfRenderer {
   renderHelloPdf(): Promise<Buffer>;
   renderReviewSnapshot(content: IReviewSnapshotContent): Promise<Buffer>;
@@ -274,6 +307,7 @@ export interface IPdfRenderer {
     content: IProviderComparisonContent,
   ): Promise<Buffer>;
   renderQipPlan(content: IQipPlanContent): Promise<Buffer>;
+  renderLearnerCohort(content: ILearnerCohortContent): Promise<Buffer>;
   embedSignature(
     unsignedPdf: Buffer,
     signaturePng: Buffer,

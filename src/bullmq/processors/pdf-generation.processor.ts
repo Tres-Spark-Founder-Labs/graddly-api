@@ -16,6 +16,8 @@ import {
   setCurrentUserId,
 } from '../../common/context/correlation-id-context.js';
 import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
+import { ListLearnerCohortQueryDto } from '../../learners/dto/list-learner-cohort-query.dto.js';
+import { LearnerCohortService } from '../../learners/learner-cohort.service.js';
 import { LevyTransfer } from '../../levy-exchange/entities/levy-transfer.entity.js';
 import { LevyTransferStatus } from '../../levy-exchange/enums/levy-transfer-status.enum.js';
 import { QipActionsService } from '../../ofsted/qip-actions.service.js';
@@ -78,6 +80,11 @@ export class PdfGenerationProcessor extends WorkerHost {
     private readonly levyTransferRepo: Repository<LevyTransfer>,
     @InjectRepository(Organisation)
     private readonly organisationRepo: Repository<Organisation>,
+    // F2.2.1 AC5. Appended last on purpose: `test/helpers/process-pdf-job.ts`
+    // builds this class by hand with positional arguments, so inserting a
+    // parameter mid-list silently shifts every one after it. That has already
+    // cost seven e2e suites once.
+    private readonly learnerCohortService: LearnerCohortService,
   ) {
     super();
   }
@@ -205,6 +212,26 @@ export class PdfGenerationProcessor extends WorkerHost {
           logoBytes,
         });
         filename = `quality-improvement-plan-${organisationId}.pdf`;
+      } else if (template === PdfJobTemplate.LEARNER_COHORT) {
+        // F2.2.1 AC5. The filters travelled with the job, so the document is
+        // the table the provider exported rather than their whole cohort.
+        const content = await this.learnerCohortService.buildPdfContent(
+          organisationId,
+          (job.data.cohortQuery ?? {}) as unknown as ListLearnerCohortQueryDto,
+        );
+        const logoBytes = await this.fetchLogoBytes(
+          (
+            await this.organisationRepo.findOne({
+              where: { id: organisationId },
+              select: ['logoUrl'],
+            })
+          )?.logoUrl ?? null,
+        );
+        buffer = await this.pdfService.renderLearnerCohort({
+          ...content,
+          logoBytes,
+        });
+        filename = `learner-cohort-${organisationId}.pdf`;
       } else {
         buffer = await this.pdfService.renderHelloPdf();
         filename = `hello-${jobId}.pdf`;

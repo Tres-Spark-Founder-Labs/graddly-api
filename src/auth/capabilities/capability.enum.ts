@@ -36,6 +36,9 @@ export enum Capability {
   /** Mark a QIP action complete and attach its evidence. */
   COMPLETE_QIP_ACTION = 'complete_qip_action',
 
+  /** Write, edit and lock the Self-Assessment Report. */
+  MANAGE_SAR = 'manage_sar',
+
   /** Record and sign off a learner review. */
   RECORD_REVIEW = 'record_review',
 

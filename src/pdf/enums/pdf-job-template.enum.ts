@@ -10,4 +10,6 @@ export enum PdfJobTemplate {
   PROVIDER_COMPARISON = 'provider_comparison',
   /** F2.1.2 AC5 — the Quality Improvement Plan as an inspection document. */
   QIP_PLAN = 'qip_plan',
+  /** F2.2.1 AC5 — the full learner cohort table as a PDF. */
+  LEARNER_COHORT = 'learner_cohort',
 }

@@ -38,6 +38,7 @@ import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
+import { PdfJobResponseDto } from '../pdf/dto/pdf-job-response.dto.js';
 
 import { CreateInterventionActionDto } from './dto/create-intervention-action.dto.js';
 import { LearnerDocumentItemDto } from './dto/learner-document-item.dto.js';
@@ -230,6 +231,63 @@ export class LearnersController {
     }
 
     return result;
+  }
+
+  /**
+   * F2.2.1 AC2 — option lists for the employer, standard and tutor filters.
+   *
+   * Declared before `cohort/export` and after `cohort` for readability; the
+   * paths are distinct so ordering does not matter.
+   */
+  @Get('cohort/filter-options')
+  @ResponseMessage('Cohort filter options retrieved successfully')
+  @ApiOperation({
+    summary: 'Employer, standard and tutor options for the cohort filters',
+    description:
+      'F2.2.1 AC2. Derived from the provider’s own cohort, so every option ' +
+      'matches at least one learner rather than listing the whole table.',
+  })
+  @ApiOkResponse({ description: 'Filter options' })
+  cohortFilterOptions(@CurrentUser() user: AuthenticatedUser) {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.cohortService.getFilterOptions(user);
+  }
+
+  /**
+   * F2.2.1 AC5 — the PDF half of "exportable as CSV and PDF".
+   *
+   * Queued rather than served inline, unlike the CSV: a thousand-row
+   * landscape table with a repeated header is real rendering work, and this
+   * is the same pipeline every other PDF on the platform uses.
+   *
+   * Takes the same query as the table so the document matches the screen it
+   * was exported from.
+   */
+  @Post('cohort/export')
+  @ResponseMessage('Cohort PDF export queued successfully')
+  @ApiOperation({
+    summary: 'Queue the learner cohort table as a PDF',
+    description:
+      'F2.2.1 AC5. Accepts the same filters as GET /learners/cohort and ' +
+      'prints them on the document. Poll `GET /pdf/jobs/{jobId}`.',
+  })
+  @ApiCreatedResponse({
+    description: 'Queued PDF generation job',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(PdfJobResponseDto) },
+      },
+    },
+  })
+  exportCohortPdf(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ListLearnerCohortQueryDto,
+  ): Promise<PdfJobResponseDto> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.cohortService.exportPdf(user, query);
   }
 
   @Get('intervention-queue')

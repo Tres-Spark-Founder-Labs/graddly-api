@@ -13,6 +13,7 @@ import { PdfModule } from '../pdf/pdf.module.js';
 import { KsEvidenceItem } from '../portfolio/entities/ks-evidence-item.entity.js';
 import { Programme } from '../programmes/entities/programme.entity.js';
 import { RedisModule } from '../redis/redis.module.js';
+import { OutcomeMetricsModule } from '../reporting/outcome-metrics.module.js';
 import { Review } from '../reviews/entities/review.entity.js';
 import { StorageModule } from '../storage/storage.module.js';
 import { User } from '../users/entities/user.entity.js';
@@ -27,6 +28,7 @@ import { EvidencePackJob } from './entities/evidence-pack-job.entity.js';
 import { ProgrammeDocument } from './entities/programme-document.entity.js';
 import { QipAction } from './entities/qip-action.entity.js';
 import { SafeguardingChecklistItem } from './entities/safeguarding-checklist-item.entity.js';
+import { SarReport } from './entities/sar-report.entity.js';
 import { EvidencePackBuilderService } from './evidence-pack-builder.service.js';
 import { EvidencePackDispatchService } from './evidence-pack-dispatch.service.js';
 import { EvidencePackJobsController } from './evidence-pack-jobs.controller.js';
@@ -37,6 +39,9 @@ import { QipActionsController } from './qip-actions.controller.js';
 import { QipActionsService } from './qip-actions.service.js';
 import { SafeguardingChecklistController } from './safeguarding-checklist.controller.js';
 import { SafeguardingChecklistService } from './safeguarding-checklist.service.js';
+import { SarDocxRenderer } from './sar-docx.renderer.js';
+import { SarReportsController } from './sar-reports.controller.js';
+import { SarReportsService } from './sar-reports.service.js';
 
 @Module({
   imports: [
@@ -64,7 +69,15 @@ import { SafeguardingChecklistService } from './safeguarding-checklist.service.j
       Organisation,
       // F2.1.2 AC5 — the exported plan names its owners, not their UUIDs.
       User,
+      // F2.1.3 — Self-Assessment Report drafts.
+      SarReport,
     ]),
+    // F2.1.3 AC1 — the SAR's learner-outcome, review-compliance and
+    // withdrawal figures are the same ones the employer's provider
+    // comparison shows, computed by the same services. Imported from the
+    // small OutcomeMetricsModule rather than ReportingModule, which imports
+    // this module and would close a cycle.
+    OutcomeMetricsModule,
   ],
   controllers: [
     EifScoresController,
@@ -72,6 +85,7 @@ import { SafeguardingChecklistService } from './safeguarding-checklist.service.j
     EvidencePackJobsController,
     SafeguardingChecklistController,
     ProgrammeDocumentsController,
+    SarReportsController,
   ],
   providers: [
     EifScoreCacheService,
@@ -84,6 +98,8 @@ import { SafeguardingChecklistService } from './safeguarding-checklist.service.j
     EvidencePackDispatchService,
     EvidencePackJobsService,
     EvidencePackBuilderService,
+    SarReportsService,
+    SarDocxRenderer,
   ],
   exports: [
     EifScoreCacheService,

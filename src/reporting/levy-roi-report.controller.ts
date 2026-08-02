@@ -32,6 +32,7 @@ import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
+import { SkipResponseEnvelope } from '../common/interceptors/skip-response-envelope.decorator.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { OrganisationRole } from '../organisations/organisation-role.enum.js';
 import { PdfJobResponseDto } from '../pdf/dto/pdf-job-response.dto.js';
@@ -185,6 +186,12 @@ export class LevyRoiReportController {
       'enrolment status — never self-reported by the provider (AC2). Blank ' +
       'cells mean a metric cannot be calculated yet, not zero.',
   })
+  // F1.4.2 fix. Without this the global interceptor wraps the CSV string in
+  // the JSON success envelope, so the "download" saves a .csv file whose
+  // first line is `{"message":"Success","data":"Provider,Active…`. The
+  // interceptor's only other escape hatch is a hardcoded `/audit/export` URL
+  // check, which this route does not match.
+  @SkipResponseEnvelope()
   @ApiProduces('text/csv')
   @ApiOkResponse({
     description: 'CSV file',

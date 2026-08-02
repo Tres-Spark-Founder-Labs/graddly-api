@@ -91,6 +91,28 @@ describe('LevyRoiReportController (e2e)', () => {
     expectLevyRoiBreakdownEntryResource(res.body.data[0]);
   });
 
+  /**
+   * F1.4.2 AC3. The route existed and returned 200, but the global response
+   * interceptor wrapped the CSV string in the JSON success envelope, so the
+   * downloaded file began `{"message":"Success","data":"Provider,Active…` —
+   * a .csv that no spreadsheet opens. Nothing caught it because a 200 with a
+   * body looks like success, and the route had no e2e coverage at all.
+   */
+  it('GET /reporting/levy-roi/provider-comparison.csv returns raw CSV, not an envelope', async () => {
+    const ctx = await createEmployerReportingContext(app, 'comparison-csv');
+
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/reporting/levy-roi/provider-comparison.csv')
+      .set(ctx.authHeaders)
+      .expect(200);
+
+    expect(res.headers['content-type']).toContain('text/csv');
+    expect(res.headers['content-disposition']).toContain('attachment');
+    expect(res.text.startsWith('{')).toBe(false);
+    // First cell of the header row, so this is a real CSV document.
+    expect(res.text.split('\n')[0]).toMatch(/^[A-Za-z]/);
+  });
+
   it('POST /reporting/levy-roi/export queues and completes PDF job', async () => {
     const ctx = await createEmployerReportingContext(app, 'export');
 

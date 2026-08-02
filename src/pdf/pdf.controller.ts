@@ -22,6 +22,7 @@ import {
   ApiUnauthorizedResponse,
   getSchemaPath,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { ActiveOrganisationGuard } from '../auth/guards/active-organisation.guard.js';
@@ -85,7 +86,22 @@ export class PdfController {
     return this.pdfJobsService.create(user, dto);
   }
 
+  /**
+   * Polling this route is the documented way to consume an async export, so
+   * it should not share the ordinary request budget.
+   *
+   * At the default 100/minute a single 2-second poll spends 30 of them, and a
+   * second export plus normal page traffic tipped real users into
+   * `429 ThrottlerException` — the poll then fails, the job never reads as
+   * complete, and the button waits forever on a PDF that is sitting ready in
+   * storage.
+   *
+   * A single indexed read by primary key is cheap enough to allow generously.
+   * The client also backs off and gives up after three minutes, so this
+   * ceiling is a safety net rather than the mechanism.
+   */
   @Get('jobs/:id')
+  @Throttle({ default: { ttl: 60_000, limit: 600 } })
   @ResponseMessage('PDF job retrieved successfully')
   @ApiOperation({ summary: 'Get PDF job status (poll until completed)' })
   @ApiOkResponse({

@@ -1,12 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
+import { User } from '../users/entities/user.entity.js';
 
 import { ListMessageThreadsQueryDto } from './dto/list-message-threads-query.dto.js';
 import { MessageThreadResponseDto } from './dto/message-thread-response.dto.js';
+import { MessageThreadSummaryDto } from './dto/message-thread-summary.dto.js';
 import { MessagingUnreadCountResponseDto } from './dto/messaging-unread-count-response.dto.js';
 import { MessageThreadRead } from './entities/message-thread-read.entity.js';
 import { MessageThread } from './entities/message-thread.entity.js';
@@ -15,6 +17,21 @@ import { MessageThreadParty } from './enums/message-thread-party.enum.js';
 import { MessagingAccessService } from './messaging-access.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
+
+const PREVIEW_MAX_LENGTH = 160;
+
+/**
+ * Long enough to recognise which conversation this is, short enough that a
+ * profile carrying two of them is not carrying two whole messages. The ellipsis
+ * is part of the contract: a caller must be able to tell a truncated preview
+ * from a short message, or it will render half a sentence as the whole one.
+ */
+function buildPreview(body: string): string {
+  const collapsed = body.replace(/\s+/g, ' ').trim();
+  return collapsed.length > PREVIEW_MAX_LENGTH
+    ? `${collapsed.slice(0, PREVIEW_MAX_LENGTH).trimEnd()}…`
+    : collapsed;
+}
 
 @Injectable()
 export class MessageThreadsService {
@@ -27,6 +44,8 @@ export class MessageThreadsService {
     private readonly messageRepo: Repository<Message>,
     @InjectRepository(Enrolment)
     private readonly enrolmentRepo: Repository<Enrolment>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     private readonly accessService: MessagingAccessService,
   ) {}
 
@@ -74,6 +93,81 @@ export class MessageThreadsService {
 
     return Promise.all(
       accessible.map((thread) => this.toResponse(thread, user.id)),
+    );
+  }
+
+  /**
+   * F2.2.4 AC5 — the learner profile's communication panel.
+   *
+   * The profile used to return a bare array of thread UUIDs. Nothing could be
+   * rendered from that: no name, no date, no preview, no unread count. It was
+   * a door with no handle — the data existed, the screen could not open it.
+   *
+   * Kept here rather than in the profile service because messaging owns what a
+   * thread means; the profile just embeds the answer. Unread and last-message
+   * lookups run per thread, which is safe because the unique index on
+   * (enrolmentId, counterpartyParty) caps an enrolment at two threads — one
+   * for the tutor, one for the employer manager.
+   */
+  async listSummariesForEnrolment(
+    user: AuthenticatedUser,
+    enrolmentId: string,
+  ): Promise<MessageThreadSummaryDto[]> {
+    const threads = await this.threadRepo.find({
+      where: {
+        organisationId: user.organisationId!,
+        enrolmentId,
+        isDeleted: false,
+      },
+      order: { createdAt: 'ASC' },
+    });
+
+    const accessible = threads.filter((thread) =>
+      this.accessService.canRead(thread, user),
+    );
+    if (accessible.length === 0) {
+      return [];
+    }
+
+    const counterparties = await this.userRepo.find({
+      where: { id: In(accessible.map((t) => t.counterpartyUserId)) },
+      select: ['id', 'firstName', 'lastName'],
+    });
+    const nameById = new Map(
+      counterparties.map((u) => [
+        u.id,
+        `${u.firstName} ${u.lastName}`.trim() || null,
+      ]),
+    );
+
+    return Promise.all(
+      accessible.map(async (thread) => {
+        const [lastMessage, messageCount, unreadCount] = await Promise.all([
+          this.messageRepo.findOne({
+            where: { threadId: thread.id, isDeleted: false },
+            order: { createdAt: 'DESC' },
+          }),
+          this.messageRepo.count({
+            where: { threadId: thread.id, isDeleted: false },
+          }),
+          this.countUnreadForUser(thread, user.id),
+        ]);
+
+        return {
+          id: thread.id,
+          counterpartyParty: thread.counterpartyParty,
+          counterpartyUserId: thread.counterpartyUserId,
+          counterpartyName: nameById.get(thread.counterpartyUserId) ?? null,
+          messageCount,
+          unreadCount,
+          lastMessageAt: lastMessage?.createdAt.toISOString() ?? null,
+          lastMessagePreview: lastMessage
+            ? buildPreview(lastMessage.body)
+            : null,
+          lastMessageSenderUserId: lastMessage?.senderUserId ?? null,
+          archivedAt: thread.archivedAt?.toISOString() ?? null,
+        };
+      }),
     );
   }
 

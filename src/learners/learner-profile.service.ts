@@ -3,8 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { ApprenticeStatus } from '../apprentices/enums/apprentice-status.enum.js';
+import { BreakInLearningService } from '../enrolments/break-in-learning.service.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
-import { MessageThread } from '../messaging/entities/message-thread.entity.js';
+import { MessageThreadsService } from '../messaging/message-threads.service.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { OtjProgressMetricsService } from '../reporting/otj-progress-metrics.service.js';
@@ -22,6 +23,14 @@ import { LearnerMetricsService } from './learner-metrics.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 
+/**
+ * F2.2.4 AC3 vs AC7. "All sessions submitted" against "loads within two
+ * seconds": a weekly log over two years is a few hundred entries, which the
+ * profile carries comfortably. The cap exists so one pathological account
+ * cannot blow the budget, and the response says when it has bitten.
+ */
+const LEARNER_PROFILE_OTJ_LIMIT = 500;
+
 @Injectable()
 export class LearnerProfileService {
   constructor(
@@ -33,8 +42,6 @@ export class LearnerProfileService {
     private readonly signatureRepo: Repository<ReviewSignature>,
     @InjectRepository(OtjLogEntry)
     private readonly otjRepo: Repository<OtjLogEntry>,
-    @InjectRepository(MessageThread)
-    private readonly threadRepo: Repository<MessageThread>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly portalService: ReportingPortalService,
@@ -42,6 +49,8 @@ export class LearnerProfileService {
     private readonly otjMetricsService: OtjProgressMetricsService,
     private readonly metricsService: LearnerMetricsService,
     private readonly interventionActionsService: InterventionActionsService,
+    private readonly breakInLearningService: BreakInLearningService,
+    private readonly messageThreadsService: MessageThreadsService,
   ) {}
 
   async getProfile(
@@ -67,26 +76,39 @@ export class LearnerProfileService {
       documents,
       reviews,
       otjEntries,
+      otjEntryCount,
       threads,
       otjPercent,
       tutor,
       manager,
       recentInterventions,
+      openBreak,
     ] = await Promise.all([
       this.documentsService.listForEnrolment(organisationId, enrolmentId),
       this.reviewRepo.find({
         where: { organisationId, enrolmentId, isDeleted: false },
         order: { scheduledAt: 'DESC' },
       }),
+      /**
+       * F2.2.4 AC3 — "all sessions submitted", not the most recent twenty.
+       *
+       * The cap is raised rather than removed. An apprenticeship logging
+       * weekly for two years produces a few hundred entries, which the
+       * profile can carry; an unbounded read would put the AC7 two-second
+       * budget at the mercy of the worst-behaved account on the platform.
+       * `otjEntryCount` tells the client when it is seeing a truncated list,
+       * so the screen can say so rather than quietly showing less.
+       */
       this.otjRepo.find({
         where: { organisationId, enrolmentId, isDeleted: false },
         order: { loggedDate: 'DESC' },
-        take: 20,
+        take: LEARNER_PROFILE_OTJ_LIMIT,
       }),
-      this.threadRepo.find({
+      this.otjRepo.count({
         where: { organisationId, enrolmentId, isDeleted: false },
-        select: ['id'],
       }),
+      // F2.2.4 AC5 — summaries, not bare ids. See the service method for why.
+      this.messageThreadsService.listSummariesForEnrolment(user, enrolmentId),
       this.otjMetricsService.percentForEnrolment(enrolment),
       enrolment.tutorUserId
         ? this.userRepo.findOne({ where: { id: enrolment.tutorUserId } })
@@ -100,6 +122,9 @@ export class LearnerProfileService {
         organisationId,
         enrolmentId,
       ),
+      // F2.2.4 AC6 — in the same parallel batch rather than sequenced after
+      // it, so the profile's AC7 two-second budget is unaffected.
+      this.breakInLearningService.findOpen(organisationId, enrolmentId),
     ]);
 
     const reviewItems = await Promise.all(
@@ -161,6 +186,9 @@ export class LearnerProfileService {
         plannedStartDate: enrolment.plannedStartDate,
         plannedEndDate: enrolment.plannedEndDate,
         epaDate: enrolment.epaDate,
+        // F2.2.4 AC1 — who is assessing, not just when.
+        epaOrganisationName: enrolment.epaOrganisationName,
+        epaOrganisationUkprn: enrolment.epaOrganisationUkprn,
       },
       tutor: {
         userId: enrolment.tutorUserId,
@@ -169,19 +197,36 @@ export class LearnerProfileService {
       reviews: reviewItems,
       otj: {
         otjPercent,
+        totalCount: otjEntryCount,
+        truncated: otjEntryCount > otjEntries.length,
         recentEntries: otjEntries.map((entry) => ({
           id: entry.id,
           loggedDate: entry.loggedDate,
           minutes: entry.minutes,
           status: entry.status,
+          activityName: entry.activityName,
+          // F2.2.4 AC3 — the tutor's flag travels with the entry, so the
+          // profile can show which sessions are under discussion.
+          flaggedAt: entry.flaggedAt ? entry.flaggedAt.toISOString() : null,
+          flagNote: entry.flagNote,
         })),
       },
       documents,
-      messageThreadIds: threads.map((thread) => thread.id),
+      messageThreads: threads,
       breakInLearning: {
+        /**
+         * F2.2.4 AC6. `reason` and `expectedReturnDate` were hardcoded `null`
+         * here because nothing stored them — the DTO promised two fields that
+         * could never hold a value. They now come from the open break record.
+         *
+         * `active` still reads the apprentice status rather than the break
+         * row: the status is what the rest of the platform acts on, so a
+         * disagreement between the two should surface as "paused with no
+         * break recorded" rather than be hidden by silently preferring one.
+         */
         active: apprentice.status === ApprenticeStatus.PAUSED,
-        reason: null,
-        expectedReturnDate: null,
+        reason: openBreak?.reason ?? null,
+        expectedReturnDate: openBreak?.expectedReturnDate ?? null,
         recentInterventions,
       },
     };

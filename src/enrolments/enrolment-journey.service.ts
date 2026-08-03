@@ -74,8 +74,25 @@ export class EnrolmentJourneyService {
     dto: UpdateEnrolmentJourneyDto,
   ): Promise<EnrolmentJourneyResponseDto> {
     const enrolment = await this.enrolmentsService.findOne(user, enrolmentId);
+
+    let changed = false;
     if (dto.epaDate !== undefined) {
       enrolment.epaDate = dto.epaDate;
+      changed = true;
+    }
+    // F2.2.4 AC1 — the EPAO, set at the same point in the journey as the date.
+    // Empty string clears, so a wrongly-entered EPAO can be removed rather
+    // than only overwritten.
+    if (dto.epaOrganisationName !== undefined) {
+      enrolment.epaOrganisationName = dto.epaOrganisationName.trim() || null;
+      changed = true;
+    }
+    if (dto.epaOrganisationUkprn !== undefined) {
+      enrolment.epaOrganisationUkprn = dto.epaOrganisationUkprn.trim() || null;
+      changed = true;
+    }
+
+    if (changed) {
       await this.enrolmentRepo.save(enrolment);
     }
     return this.buildJourney(enrolment);
@@ -137,6 +154,9 @@ export class EnrolmentJourneyService {
     return {
       enrolmentId: enrolment.id,
       epaDate: enrolment.epaDate,
+      // F2.2.4 AC1 — echoed back so a save can be seen to have landed.
+      epaOrganisationName: enrolment.epaOrganisationName,
+      epaOrganisationUkprn: enrolment.epaOrganisationUkprn,
       daysToEpa: this.computeDaysToEpa(enrolment.epaDate),
       epaCountdownBand: this.computeEpaCountdownBand(enrolment.epaDate),
       milestones,

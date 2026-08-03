@@ -133,6 +133,23 @@ export class Enrolment extends BaseEntity {
   @Column({ type: 'date', nullable: true })
   epaDate!: string | null;
 
+  /**
+   * F2.2.4 AC1 — the end-point assessment organisation.
+   *
+   * Free text plus UKPRN rather than a foreign key: EPAOs are external bodies
+   * on the ESFA register, and Gradlly holds no organisation record for them.
+   * The UKPRN is how one is identified on the ILR; the name alone is
+   * ambiguous, since several trading names can map to one registration.
+   *
+   * Nullable because an EPAO is usually appointed part-way through rather
+   * than at enrolment.
+   */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  epaOrganisationName!: string | null;
+
+  @Column({ type: 'varchar', length: 8, nullable: true })
+  epaOrganisationUkprn!: string | null;
+
   @Column({
     type: 'enum',
     enum: OtjPaceAlertLevel,

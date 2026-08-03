@@ -45,6 +45,8 @@ import { ResponseMessage } from '../common/interceptors/response-message.decorat
 import { parsePortalType } from '../common/utils/parse-portal-type.util.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
+import { BreakInLearningService } from './break-in-learning.service.js';
+import { BreakInLearningResponseDto } from './dto/break-in-learning-response.dto.js';
 import { CounterpartOrganisationLookupResponseDto } from './dto/counterpart-organisation-lookup-response.dto.js';
 import { CreateEnrolmentDto } from './dto/create-enrolment.dto.js';
 import { EnrolmentJourneyResponseDto } from './dto/enrolment-journey-response.dto.js';
@@ -54,6 +56,10 @@ import { EpaOutcomeResponseDto } from './dto/epa-outcome-response.dto.js';
 import { LinkedProviderResponseDto } from './dto/linked-provider-response.dto.js';
 import { LookupCounterpartOrganisationQueryDto } from './dto/lookup-counterpart-organisation-query.dto.js';
 import { ParticipantUserOptionDto } from './dto/participant-user-option.dto.js';
+import {
+  EndBreakInLearningDto,
+  RecordBreakInLearningDto,
+} from './dto/record-break-in-learning.dto.js';
 import { RecordEpaOutcomeDto } from './dto/record-epa-outcome.dto.js';
 import { UpdateEnrolmentJourneyDto } from './dto/update-enrolment-journey.dto.js';
 import { UpdateEnrolmentOrganisationLinksDto } from './dto/update-enrolment-organisation-links.dto.js';
@@ -105,7 +111,94 @@ export class EnrolmentsController {
   constructor(
     private readonly enrolmentsService: EnrolmentsService,
     private readonly enrolmentJourneyService: EnrolmentJourneyService,
+    private readonly breakInLearningService: BreakInLearningService,
   ) {}
+
+  /**
+   * F2.2.4 AC6 — "provider can record reason, expected return date, and
+   * notify DAS".
+   *
+   * Pausing a learner used to be a bare status change: the profile advertised
+   * a reason and an expected return date and returned `null` for both, and
+   * the ESFA was never told — even though a planned break moves the expected
+   * end date and the funding schedule with it.
+   */
+  @Post(':id/break-in-learning')
+  @ResponseMessage('Break in learning recorded successfully')
+  @ApiOperation({
+    summary: 'Record a break in learning (pauses the learner, notifies DAS)',
+  })
+  @ApiCreatedResponse({
+    description: 'The recorded break',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(BreakInLearningResponseDto) },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Enrolment is not active, or already on a break',
+    type: ErrorResponseDto,
+  })
+  recordBreakInLearning(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RecordBreakInLearningDto,
+  ): Promise<BreakInLearningResponseDto> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.breakInLearningService.start(user, id, dto);
+  }
+
+  @Post(':id/break-in-learning/end')
+  @ResponseMessage('Return from break recorded successfully')
+  @ApiOperation({
+    summary: 'Record the learner returning (reactivates, notifies DAS)',
+  })
+  @ApiCreatedResponse({
+    description: 'The closed break',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(BreakInLearningResponseDto) },
+      },
+    },
+  })
+  endBreakInLearning(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: EndBreakInLearningDto,
+  ): Promise<BreakInLearningResponseDto> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.breakInLearningService.end(user, id, dto);
+  }
+
+  /** Newest first: the current break, then the history behind it. */
+  @Get(':id/break-in-learning')
+  @ResponseMessage('Breaks in learning retrieved successfully')
+  @ApiOperation({ summary: 'List breaks in learning for an enrolment' })
+  @ApiOkResponse({
+    description: 'Breaks, newest first',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(BreakInLearningResponseDto) },
+        },
+      },
+    },
+  })
+  listBreaksInLearning(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<BreakInLearningResponseDto[]> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.breakInLearningService.list(user, id);
+  }
 
   @Post()
   @ResponseMessage('Enrolment created successfully')

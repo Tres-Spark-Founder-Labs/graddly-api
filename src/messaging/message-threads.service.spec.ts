@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
+import { User } from '../users/entities/user.entity.js';
 
 import { MessageThreadRead } from './entities/message-thread-read.entity.js';
 import { MessageThread } from './entities/message-thread.entity.js';
@@ -25,8 +26,14 @@ describe('MessageThreadsService', () => {
     create: jest.fn((v: unknown) => v),
     save: jest.fn(),
   };
-  const messageRepo = { createQueryBuilder: jest.fn() };
+  const messageRepo = {
+    createQueryBuilder: jest.fn(),
+    find: jest.fn(),
+    findOne: jest.fn(),
+    count: jest.fn(),
+  };
   const enrolmentRepo = { findOne: jest.fn() };
+  const userRepo = { find: jest.fn().mockResolvedValue([]) };
   const accessService = {
     canRead: jest.fn().mockReturnValue(true),
     assertCanRead: jest.fn(),
@@ -42,6 +49,7 @@ describe('MessageThreadsService', () => {
         { provide: getRepositoryToken(MessageThreadRead), useValue: readRepo },
         { provide: getRepositoryToken(Message), useValue: messageRepo },
         { provide: getRepositoryToken(Enrolment), useValue: enrolmentRepo },
+        { provide: getRepositoryToken(User), useValue: userRepo },
         { provide: MessagingAccessService, useValue: accessService },
       ],
     }).compile();
@@ -49,6 +57,7 @@ describe('MessageThreadsService', () => {
     service = moduleRef.get(MessageThreadsService);
     jest.clearAllMocks();
     accessService.canRead.mockReturnValue(true);
+    userRepo.find.mockResolvedValue([]);
   });
 
   const user = {
@@ -182,5 +191,104 @@ describe('MessageThreadsService', () => {
     await expect(service.findOne(user, 'missing')).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  // ─── F2.2.4 AC5 — profile thread summaries ─────────────────────────────────
+
+  describe('listSummariesForEnrolment', () => {
+    const thread = {
+      id: 't-1',
+      organisationId: 'org-1',
+      enrolmentId: 'e-1',
+      apprenticeUserId: 'u-app',
+      counterpartyUserId: 'u-tutor',
+      counterpartyParty: MessageThreadParty.TUTOR,
+      archivedAt: null,
+      isDeleted: false,
+      createdAt: new Date('2026-01-01'),
+      updatedAt: new Date('2026-01-02'),
+    };
+
+    const stubUnread = (count: number) => {
+      messageRepo.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(count),
+      });
+    };
+
+    it('resolves the counterparty name, count and last message', async () => {
+      threadRepo.find.mockResolvedValue([thread]);
+      userRepo.find.mockResolvedValue([
+        { id: 'u-tutor', firstName: 'Ade', lastName: 'Tutor' },
+      ]);
+      messageRepo.findOne.mockResolvedValue({
+        body: 'Can we move Thursday?',
+        senderUserId: 'u-tutor',
+        createdAt: new Date('2026-06-01T10:00:00.000Z'),
+      });
+      messageRepo.count.mockResolvedValue(4);
+      stubUnread(1);
+
+      const [summary] = await service.listSummariesForEnrolment(user, 'e-1');
+
+      expect(summary).toMatchObject({
+        id: 't-1',
+        counterpartyName: 'Ade Tutor',
+        messageCount: 4,
+        unreadCount: 1,
+        lastMessageAt: '2026-06-01T10:00:00.000Z',
+        lastMessagePreview: 'Can we move Thursday?',
+        lastMessageSenderUserId: 'u-tutor',
+      });
+    });
+
+    it('returns a thread with no messages rather than omitting it', async () => {
+      threadRepo.find.mockResolvedValue([thread]);
+      userRepo.find.mockResolvedValue([]);
+      messageRepo.findOne.mockResolvedValue(null);
+      messageRepo.count.mockResolvedValue(0);
+      stubUnread(0);
+
+      const [summary] = await service.listSummariesForEnrolment(user, 'e-1');
+
+      expect(summary.messageCount).toBe(0);
+      expect(summary.lastMessageAt).toBeNull();
+      expect(summary.lastMessagePreview).toBeNull();
+      // A deleted user must not collapse the whole summary.
+      expect(summary.counterpartyName).toBeNull();
+    });
+
+    /**
+     * The preview has to be distinguishable from a short message, or a screen
+     * renders half a sentence as if it were the whole one.
+     */
+    it('collapses whitespace and marks a truncated preview', async () => {
+      threadRepo.find.mockResolvedValue([thread]);
+      userRepo.find.mockResolvedValue([]);
+      messageRepo.findOne.mockResolvedValue({
+        body: `line one\n\n   line two ${'x'.repeat(200)}`,
+        senderUserId: 'u-app',
+        createdAt: new Date('2026-06-01T10:00:00.000Z'),
+      });
+      messageRepo.count.mockResolvedValue(1);
+      stubUnread(0);
+
+      const [summary] = await service.listSummariesForEnrolment(user, 'e-1');
+
+      expect(summary.lastMessagePreview).toMatch(/^line one line two x+…$/);
+      expect(summary.lastMessagePreview).toHaveLength(161);
+    });
+
+    it('omits threads the requesting user cannot read', async () => {
+      threadRepo.find.mockResolvedValue([thread]);
+      accessService.canRead.mockReturnValue(false);
+
+      await expect(
+        service.listSummariesForEnrolment(user, 'e-1'),
+      ).resolves.toEqual([]);
+      // No point resolving names for threads that will not be returned.
+      expect(userRepo.find).not.toHaveBeenCalled();
+    });
   });
 });

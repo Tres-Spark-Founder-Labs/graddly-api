@@ -18,11 +18,13 @@ import { User } from '../users/entities/user.entity.js';
 import { UsersModule } from '../users/users.module.js';
 import { WithdrawalPushModule } from '../withdrawal-push/withdrawal-push.module.js';
 
+import { BreakInLearningService } from './break-in-learning.service.js';
 import { EnrolmentJourneyService } from './enrolment-journey.service.js';
 import { EnrolmentPipelineService } from './enrolment-pipeline.service.js';
 import { EnrolmentProvisioningService } from './enrolment-provisioning.service.js';
 import { EnrolmentsController } from './enrolments.controller.js';
 import { EnrolmentsService } from './enrolments.service.js';
+import { BreakInLearning } from './entities/break-in-learning.entity.js';
 import { Enrolment } from './entities/enrolment.entity.js';
 import { EpaOutcomeRecord } from './entities/epa-outcome.entity.js';
 
@@ -47,6 +49,8 @@ import { EpaOutcomeRecord } from './entities/epa-outcome.entity.js';
       CommitmentStatementGroup,
       CommitmentStatement,
       Review,
+      // F2.2.4 AC6 — break-in-learning history.
+      BreakInLearning,
     ]),
   ],
   controllers: [EnrolmentsController],
@@ -55,6 +59,7 @@ import { EpaOutcomeRecord } from './entities/epa-outcome.entity.js';
     EnrolmentJourneyService,
     EnrolmentPipelineService,
     EnrolmentProvisioningService,
+    BreakInLearningService,
   ],
   exports: [
     TypeOrmModule,
@@ -62,6 +67,8 @@ import { EpaOutcomeRecord } from './entities/epa-outcome.entity.js';
     EnrolmentJourneyService,
     EnrolmentPipelineService,
     EnrolmentProvisioningService,
+    // F2.2.4 AC6 — the learner profile reads the open break.
+    BreakInLearningService,
   ],
 })
 export class EnrolmentsModule {}

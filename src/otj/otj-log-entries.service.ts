@@ -25,6 +25,7 @@ import { User } from '../users/entities/user.entity.js';
 
 import { BulkOtjActionResponseDto } from './dto/bulk-otj-action-response.dto.js';
 import { CreateOtjLogEntryDto } from './dto/create-otj-log-entry.dto.js';
+import { FlagOtjLogEntryDto } from './dto/flag-otj-log-entry.dto.js';
 import { ListOtjLogEntriesQueryDto } from './dto/list-otj-log-entries-query.dto.js';
 import { OtjLogEntryResponseDto } from './dto/otj-log-entry-response.dto.js';
 import { UpdateOtjLogEntryDto } from './dto/update-otj-log-entry.dto.js';
@@ -533,6 +534,56 @@ export class OtjLogEntriesService {
       status: entity.status,
       paceFlag: entity.paceFlag,
       rejectionReason: entity.rejectionReason,
+      flaggedAt: entity.flaggedAt ? entity.flaggedAt.toISOString() : null,
+      flagNote: entity.flagNote,
     };
+  }
+
+  /**
+   * F2.2.4 AC3 — a tutor flags an entry for discussion.
+   *
+   * Deliberately independent of the approval status. The employer decides
+   * whether hours count; the tutor is saying this one needs a conversation.
+   * An approved entry can still be flagged — the hours stand and the question
+   * remains — and flagging never changes the status, because silently
+   * un-approving hours behind an employer's back would be worse than the
+   * problem being raised.
+   */
+  async flag(
+    user: AuthenticatedUser,
+    id: string,
+    dto: FlagOtjLogEntryDto,
+  ): Promise<OtjLogEntryResponseDto> {
+    const organisationId = user.organisationId!;
+    const entry = await this.repo.findOne({
+      where: { id, organisationId, isDeleted: false },
+      relations: ['apprentice'],
+    });
+    if (!entry) throw new NotFoundException('OTJ log entry not found');
+
+    entry.flaggedAt = new Date();
+    entry.flaggedByUserId = user.id;
+    entry.flagNote = dto.note.trim();
+
+    return this.toResponse(await this.repo.save(entry));
+  }
+
+  /** Clears a flag once the conversation has happened. */
+  async unflag(
+    user: AuthenticatedUser,
+    id: string,
+  ): Promise<OtjLogEntryResponseDto> {
+    const organisationId = user.organisationId!;
+    const entry = await this.repo.findOne({
+      where: { id, organisationId, isDeleted: false },
+      relations: ['apprentice'],
+    });
+    if (!entry) throw new NotFoundException('OTJ log entry not found');
+
+    entry.flaggedAt = null;
+    entry.flaggedByUserId = null;
+    entry.flagNote = null;
+
+    return this.toResponse(await this.repo.save(entry));
   }
 }

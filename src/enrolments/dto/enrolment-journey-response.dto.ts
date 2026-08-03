@@ -71,6 +71,23 @@ export class EnrolmentJourneyResponseDto {
   })
   epaDate!: string | null;
 
+  /**
+   * F2.2.4 AC1. `PATCH /enrolments/:id/journey` accepts these two and saves
+   * them, so the response has to show them back — an endpoint that swallows
+   * what it was given and returns a body without it reads as a failed write.
+   */
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'End-point assessment organisation name; null until appointed',
+  })
+  epaOrganisationName!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'EPAO UKPRN (8 digits) as it appears on the ILR',
+  })
+  epaOrganisationUkprn!: string | null;
+
   @ApiPropertyOptional({
     nullable: true,
     description: 'Days remaining until EPA; null when EPA date unset',

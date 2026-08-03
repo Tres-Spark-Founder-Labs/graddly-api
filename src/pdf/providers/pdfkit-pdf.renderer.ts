@@ -14,6 +14,28 @@ import type {
   ISignedPdfOptions,
 } from '../interfaces/pdf-renderer.interface.js';
 
+/**
+ * Reads as prose in the signed record; the stored value would not.
+ *
+ * A switch rather than a lookup map so the renderer does not import an enum
+ * from the reviews module — the PDF layer renders content it is handed and
+ * should not depend on the feature that produced it.
+ */
+function previousGoalOutcomeLabel(outcome: string): string {
+  switch (outcome) {
+    case 'achieved':
+      return 'Achieved';
+    case 'partially_achieved':
+      return 'Partially achieved';
+    case 'not_achieved':
+      return 'Not achieved';
+    case 'carried_forward':
+      return 'Carried forward to this review';
+    default:
+      return outcome;
+  }
+}
+
 function isPng(buffer: Buffer): boolean {
   const signature = Buffer.from([
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
@@ -122,6 +144,31 @@ export class PdfKitPdfRenderer implements IPdfRenderer {
         doc.moveDown().fontSize(14).text('Employer comments');
         doc.fontSize(11).text(content.employerComments);
       }
+      /**
+       * F2.2.3 AC4 — placed before this review's new goals, because that is
+       * the order the conversation happens in: what did we agree last time,
+       * did it happen, what next.
+       */
+      if (content.previousGoalProgress?.length) {
+        doc.moveDown().fontSize(14).text('Progress against previous goals');
+        for (const item of content.previousGoalProgress) {
+          doc.moveDown(0.5).fontSize(11).text(`• ${item.objective}`);
+          doc
+            .fontSize(10)
+            .fillColor('#666666')
+            .text(`   ${previousGoalOutcomeLabel(item.outcome)}`)
+            .fillColor('black');
+          if (item.notes) {
+            doc.fontSize(10).text(`   ${item.notes}`);
+          }
+        }
+      }
+
+      if (content.otjDiscussion) {
+        doc.moveDown().fontSize(14).text('Off-the-job hours discussion');
+        doc.fontSize(11).text(content.otjDiscussion);
+      }
+
       if (content.smartGoals?.length) {
         doc.moveDown().fontSize(14).text('SMART goals');
         for (const goal of content.smartGoals) {

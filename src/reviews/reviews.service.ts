@@ -4,13 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 
+import { BulkScheduleFromEnrolmentsDto } from './dto/bulk-schedule-from-enrolments.dto.js';
 import { BulkScheduleReviewsResponseDto } from './dto/bulk-schedule-reviews-response.dto.js';
 import { CreateReviewDto } from './dto/create-review.dto.js';
 import { ListReviewsQueryDto } from './dto/list-reviews-query.dto.js';
@@ -56,6 +57,84 @@ export class ReviewsService {
       employerManagerUserId: dto.employerManagerUserId,
     });
     return this.toResponse(await this.repo.save(entity));
+  }
+
+  /**
+   * F2.2.3 AC2 — schedule one date across many learners.
+   *
+   * Resolves the apprentice, apprentice user, tutor and employer manager from
+   * each enrolment, so the caller supplies only what a provider actually
+   * knows at this point: these learners, this date.
+   *
+   * An enrolment that cannot produce a full set is reported as its own
+   * failure rather than failing the batch. Scheduling twenty-eight of thirty
+   * and naming the two that need a tutor assigned is more useful than
+   * scheduling none, and it matches how `bulkSchedule` already reports.
+   */
+  async bulkScheduleFromEnrolments(
+    user: AuthenticatedUser,
+    dto: BulkScheduleFromEnrolmentsDto,
+  ): Promise<BulkScheduleReviewsResponseDto> {
+    const organisationId = user.organisationId!;
+
+    const enrolments = await this.enrolmentRepo.find({
+      where: {
+        id: In(dto.enrolmentIds),
+        organisationId,
+        isDeleted: false,
+      },
+    });
+    const byId = new Map(enrolments.map((e) => [e.id, e]));
+
+    const items: CreateReviewDto[] = [];
+    const failures: BulkScheduleReviewsResponseDto['failures'] = [];
+
+    dto.enrolmentIds.forEach((enrolmentId, index) => {
+      const enrolment = byId.get(enrolmentId);
+      if (!enrolment) {
+        failures.push({
+          index,
+          reasonCode: 'validation_error',
+          message: `Enrolment ${enrolmentId} not found in this organisation`,
+        });
+        return;
+      }
+
+      // Named individually so the message says which person is missing —
+      // "participants incomplete" sends someone hunting through three fields.
+      const missing: string[] = [];
+      if (!enrolment.apprenticeUserId) missing.push('apprentice user');
+      if (!enrolment.tutorUserId) missing.push('tutor');
+      if (!enrolment.employerManagerUserId) missing.push('employer manager');
+      if (missing.length > 0) {
+        failures.push({
+          index,
+          reasonCode: 'validation_error',
+          message: `Enrolment is missing: ${missing.join(', ')}`,
+        });
+        return;
+      }
+
+      items.push({
+        enrolmentId,
+        apprenticeId: enrolment.apprenticeId,
+        scheduledAt: dto.scheduledAt,
+        title: dto.title,
+        reviewType: dto.reviewType,
+        apprenticeUserId: enrolment.apprenticeUserId!,
+        tutorUserId: enrolment.tutorUserId!,
+        employerManagerUserId: enrolment.employerManagerUserId!,
+      });
+    });
+
+    const result = await this.bulkSchedule(user, items);
+
+    return {
+      ...result,
+      processed: dto.enrolmentIds.length,
+      failed: result.failed + failures.length,
+      failures: [...failures, ...result.failures],
+    };
   }
 
   async bulkSchedule(

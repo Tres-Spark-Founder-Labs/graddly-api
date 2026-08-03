@@ -38,6 +38,15 @@ export interface IReviewSnapshotContent {
   }>;
   wellbeingScore?: number;
   wellbeingNotes?: string;
+  /** F2.2.3 AC4 — off-the-job hours are a funding matter, so the signed
+   *  record has to show they were discussed. */
+  otjDiscussion?: string;
+  /** F2.2.3 AC4 — what happened to the goals set at the previous review. */
+  previousGoalProgress?: Array<{
+    objective: string;
+    outcome: string;
+    notes?: string;
+  }>;
 }
 
 export interface ILevyRoiReportContent {

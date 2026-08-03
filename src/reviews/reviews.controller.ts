@@ -38,6 +38,7 @@ import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { PdfJobResponseDto } from '../pdf/dto/pdf-job-response.dto.js';
 
+import { BulkScheduleFromEnrolmentsDto } from './dto/bulk-schedule-from-enrolments.dto.js';
 import { BulkScheduleReviewsResponseDto } from './dto/bulk-schedule-reviews-response.dto.js';
 import { BulkScheduleReviewsDto } from './dto/bulk-schedule-reviews.dto.js';
 import { CreateReviewDto } from './dto/create-review.dto.js';
@@ -129,6 +130,42 @@ export class ReviewsController {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
     return this.reviewsService.bulkSchedule(user, dto.items);
+  }
+
+  /**
+   * F2.2.3 AC2 — "set review dates for multiple learners simultaneously".
+   *
+   * The sibling above takes full review items, each naming four ids the
+   * caller must resolve first. Workable for one review, not for thirty —
+   * which is why nothing had ever called it. This asks for what a provider
+   * knows (these learners, this date) and derives the participants from each
+   * enrolment.
+   */
+  @Post('bulk-schedule/from-enrolments')
+  @ResponseMessage('Bulk review scheduling completed')
+  @ApiOperation({
+    summary: 'Bulk schedule one date across enrolments (max 20)',
+    description:
+      'Derives apprentice, tutor and employer manager from each enrolment. ' +
+      'An enrolment missing a participant is reported as a per-learner ' +
+      'failure rather than failing the batch.',
+  })
+  @ApiCreatedResponse({
+    description: 'Bulk scheduling result',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(BulkScheduleReviewsResponseDto) },
+      },
+    },
+  })
+  bulkScheduleFromEnrolments(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: BulkScheduleFromEnrolmentsDto,
+  ): Promise<BulkScheduleReviewsResponseDto> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.reviewsService.bulkScheduleFromEnrolments(user, dto);
   }
 
   @Get('calendar')
@@ -262,6 +299,40 @@ export class ReviewsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<ReviewRecordResponseDto> {
     return this.recordsService.findOne(user, id);
+  }
+
+  /**
+   * F2.2.3 AC4 — the goals agreed at the previous review, so the tutor can
+   * record progress against them rather than retyping from a PDF.
+   *
+   * Empty list on a first review: having nothing to look back on is a normal
+   * state at the start of an apprenticeship, not an error.
+   */
+  @Get(':id/previous-goals')
+  @ResponseMessage('Previous review goals retrieved successfully')
+  @ApiOperation({
+    summary: "SMART goals from this enrolment's last completed review",
+  })
+  @ApiOkResponse({
+    description: 'Previous goals (empty when there is no earlier review)',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: { objective: { type: 'string' } },
+          },
+        },
+      },
+    },
+  })
+  getPreviousGoals(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<{ objective: string }[]> {
+    return this.recordsService.previousGoals(user, id);
   }
 
   @Post(':id/snapshot-pdf')

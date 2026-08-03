@@ -88,7 +88,13 @@ describe('ReviewsService', () => {
   });
 
   it('throws not found on missing review', async () => {
-    reviewRepo.findOne.mockResolvedValue(null);
+    // F2.2.3 AC6 — the read path resolves through the enrolment join.
+    reviewRepo.createQueryBuilder.mockReturnValue({
+      innerJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    });
     await expect(service.findOne(user, 'missing')).rejects.toBeInstanceOf(
       NotFoundException,
     );
@@ -130,6 +136,7 @@ describe('ReviewsService', () => {
 
   it('returns paginated reviews', async () => {
     const qb = {
+      innerJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),

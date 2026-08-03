@@ -180,11 +180,23 @@ export class ReviewsService {
   ): Promise<PaginatedResult<ReviewResponseDto>> {
     const page = query.page ?? 1;
     const perPage = query.perPage ?? 20;
+    /**
+     * F2.2.3 AC6 — the provider's own reviews, plus those for learners the
+     * caller's organisation employs.
+     *
+     * The join is what makes an employer's list non-empty: reviews are
+     * stamped with the provider, so filtering on `review.organisationId`
+     * alone returned nothing for the employer who was notified about them.
+     */
+    const orgId = user.organisationId!;
     const qb = this.repo
       .createQueryBuilder('review')
-      .where('review.organisationId = :organisationId', {
-        organisationId: user.organisationId!,
-      })
+      .innerJoin('enrolments', 'e', 'e.id = review.enrolmentId')
+      .where(
+        '(review.organisationId = :orgId OR e."employerOrganisationId" = :orgId OR e."providerOrganisationId" = :orgId)',
+        { orgId },
+      )
+      .andWhere('e.isDeleted = false')
       .andWhere('review.isDeleted = false');
 
     if (query.status)
@@ -219,11 +231,31 @@ export class ReviewsService {
     );
   }
 
+  /**
+   * F2.2.3 AC6 — readable by the provider that owns the review and by the
+   * employer on the enrolment.
+   *
+   * `findEntity` stays owner-scoped and continues to guard every write path
+   * below: the employer may see the review, not reschedule, cancel or sign it.
+   */
   async findOne(
     user: AuthenticatedUser,
     id: string,
   ): Promise<ReviewResponseDto> {
-    const row = await this.findEntity(user, id);
+    const orgId = user.organisationId!;
+    const row = await this.repo
+      .createQueryBuilder('review')
+      .innerJoin('enrolments', 'e', 'e.id = review.enrolmentId')
+      .where('review.id = :id', { id })
+      .andWhere('review.isDeleted = false')
+      .andWhere('e.isDeleted = false')
+      .andWhere(
+        '(review.organisationId = :orgId OR e."employerOrganisationId" = :orgId OR e."providerOrganisationId" = :orgId)',
+        { orgId },
+      )
+      .getOne();
+
+    if (!row) throw new NotFoundException('Review not found');
     return this.toResponse(row);
   }
 

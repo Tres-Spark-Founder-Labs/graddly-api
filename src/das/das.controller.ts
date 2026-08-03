@@ -22,10 +22,13 @@ import { ResponseMessage } from '../common/interceptors/response-message.decorat
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
+import { DasApiActivityService } from './das-api-activity.service.js';
 import { DasFundingSyncService } from './das-funding-sync.service.js';
 import { DasLevyForecastService } from './das-levy-forecast.service.js';
 import { DasLevySyncService } from './das-levy-sync.service.js';
 import { DasSyncDispatchService } from './das-sync-dispatch.service.js';
+import { DasSyncStatusService } from './das-sync-status.service.js';
+import { DasApiActivityResponseDto } from './dto/das-api-activity-response.dto.js';
 import {
   DasFundingPaymentResponseDto,
   ListDasFundingPaymentsQueryDto,
@@ -33,6 +36,8 @@ import {
 import { DasLevyBalanceResponseDto } from './dto/das-levy-balance-response.dto.js';
 import { DasLevyForecastResponseDto } from './dto/das-levy-forecast-response.dto.js';
 import { DasSyncResponseDto } from './dto/das-sync-response.dto.js';
+import { DasSyncStatusResponseDto } from './dto/das-sync-status-response.dto.js';
+import { ListDasActivityQueryDto } from './dto/list-das-activity-query.dto.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 
@@ -42,6 +47,8 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
   DasLevyBalanceResponseDto,
   DasLevyForecastResponseDto,
   DasFundingPaymentResponseDto,
+  DasSyncStatusResponseDto,
+  DasApiActivityResponseDto,
 )
 @Controller({ path: 'das', version: '1' })
 @UseGuards(JwtAuthGuard, ActiveOrganisationGuard)
@@ -65,7 +72,83 @@ export class DasController {
     private readonly levySyncService: DasLevySyncService,
     private readonly levyForecastService: DasLevyForecastService,
     private readonly fundingSyncService: DasFundingSyncService,
+    private readonly syncStatusService: DasSyncStatusService,
+    private readonly activityService: DasApiActivityService,
   ) {}
+
+  /**
+   * F2.3.1 AC5 — "sync status indicator shows: last sync time, sync health
+   * (green / amber / red), and error count".
+   *
+   * Open to any member rather than owner/admin: knowing whether the ESFA
+   * integration is working is not a privileged act, and a tutor who cannot see
+   * that sync is red will keep reporting the symptom instead of the cause.
+   */
+  @Get('sync-status')
+  @ResponseMessage('DAS sync status retrieved successfully')
+  @ApiOperation({ summary: 'Sync health, last sync time and error count' })
+  @ApiOkResponse({
+    description: 'Derived from the API activity log, never cached',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(DasSyncStatusResponseDto) },
+      },
+    },
+  })
+  async getSyncStatus(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<DasSyncStatusResponseDto> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.syncStatusService.getStatus(user.organisationId!);
+  }
+
+  /**
+   * F2.3.1 AC7 — "full API activity log with each request, response code, and
+   * any error messages".
+   */
+  @Get('activity')
+  @ResponseMessage('DAS API activity retrieved successfully')
+  @ApiOperation({ summary: 'Paginated log of every DAS API call' })
+  @ApiOkResponse({
+    description: 'Newest first. Credentials are redacted on write.',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(DasApiActivityResponseDto) },
+        },
+      },
+    },
+  })
+  async listActivity(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ListDasActivityQueryDto,
+  ) {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    const result = await this.activityService.list(user.organisationId!, query);
+    return new PaginatedResult(
+      result.items.map(
+        (row): DasApiActivityResponseDto => ({
+          id: row.id,
+          operation: row.operation,
+          method: row.method,
+          url: row.url,
+          responseStatus: row.responseStatus,
+          succeeded: row.succeeded,
+          durationMs: row.durationMs,
+          errorMessage: row.errorMessage,
+          requestSummary: row.requestSummary,
+          triggeredByUserId: row.triggeredByUserId,
+          occurredAt: row.createdAt.toISOString(),
+        }),
+      ),
+      result.meta,
+    );
+  }
 
   @Post('sync')
   @ResponseMessage('DAS sync job queued successfully')

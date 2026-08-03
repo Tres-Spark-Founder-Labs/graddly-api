@@ -309,6 +309,9 @@ export class PdfGenerationProcessor extends WorkerHost {
       smartGoals: payload?.smartGoals,
       wellbeingScore: payload?.wellbeing?.score,
       wellbeingNotes: payload?.wellbeing?.notes,
+      // F2.2.3 AC4 — both must reach the signed document, not just the screen.
+      otjDiscussion: payload?.otjDiscussion,
+      previousGoalProgress: payload?.previousGoalProgress,
     };
   }
 

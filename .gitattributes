@@ -1,0 +1,10 @@
+# Shell scripts must keep LF endings even when checked out on Windows.
+#
+# `core.autocrlf=true` is common on Windows checkouts and would rewrite these
+# to CRLF. Alpine's `sh` then fails with a cryptic "no such file or directory"
+# pointing at the interpreter line — a deploy failure that reads as a missing
+# file rather than a line-ending problem, which is a bad hour to spend.
+*.sh text eol=lf
+
+# The container reads these directly; same reasoning.
+Dockerfile text eol=lf

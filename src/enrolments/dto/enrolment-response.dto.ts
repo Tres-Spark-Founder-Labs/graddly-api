@@ -175,6 +175,23 @@ export class EnrolmentResponseDto {
   })
   epaDate!: string | null;
 
+  /**
+   * F2.2.4 AC1 — the end-point assessment organisation. Null until one is
+   * appointed, which normally happens part-way through rather than at
+   * enrolment.
+   */
+  @ApiProperty({
+    nullable: true,
+    description: 'End-point assessment organisation name',
+  })
+  epaOrganisationName!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description: 'EPAO UKPRN (8 digits) as it appears on the ILR',
+  })
+  epaOrganisationUkprn!: string | null;
+
   @ApiProperty({
     enum: OtjPaceAlertLevel,
     nullable: true,

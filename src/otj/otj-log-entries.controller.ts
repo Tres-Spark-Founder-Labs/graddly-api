@@ -52,6 +52,7 @@ import {
   BulkOtjRejectDto,
 } from './dto/bulk-otj-action.dto.js';
 import { CreateOtjLogEntryDto } from './dto/create-otj-log-entry.dto.js';
+import { FlagOtjLogEntryDto } from './dto/flag-otj-log-entry.dto.js';
 import { ListOtjLogEntriesQueryDto } from './dto/list-otj-log-entries-query.dto.js';
 import { OtjActivityCategoryDefinitionDto } from './dto/otj-activity-category-response.dto.js';
 import { OtjLogEntryResponseDto } from './dto/otj-log-entry-response.dto.js';
@@ -271,6 +272,63 @@ export class OtjLogEntriesController {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
     return this.service.findOne(user, id);
+  }
+
+  /**
+   * F2.2.4 AC3 — "tutor can flag entries".
+   *
+   * Not an approval decision. Approving and rejecting are the employer's call
+   * about whether hours count; this is a tutor saying the entry needs a
+   * conversation — implausible hours, an activity that is not off-the-job, a
+   * session logged for a day the learner was absent — without removing them.
+   *
+   * An approved entry can be flagged. The hours stand and the question
+   * remains; silently un-approving them behind the employer would be worse
+   * than the concern being raised.
+   */
+  @Post(':id/flag')
+  @ResponseMessage('OTJ log entry flagged successfully')
+  @ApiOperation({ summary: 'Flag an OTJ entry for discussion (tutor)' })
+  @ApiCreatedResponse({
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(OtjLogEntryResponseDto) },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'OTJ log entry not found in organisation',
+    type: ErrorResponseDto,
+  })
+  flag(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: FlagOtjLogEntryDto,
+  ): Promise<OtjLogEntryResponseDto> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.service.flag(user, id, dto);
+  }
+
+  @Post(':id/unflag')
+  @ResponseMessage('OTJ log entry flag cleared successfully')
+  @ApiOperation({ summary: 'Clear a flag once the conversation has happened' })
+  @ApiCreatedResponse({
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(OtjLogEntryResponseDto) },
+      },
+    },
+  })
+  unflag(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<OtjLogEntryResponseDto> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.service.unflag(user, id);
   }
 
   @Patch(':id')

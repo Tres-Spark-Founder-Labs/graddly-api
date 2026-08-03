@@ -62,4 +62,15 @@ export class OtjLogEntryResponseDto {
 
   @ApiProperty({ nullable: true })
   rejectionReason!: string | null;
+
+  /**
+   * F2.2.4 AC3 — a tutor flag, distinct from the approval decision. An
+   * entry can be approved and flagged at once: the hours count, and the
+   * tutor still wants a conversation about them.
+   */
+  @ApiProperty({ nullable: true, format: 'date-time' })
+  flaggedAt!: string | null;
+
+  @ApiProperty({ nullable: true })
+  flagNote!: string | null;
 }

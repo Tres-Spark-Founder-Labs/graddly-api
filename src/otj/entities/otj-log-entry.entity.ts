@@ -94,6 +94,26 @@ export class OtjLogEntry extends BaseEntity {
   @Column({ type: 'timestamptz', nullable: true })
   approvedAt!: Date | null;
 
+  /**
+   * F2.2.4 AC3 — a tutor's flag, which is not an approval decision.
+   *
+   * Approving and rejecting are the employer's call about whether hours
+   * count. Flagging is a tutor saying "this one needs a conversation" —
+   * implausible hours, an activity that is not off-the-job, a session logged
+   * for a day the learner was absent — without removing the hours.
+   *
+   * The note is required by the service rather than the column, because a
+   * flag nobody can explain is an accusation the learner cannot answer.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  flaggedAt!: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  flaggedByUserId!: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  flagNote!: string | null;
+
   @Column({ type: 'uuid', nullable: true })
   rejectedByUserId!: string | null;
 

@@ -57,6 +57,7 @@ import { RedisModule } from './redis/redis.module.js';
 import { ReportingModule } from './reporting/reporting.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
 import { StorageModule } from './storage/storage.module.js';
+import { SurveysModule } from './surveys/surveys.module.js';
 import { UsersModule } from './users/users.module.js';
 import { WithdrawalPushModule } from './withdrawal-push/withdrawal-push.module.js';
 
@@ -114,6 +115,8 @@ import { WithdrawalPushModule } from './withdrawal-push/withdrawal-push.module.j
     EnrolmentsModule,
     // F2.4.2 — employer visit log, and F2.4.1's lastVisitDate.
     EmployerVisitsModule,
+    // F2.4.3 — employer satisfaction surveys.
+    SurveysModule,
     MessagingModule,
     ReportingModule,
     WithdrawalPushModule,

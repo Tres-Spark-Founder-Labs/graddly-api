@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { CommitmentStatementGroup } from '../commitments/entities/commitment-statement-group.entity.js';
+import { EmployerVisitsService } from '../employer-visits/employer-visits.service.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
@@ -34,6 +35,14 @@ describe('EmployerDirectoryService', () => {
       providers: [
         EmployerDirectoryService,
         CommitmentPipelineService,
+        {
+          // F2.4.1 — supplies lastVisitDate. Defaults to an empty map, which
+          // is the "no employer has been visited" case these fixtures assume.
+          provide: EmployerVisitsService,
+          useValue: {
+            lastVisitDatesByEmployer: jest.fn().mockResolvedValue(new Map()),
+          },
+        },
         { provide: ReportingPortalService, useValue: portalService },
         { provide: OtjProgressMetricsService, useValue: otjMetricsService },
         {

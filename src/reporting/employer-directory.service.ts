@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
@@ -9,6 +9,7 @@ import {
 } from '../common/context/correlation-id-context.js';
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
+import { EmployerVisitsService } from '../employer-visits/employer-visits.service.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
@@ -42,6 +43,10 @@ export class EmployerDirectoryService {
     private readonly organisationRepo: Repository<Organisation>,
     @InjectRepository(OrganisationMembership)
     private readonly membershipRepo: Repository<OrganisationMembership>,
+    // F2.4.1 — supplies lastVisitDate, which shipped as a hardcoded null
+    // until the visit log (F2.4.2) existed to fill it.
+    @Inject(forwardRef(() => EmployerVisitsService))
+    private readonly employerVisitsService: EmployerVisitsService,
   ) {}
 
   async list(
@@ -67,11 +72,18 @@ export class EmployerDirectoryService {
     const aggregates = this.buildAggregates(linked);
     const employerIds = [...aggregates.keys()];
 
-    const [employers, memberships, commitmentGroups] = await Promise.all([
-      this.loadEmployers(employerIds),
-      this.loadOwnerMemberships(employerIds),
-      this.loadCommitmentGroups(providerOrganisationId, linked),
-    ]);
+    const [employers, memberships, commitmentGroups, lastVisitDates] =
+      await Promise.all([
+        this.loadEmployers(employerIds),
+        this.loadOwnerMemberships(employerIds),
+        this.loadCommitmentGroups(providerOrganisationId, linked),
+        // F2.4.1 — one grouped query for every employer on the page, rather
+        // than a lookup inside the loop below.
+        this.employerVisitsService.lastVisitDatesByEmployer(
+          providerOrganisationId,
+          employerIds,
+        ),
+      ]);
 
     const employerMap = new Map(employers.map((org) => [org.id, org]));
     const membershipMap = new Map(
@@ -114,7 +126,16 @@ export class EmployerDirectoryService {
           ),
         commitmentPipelineStatus:
           this.pipelineService.mostAdvanced(pipelineStatuses),
-        lastVisitDate: null,
+        /**
+         * F2.4.1 / F2.4.2. This was a hardcoded `null` carrying an honest note
+         * ("Reserved for employer visit log") — the field could not hold a
+         * value because nothing recorded visits. It can now.
+         *
+         * Still null for an employer never visited, which is a real and
+         * important state rather than missing data: it is the first thing a
+         * provider preparing for inspection wants to filter on.
+         */
+        lastVisitDate: lastVisitDates.get(employerId) ?? null,
         region: employer.city ?? null,
       });
     }

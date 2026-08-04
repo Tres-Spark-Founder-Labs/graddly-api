@@ -32,6 +32,7 @@ import databaseConfig from './config/typeorm.config.js';
 // import { TenantSessionSubscriber } from './database/tenant-session.subscriber.js';
 import { getEnv, validateEnv } from './config/validate-env.js';
 import { DasModule } from './das/das.module.js';
+import { EmployerVisitsModule } from './employer-visits/employer-visits.module.js';
 import { EnrolmentPushModule } from './enrolment-push/enrolment-push.module.js';
 import { EnrolmentsModule } from './enrolments/enrolments.module.js';
 import { EsignatureModule } from './esignature/esignature.module.js';
@@ -111,6 +112,8 @@ import { WithdrawalPushModule } from './withdrawal-push/withdrawal-push.module.j
     ProgrammesModule,
     ApprenticesModule,
     EnrolmentsModule,
+    // F2.4.2 — employer visit log, and F2.4.1's lastVisitDate.
+    EmployerVisitsModule,
     MessagingModule,
     ReportingModule,
     WithdrawalPushModule,

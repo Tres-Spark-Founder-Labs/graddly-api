@@ -12,4 +12,6 @@ export enum NotificationType {
   LEVY_EXPIRY_90 = 'levy_expiry_90',
   LEVY_EXPIRY_30 = 'levy_expiry_30',
   MESSAGE = 'message',
+  /** F2.2.5 AC3 — a tutor is over the at-risk caseload threshold. */
+  CASELOAD_AT_RISK = 'caseload_at_risk',
 }

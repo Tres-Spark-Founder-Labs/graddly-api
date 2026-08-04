@@ -26,8 +26,10 @@ import {
 } from '@nestjs/swagger';
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
+import { Roles } from '../auth/decorators/roles.decorator.js';
 import { ActiveOrganisationGuard } from '../auth/guards/active-organisation.guard.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers.js';
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import {
@@ -38,8 +40,10 @@ import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
+import { OrganisationRole } from '../organisations/organisation-role.enum.js';
 import { PdfJobResponseDto } from '../pdf/dto/pdf-job-response.dto.js';
 
+import { BulkAssignTutorDto } from './dto/bulk-assign-tutor.dto.js';
 import { CreateInterventionActionDto } from './dto/create-intervention-action.dto.js';
 import { LearnerDocumentItemDto } from './dto/learner-document-item.dto.js';
 import {
@@ -62,6 +66,7 @@ import {
   ListLearnerCohortQueryDto,
 } from './dto/list-learner-cohort-query.dto.js';
 import { ListLearnerDocumentsQueryDto } from './dto/list-learner-documents-query.dto.js';
+import { TutorCaseloadResponseDto } from './dto/tutor-caseload-response.dto.js';
 import { InterventionActionsService } from './intervention-actions.service.js';
 import { InterventionQueueService } from './intervention-queue.service.js';
 import {
@@ -71,6 +76,7 @@ import {
 import { LearnerDocumentsService } from './learner-documents.service.js';
 import { LearnerMeSummaryService } from './learner-me-summary.service.js';
 import { LearnerProfileService } from './learner-profile.service.js';
+import { TutorCaseloadService } from './tutor-caseload.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 import type { Response } from 'express';
@@ -100,6 +106,7 @@ function isCsvCohortResult(
   LearnerMeSummaryResponseDto,
   LearnerMeSummaryOtjPaceDto,
   ListInterventionQueueQueryDto,
+  TutorCaseloadResponseDto,
 )
 @Controller({ path: 'learners', version: '1' })
 @UseGuards(JwtAuthGuard, ActiveOrganisationGuard)
@@ -126,6 +133,7 @@ export class LearnersController {
     private readonly interventionActionsService: InterventionActionsService,
     private readonly profileService: LearnerProfileService,
     private readonly meSummaryService: LearnerMeSummaryService,
+    private readonly tutorCaseloadService: TutorCaseloadService,
   ) {}
 
   @Get('me/documents')
@@ -288,6 +296,71 @@ export class LearnersController {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
     return this.cohortService.exportPdf(user, query);
+  }
+
+  /**
+   * F2.2.5 AC2 — the caseload dashboard.
+   *
+   * Open to any member: how work is distributed is not privileged
+   * information, and a tutor seeing their own caseload beside their
+   * colleagues' is much of the point of the screen.
+   */
+  @Get('caseload')
+  @ResponseMessage('Tutor caseload retrieved successfully')
+  @ApiOperation({
+    summary: 'Learner count, at-risk count and review compliance per tutor',
+  })
+  @ApiOkResponse({
+    description: 'Sorted worst-first; includes an Unassigned row',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(TutorCaseloadResponseDto) },
+      },
+    },
+  })
+  getCaseload(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TutorCaseloadResponseDto> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.tutorCaseloadService.getCaseload(user);
+  }
+
+  /**
+   * F2.2.5 AC1 — bulk tutor assignment.
+   *
+   * Owner/admin only: reassigning responsibility for a learner is a
+   * management decision, not something a tutor does to their own workload.
+   */
+  @Post('caseload/assign-tutor')
+  @UseGuards(RolesGuard)
+  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
+  @ResponseMessage('Tutor assigned successfully')
+  @ApiOperation({ summary: 'Assign or clear a tutor across many enrolments' })
+  @ApiCreatedResponse({
+    description: 'How many enrolments were reassigned',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: {
+          type: 'object',
+          properties: { updated: { type: 'number' } },
+        },
+      },
+    },
+  })
+  assignTutorInBulk(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: BulkAssignTutorDto,
+  ): Promise<{ updated: number }> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.tutorCaseloadService.assignTutorInBulk(
+      user,
+      dto.enrolmentIds,
+      dto.tutorUserId ?? null,
+    );
   }
 
   @Get('intervention-queue')

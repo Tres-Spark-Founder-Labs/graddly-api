@@ -9,6 +9,7 @@ import { DasModule } from '../das/das.module.js';
 import { DataRetentionCronService } from '../data-retention/data-retention-cron.service.js';
 import { DataRetentionModule } from '../data-retention/data-retention.module.js';
 import { RedisHealthIndicator } from '../health/redis-health.indicator.js';
+import { LearnersModule } from '../learners/learners.module.js';
 import { LevyTransfer } from '../levy-exchange/entities/levy-transfer.entity.js';
 import { LevyExchangeModule } from '../levy-exchange/levy-exchange.module.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
@@ -19,6 +20,7 @@ import { RedisModule } from '../redis/redis.module.js';
 import { ReportingModule } from '../reporting/reporting.module.js';
 import { ReviewsModule } from '../reviews/reviews.module.js';
 
+import { CaseloadAlertCronService } from './caseload-alert-cron.service.js';
 import { CommitmentChaseCronService } from './commitment-chase-cron.service.js';
 import { CronLockService } from './cron-lock.service.js';
 import { DasFundingSyncCronService } from './das-funding-sync-cron.service.js';
@@ -53,6 +55,8 @@ import { ReviewRemindersCronService } from './review-reminders-cron.service.js';
     NotificationsModule,
     // F1.4.1 AC5 — the monthly ROI report cron.
     ReportingModule,
+    // F2.2.5 AC3 — the tutor at-risk caseload alert sweep.
+    LearnersModule,
     TypeOrmModule.forFeature([Organisation, LevyTransfer, OtjLogEntry]),
   ],
   providers: [
@@ -69,6 +73,7 @@ import { ReviewRemindersCronService } from './review-reminders-cron.service.js';
     LevyExpiryAlertsCronService,
     LevyRoiMonthlyCronService,
     EifSnapshotCronService,
+    CaseloadAlertCronService,
     LevyTransferStatusCronService,
     DataRetentionCronService,
   ],

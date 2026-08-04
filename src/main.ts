@@ -12,10 +12,12 @@ import { SwaggerModule } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import basicAuth from 'express-basic-auth';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { DataSource } from 'typeorm';
 
 import { AppModule } from './app.module.js';
 import { configureApp } from './configure-app.js';
 import { configureHelmet } from './configure-helmet.js';
+import { assertRlsEnforced } from './database/assert-rls-enforced.js';
 import { buildSwaggerConfig } from './swagger.config.js';
 
 async function bootstrap() {
@@ -50,6 +52,12 @@ async function bootstrap() {
       content: openApiDocument,
     }),
   );
+
+  /**
+   * Security pass item 2 — runs on every boot, dev and CI alike, so a
+   * connection that bypasses tenant isolation cannot start quietly.
+   */
+  await assertRlsEnforced(app.get(DataSource));
 
   await app.listen(port);
 }

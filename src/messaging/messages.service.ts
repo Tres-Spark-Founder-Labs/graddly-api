@@ -40,7 +40,7 @@ export class MessagesService {
     query: PaginationQueryDto,
   ): Promise<PaginatedResult<MessageResponseDto>> {
     const thread = await this.threadsService.getThreadForMessaging(
-      user.organisationId!,
+      user,
       threadId,
     );
     this.accessService.assertCanRead(thread, user);
@@ -72,7 +72,7 @@ export class MessagesService {
     dto: CreateMessageDto,
   ): Promise<MessageResponseDto> {
     const thread = await this.threadsService.getThreadForMessaging(
-      user.organisationId!,
+      user,
       threadId,
     );
     this.accessService.assertCanWrite(thread, user);

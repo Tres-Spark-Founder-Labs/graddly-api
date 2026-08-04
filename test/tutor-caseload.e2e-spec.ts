@@ -118,7 +118,13 @@ describe('Tutor caseload (e2e)', () => {
 
     const entries = (
       audit.body as {
-        data: { entityType: string; entityId: string; action: string }[];
+        data: {
+          entityType: string;
+          entityId: string;
+          // Typed as the enum rather than string so the comparison below is
+          // checked against the real action values.
+          action: AuditAction;
+        }[];
       }
     ).data;
 

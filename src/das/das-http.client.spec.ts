@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
+import { DasApiActivityService } from './das-api-activity.service.js';
 import { DasHttpClient } from './das-http.client.js';
 import { DasOAuthService } from './das-oauth.service.js';
 
@@ -11,6 +12,12 @@ describe('DasHttpClient', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         DasHttpClient,
+        {
+          // F2.3.1 AC7 — recording must never be able to fail a DAS call, so
+          // the stub resolves rather than throws, matching the real service.
+          provide: DasApiActivityService,
+          useValue: { record: jest.fn().mockResolvedValue(undefined) },
+        },
         {
           provide: ConfigService,
           useValue: {

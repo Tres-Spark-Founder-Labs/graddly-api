@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AuthModule } from '../auth/auth.module.js';
+import { DasFundingPayment } from '../das/entities/das-funding-payment.entity.js';
 import { EnrolmentPushModule } from '../enrolment-push/enrolment-push.module.js';
 import { EnrolmentsModule } from '../enrolments/enrolments.module.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
@@ -10,9 +11,12 @@ import { NotificationsModule } from '../notifications/notifications.module.js';
 import { OfstedModule } from '../ofsted/ofsted.module.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 
+import { FundingClaimResolution } from './entities/funding-claim-resolution.entity.js';
 import { IlrLearnerRecord } from './entities/ilr-learner-record.entity.js';
 import { IlrMappingConfig } from './entities/ilr-mapping-config.entity.js';
 import { IlrSubmission } from './entities/ilr-submission.entity.js';
+import { FundingClaimTrackerService } from './funding-claim-tracker.service.js';
+import { FundingClaimsController } from './funding-claims.controller.js';
 import { IlrEnrolmentContext } from './ilr-enrolment.context.js';
 import { IlrEsfaHttpClient } from './ilr-esfa-http.client.js';
 import { IlrEsfaNoopClient } from './ilr-esfa-noop.client.js';
@@ -45,15 +49,21 @@ import type { IIlrEsfaClient } from './interfaces/ilr-esfa.client.interface.js';
       IlrSubmission,
       Enrolment,
       Organisation,
+      // F2.3.2 AC7 — the funding claim tracker reconciles agreed price against
+      // payments the DAS sync pulled in.
+      FundingClaimResolution,
+      DasFundingPayment,
     ]),
   ],
   controllers: [
     IlrMappingConfigsController,
     IlrLearnerRecordsController,
     IlrSubmissionsController,
+    FundingClaimsController,
   ],
   providers: [
     IlrMappingConfigService,
+    FundingClaimTrackerService,
     IlrLearnerRecordsService,
     IlrSubmissionService,
     IlrSubmitDispatchService,

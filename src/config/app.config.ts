@@ -70,10 +70,16 @@ export default registerAs('app', () => {
       levyRoiMonthlySchedule: e.CRON_LEVY_ROI_MONTHLY_SCHEDULE,
       eifSnapshotEnabled: e.CRON_EIF_SNAPSHOT_ENABLED,
       eifSnapshotSchedule: e.CRON_EIF_SNAPSHOT_SCHEDULE,
+      caseloadAlertsEnabled: e.CRON_CASELOAD_ALERTS_ENABLED,
+      caseloadAlertsSchedule: e.CRON_CASELOAD_ALERTS_SCHEDULE,
       levyTransferStatusEnabled: e.CRON_LEVY_TRANSFER_STATUS_ENABLED,
       levyTransferStatusSchedule: e.CRON_LEVY_TRANSFER_STATUS_SCHEDULE,
       retentionEnabled: e.CRON_RETENTION_ENABLED,
       retentionSchedule: e.CRON_RETENTION_SCHEDULE,
+    },
+    // F2.2.5 AC3.
+    caseload: {
+      atRiskThreshold: e.CASELOAD_AT_RISK_THRESHOLD,
     },
     retention: {
       auditYears: e.RETENTION_AUDIT_YEARS,

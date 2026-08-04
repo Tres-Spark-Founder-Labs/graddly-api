@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { FindOptionsWhere, In, Repository } from 'typeorm';
 
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
@@ -68,9 +68,18 @@ export class MessageThreadsService {
       }
     }
 
+    /**
+     * Owner OR participant — see `visibleThreadWhere`. Written out here
+     * because this path uses a QueryBuilder for its optional filters; the
+     * bracketing matters, since `A OR B AND C` would silently drop the
+     * isDeleted guard from the first arm.
+     */
     const qb = this.threadRepo
       .createQueryBuilder('t')
-      .where('t.organisationId = :organisationId', { organisationId })
+      .where(
+        '(t.organisationId = :organisationId OR t.apprenticeUserId = :userId OR t.counterpartyUserId = :userId)',
+        { organisationId, userId: user.id },
+      )
       .andWhere('t.isDeleted = false');
 
     if (query.enrolmentId) {
@@ -114,11 +123,7 @@ export class MessageThreadsService {
     enrolmentId: string,
   ): Promise<MessageThreadSummaryDto[]> {
     const threads = await this.threadRepo.find({
-      where: {
-        organisationId: user.organisationId!,
-        enrolmentId,
-        isDeleted: false,
-      },
+      where: this.visibleThreadWhere(user, { enrolmentId }),
       order: { createdAt: 'ASC' },
     });
 
@@ -175,16 +180,47 @@ export class MessageThreadsService {
     user: AuthenticatedUser,
     id: string,
   ): Promise<MessageThreadResponseDto> {
-    const thread = await this.getThreadOrThrow(user.organisationId!, id);
+    const thread = await this.getThreadOrThrow(user, id);
     this.accessService.assertCanRead(thread, user);
     return this.toResponse(thread, user.id);
+  }
+
+  /**
+   * Security hardening pass, item 1 — the query half of the linked-party fix.
+   *
+   * Every thread read used to be `WHERE organisationId = :caller`. A thread is
+   * stamped with the enrolment's owning organisation, but its counterparty is
+   * frequently an employer manager whose active organisation is the employer —
+   * so the owner-scoped clause threw their own threads away, and their inbox
+   * was empty.
+   *
+   * Opening the RLS policy alone would not have fixed this. The implementation
+   * log records the same two-layer failure on `otj_log_entries` in F1.4.2,
+   * where the database was already willing to return the rows and the service
+   * discarded them anyway.
+   *
+   * Returns an OR of three shapes: the owning organisation (unchanged, so
+   * provider admins keep working), plus either participant by user id —
+   * matching `MessagingAccessService.isParticipant`, which is the rule that
+   * actually decides access.
+   */
+  private visibleThreadWhere(
+    user: AuthenticatedUser,
+    extra: Partial<FindOptionsWhere<MessageThread>> = {},
+  ): FindOptionsWhere<MessageThread>[] {
+    const base = { ...extra, isDeleted: false as const };
+    return [
+      { ...base, organisationId: user.organisationId! },
+      { ...base, apprenticeUserId: user.id },
+      { ...base, counterpartyUserId: user.id },
+    ];
   }
 
   async getUnreadCount(
     user: AuthenticatedUser,
   ): Promise<MessagingUnreadCountResponseDto> {
     const threads = await this.threadRepo.find({
-      where: { organisationId: user.organisationId!, isDeleted: false },
+      where: this.visibleThreadWhere(user),
     });
     const accessible = threads.filter((thread) =>
       this.accessService.canRead(thread, user),
@@ -199,7 +235,7 @@ export class MessageThreadsService {
   }
 
   async markRead(user: AuthenticatedUser, threadId: string): Promise<void> {
-    const thread = await this.getThreadOrThrow(user.organisationId!, threadId);
+    const thread = await this.getThreadOrThrow(user, threadId);
     this.accessService.assertCanRead(thread, user);
 
     const existing = await this.readRepo.findOne({
@@ -263,11 +299,16 @@ export class MessageThreadsService {
     );
   }
 
+  /**
+   * Takes the user, not an organisation id, for the same reason as
+   * `getThreadOrThrow`: the sender of a message is routinely the employer
+   * counterparty, whose active organisation does not own the thread.
+   */
   async getThreadForMessaging(
-    organisationId: string,
+    user: AuthenticatedUser,
     threadId: string,
   ): Promise<MessageThread> {
-    return this.getThreadOrThrow(organisationId, threadId);
+    return this.getThreadOrThrow(user, threadId);
   }
 
   private async ensureThread(
@@ -301,11 +342,13 @@ export class MessageThreadsService {
   }
 
   private async getThreadOrThrow(
-    organisationId: string,
+    user: AuthenticatedUser,
     id: string,
   ): Promise<MessageThread> {
+    // Owner OR participant. Scoping this to the owning organisation alone
+    // gave the employer counterparty a 404 on their own thread.
     const thread = await this.threadRepo.findOne({
-      where: { id, organisationId, isDeleted: false },
+      where: this.visibleThreadWhere(user, { id }),
     });
     if (!thread) {
       throw new NotFoundException('Message thread not found');

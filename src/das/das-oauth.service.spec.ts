@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
+import { DasApiActivityService } from './das-api-activity.service.js';
 import { DasOAuthService } from './das-oauth.service.js';
 
 describe('DasOAuthService', () => {
@@ -10,6 +11,10 @@ describe('DasOAuthService', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         DasOAuthService,
+        {
+          provide: DasApiActivityService,
+          useValue: { record: jest.fn().mockResolvedValue(undefined) },
+        },
         {
           provide: ConfigService,
           useValue: {

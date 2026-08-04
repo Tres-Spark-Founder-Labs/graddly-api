@@ -17,6 +17,7 @@ export const DEPLOYED_CRON_FLAGS_DEFAULT_TRUE = [
   'CRON_LEVY_TRANSFER_STATUS_ENABLED',
   'CRON_LEVY_ROI_MONTHLY_ENABLED',
   'CRON_EIF_SNAPSHOT_ENABLED',
+  'CRON_CASELOAD_ALERTS_ENABLED',
   'CRON_RETENTION_ENABLED',
 ] as const;
 
@@ -323,6 +324,21 @@ export const envSchema = z
       .transform((v) => v === 'true'),
 
     CRON_EIF_SNAPSHOT_SCHEDULE: z.string().min(1).default('0 2 * * *'),
+
+    // F2.2.5 AC3 — alert programme managers when a tutor is carrying too
+    // many at-risk learners. 07:30, so it lands before the working day and
+    // after the nightly OTJ pace and review-overdue jobs have settled.
+    CRON_CASELOAD_ALERTS_ENABLED: z
+      .string()
+      .optional()
+      .default('false')
+      .transform((v) => v === 'true'),
+
+    CRON_CASELOAD_ALERTS_SCHEDULE: z.string().min(1).default('30 7 * * *'),
+
+    // The at-risk count above which a tutor is flagged. Configurable per the
+    // criterion, which names 5 as the default.
+    CASELOAD_AT_RISK_THRESHOLD: z.coerce.number().int().min(1).default(5),
 
     CRON_LEVY_TRANSFER_STATUS_ENABLED: z
       .string()

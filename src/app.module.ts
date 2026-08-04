@@ -32,6 +32,7 @@ import databaseConfig from './config/typeorm.config.js';
 // import { TenantSessionSubscriber } from './database/tenant-session.subscriber.js';
 import { getEnv, validateEnv } from './config/validate-env.js';
 import { DasModule } from './das/das.module.js';
+import { EmployerVisitsModule } from './employer-visits/employer-visits.module.js';
 import { EnrolmentPushModule } from './enrolment-push/enrolment-push.module.js';
 import { EnrolmentsModule } from './enrolments/enrolments.module.js';
 import { EsignatureModule } from './esignature/esignature.module.js';
@@ -56,6 +57,7 @@ import { RedisModule } from './redis/redis.module.js';
 import { ReportingModule } from './reporting/reporting.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
 import { StorageModule } from './storage/storage.module.js';
+import { SurveysModule } from './surveys/surveys.module.js';
 import { UsersModule } from './users/users.module.js';
 import { WithdrawalPushModule } from './withdrawal-push/withdrawal-push.module.js';
 
@@ -111,6 +113,10 @@ import { WithdrawalPushModule } from './withdrawal-push/withdrawal-push.module.j
     ProgrammesModule,
     ApprenticesModule,
     EnrolmentsModule,
+    // F2.4.2 — employer visit log, and F2.4.1's lastVisitDate.
+    EmployerVisitsModule,
+    // F2.4.3 — employer satisfaction surveys.
+    SurveysModule,
     MessagingModule,
     ReportingModule,
     WithdrawalPushModule,

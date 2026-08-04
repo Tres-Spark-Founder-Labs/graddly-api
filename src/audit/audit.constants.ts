@@ -1,6 +1,7 @@
 import { CommitmentSignature } from '../commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatementGroup } from '../commitments/entities/commitment-statement-group.entity.js';
 import { CommitmentStatement } from '../commitments/entities/commitment-statement.entity.js';
+import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { Invitation } from '../invitations/entities/invitation.entity.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
@@ -10,6 +11,21 @@ export const AUDITED_ENTITIES = new Set([
   Organisation,
   OrganisationMembership,
   Invitation,
+  /**
+   * F2.2.5 AC4 — "tutor reassignment is tracked in the audit trail".
+   *
+   * The enrolment is where the tutor lives, so auditing it is what makes
+   * reassignment traceable — who moved which learner to which tutor, and
+   * when. It also covers the rest of the enrolment record, which is the
+   * platform's core funding object and arguably should have been audited
+   * from the start.
+   *
+   * Note the constraint this places on callers: the subscriber fires on
+   * `repo.save()` and NOT on `repo.update()` or QueryBuilder writes, so any
+   * code that changes an enrolment must save entities rather than issue a
+   * bulk update, or the change happens with no trail at all.
+   */
+  Enrolment,
   // F1.2.3 AC8 — "all approval actions are timestamped and stored in the audit
   // trail". The entry itself records approvedAt/approvedByUserId and
   // rejectedAt/rejectedByUserId, but that is current state, not history: a

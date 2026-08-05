@@ -29,11 +29,12 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 
+import { Capability } from '../auth/capabilities/capability.enum.js';
+import { RequiresCapability } from '../auth/capabilities/requires-capability.decorator.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { Roles } from '../auth/decorators/roles.decorator.js';
 import { ActiveOrganisationGuard } from '../auth/guards/active-organisation.guard.js';
+import { CapabilityGuard } from '../auth/guards/capability.guard.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers.js';
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import {
@@ -44,7 +45,6 @@ import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
-import { OrganisationRole } from '../organisations/organisation-role.enum.js';
 
 import { BulkOtjActionResponseDto } from './dto/bulk-otj-action-response.dto.js';
 import {
@@ -185,8 +185,8 @@ export class OtjLogEntriesController {
   }
 
   @Post('bulk-approve')
-  @UseGuards(RolesGuard)
-  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
+  @UseGuards(CapabilityGuard)
+  @RequiresCapability(Capability.BULK_APPROVE_OTJ)
   @ResponseMessage('Bulk OTJ approval completed')
   @ApiOperation({
     summary: 'Bulk approve OTJ submitted entries (owner or admin)',
@@ -218,8 +218,8 @@ export class OtjLogEntriesController {
   }
 
   @Post('bulk-reject')
-  @UseGuards(RolesGuard)
-  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
+  @UseGuards(CapabilityGuard)
+  @RequiresCapability(Capability.BULK_APPROVE_OTJ)
   @ResponseMessage('Bulk OTJ rejection completed')
   @ApiOperation({
     summary: 'Bulk reject OTJ submitted entries (owner or admin)',

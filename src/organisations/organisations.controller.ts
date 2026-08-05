@@ -27,11 +27,12 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 
+import { Capability } from '../auth/capabilities/capability.enum.js';
+import { RequiresCapability } from '../auth/capabilities/requires-capability.decorator.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { Roles } from '../auth/decorators/roles.decorator.js';
 import { ActiveOrganisationGuard } from '../auth/guards/active-organisation.guard.js';
+import { CapabilityGuard } from '../auth/guards/capability.guard.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import {
   ErrorResponseDto,
@@ -43,7 +44,6 @@ import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { CreateOrganisationDto } from './dto/create-organisation.dto.js';
 import { OrganisationResponseDto } from './dto/organisation-response.dto.js';
 import { UpdateOrganisationDto } from './dto/update-organisation.dto.js';
-import { OrganisationRole } from './organisation-role.enum.js';
 import { OrganisationsService } from './organisations.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
@@ -133,8 +133,8 @@ export class OrganisationsController {
   }
 
   @Patch(':id')
-  @UseGuards(ActiveOrganisationGuard, RolesGuard)
-  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
+  @UseGuards(ActiveOrganisationGuard, CapabilityGuard)
+  @RequiresCapability(Capability.MANAGE_ORGANISATION)
   @ResponseMessage('Organisation updated successfully')
   @ApiOperation({ summary: 'Update organisation (owner or admin)' })
   @ApiOkResponse({
@@ -174,8 +174,8 @@ export class OrganisationsController {
   }
 
   @Delete(':id')
-  @UseGuards(ActiveOrganisationGuard, RolesGuard)
-  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
+  @UseGuards(ActiveOrganisationGuard, CapabilityGuard)
+  @RequiresCapability(Capability.MANAGE_ORGANISATION)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ResponseMessage('Organisation deleted successfully')
   @ApiOperation({ summary: 'Soft-delete organisation (owner or admin)' })

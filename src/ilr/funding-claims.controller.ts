@@ -21,18 +21,18 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 
+import { Capability } from '../auth/capabilities/capability.enum.js';
+import { RequiresCapability } from '../auth/capabilities/requires-capability.decorator.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { Roles } from '../auth/decorators/roles.decorator.js';
 import { ActiveOrganisationGuard } from '../auth/guards/active-organisation.guard.js';
+import { CapabilityGuard } from '../auth/guards/capability.guard.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers.js';
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
-import { OrganisationRole } from '../organisations/organisation-role.enum.js';
 
 import { FundingClaimResponseDto } from './dto/funding-claim-response.dto.js';
 import { ListFundingClaimsQueryDto } from './dto/list-funding-claims-query.dto.js';
@@ -100,8 +100,8 @@ export class FundingClaimsController {
    * about money the provider will not receive, not a note anyone can leave.
    */
   @Patch(':enrolmentId/resolution')
-  @UseGuards(RolesGuard)
-  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
+  @UseGuards(CapabilityGuard)
+  @RequiresCapability(Capability.RESOLVE_FUNDING_CLAIM)
   @ResponseMessage('Funding claim resolution updated successfully')
   @ApiOperation({ summary: 'Record progress on a funding discrepancy' })
   @ApiOkResponse({

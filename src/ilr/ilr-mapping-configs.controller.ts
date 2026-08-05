@@ -21,17 +21,17 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 
+import { Capability } from '../auth/capabilities/capability.enum.js';
+import { RequiresCapability } from '../auth/capabilities/requires-capability.decorator.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { Roles } from '../auth/decorators/roles.decorator.js';
 import { ActiveOrganisationGuard } from '../auth/guards/active-organisation.guard.js';
+import { CapabilityGuard } from '../auth/guards/capability.guard.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers.js';
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
-import { OrganisationRole } from '../organisations/organisation-role.enum.js';
 
 import { CreateIlrMappingConfigDto } from './dto/create-ilr-mapping-config.dto.js';
 import { IlrMappingConfigResponseDto } from './dto/ilr-mapping-config-response.dto.js';
@@ -98,8 +98,8 @@ export class IlrMappingConfigsController {
   }
 
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
+  @UseGuards(CapabilityGuard)
+  @RequiresCapability(Capability.MANAGE_ILR_MAPPING)
   @ResponseMessage('ILR mapping config draft created successfully')
   @ApiOperation({
     summary: 'Create a draft ILR mapping config version (owner or admin)',
@@ -126,8 +126,8 @@ export class IlrMappingConfigsController {
   }
 
   @Post(':id/publish')
-  @UseGuards(RolesGuard)
-  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
+  @UseGuards(CapabilityGuard)
+  @RequiresCapability(Capability.MANAGE_ILR_MAPPING)
   @ResponseMessage('ILR mapping config published successfully')
   @ApiOperation({
     summary: 'Publish a draft ILR mapping config (owner or admin)',

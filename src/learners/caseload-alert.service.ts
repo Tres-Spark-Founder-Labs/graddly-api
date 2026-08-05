@@ -3,8 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
 import {
+  getRlsBootstrap,
   setCurrentOrganisationId,
   setCurrentUserId,
+  setRlsBootstrap,
 } from '../common/context/correlation-id-context.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
@@ -44,9 +46,27 @@ export class CaseloadAlertService {
     organisationsChecked: number;
     alertsSent: number;
   }> {
-    const providers = await this.organisationRepo.find({
-      where: { portalType: PortalType.PROVIDER, isDeleted: false },
-    });
+    /**
+     * Security hardening pass, item 7 — the sweep read needs bootstrap.
+     *
+     * A cron has no request to inherit GUCs from, so `organisations_select`
+     * matched nothing and this returned **zero providers**: the job reported
+     * "0 organisations checked" every night and nobody was alerted about any
+     * tutor, anywhere. Proven by seed-and-count, not inferred.
+     *
+     * Scoped to this read alone. `alertForOrganisation` sets per-organisation
+     * context below, and that scoping is correct and must not be blanketed.
+     */
+    const previousBootstrap = getRlsBootstrap();
+    setRlsBootstrap(true);
+    let providers: Organisation[];
+    try {
+      providers = await this.organisationRepo.find({
+        where: { portalType: PortalType.PROVIDER, isDeleted: false },
+      });
+    } finally {
+      setRlsBootstrap(previousBootstrap);
+    }
 
     let alertsSent = 0;
     for (const provider of providers) {
@@ -65,14 +85,38 @@ export class CaseloadAlertService {
   }
 
   private async alertForOrganisation(organisationId: string): Promise<number> {
-    const managers = await this.membershipRepo.find({
-      where: {
-        organisation: { id: organisationId },
-        role: In([OrganisationRole.OWNER, OrganisationRole.ADMIN]),
-        isDeleted: false,
-      },
-      relations: ['user'],
-    });
+    /**
+     * Security hardening pass, item 7 — a SECOND context gap, in the same
+     * function, found while fixing the first.
+     *
+     * This membership read runs *before* `setCurrentOrganisationId` further
+     * down, so it had no tenant context either. The comment below correctly
+     * explained why the caseload read needs context and, in doing so, made
+     * this read look deliberate — it was not. It returned no managers, the
+     * function took its `managers.length === 0` early return, and the sweep
+     * reported zero alerts without ever reaching the caseload query the
+     * comment was about.
+     *
+     * Bootstrapped rather than org-scoped because of an ordering problem: the
+     * acting user id used to set the tenant context is taken *from* this
+     * result. Same justification as the commitment-chase signer lookup — a
+     * system read to discover who to notify.
+     */
+    const previousBootstrap = getRlsBootstrap();
+    setRlsBootstrap(true);
+    let managers: OrganisationMembership[];
+    try {
+      managers = await this.membershipRepo.find({
+        where: {
+          organisation: { id: organisationId },
+          role: In([OrganisationRole.OWNER, OrganisationRole.ADMIN]),
+          isDeleted: false,
+        },
+        relations: ['user'],
+      });
+    } finally {
+      setRlsBootstrap(previousBootstrap);
+    }
 
     if (managers.length === 0) {
       return 0;

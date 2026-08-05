@@ -1,7 +1,11 @@
 import { CommitmentSignature } from '../commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatementGroup } from '../commitments/entities/commitment-statement-group.entity.js';
 import { CommitmentStatement } from '../commitments/entities/commitment-statement.entity.js';
+import { EmployerVisit } from '../employer-visits/entities/employer-visit.entity.js';
+import { BreakInLearning } from '../enrolments/entities/break-in-learning.entity.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
+import { EpaOutcomeRecord } from '../enrolments/entities/epa-outcome.entity.js';
+import { FundingClaimResolution } from '../ilr/entities/funding-claim-resolution.entity.js';
 import { Invitation } from '../invitations/entities/invitation.entity.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
@@ -51,6 +55,48 @@ export const AUDITED_ENTITIES = new Set([
   CommitmentStatement,
   CommitmentSignature,
   CommitmentStatementGroup,
+
+  /**
+   * Security hardening pass, item 5 — entities holding personal or
+   * funding-consequential data that were outside the trail entirely.
+   *
+   * The test applied to each: if this row changed and nobody could say who
+   * changed it or what it said before, would that matter to an ESFA
+   * reconciliation, an Ofsted inspection, or a subject access request? For
+   * all four the answer is yes.
+   *
+   * `OtjLogEntry` is deliberately NOT repeated here — it is already in the set
+   * above, and its flag/unflag paths persist through `repo.save()`, so the
+   * F2.2.4 tutor-flag actions were already captured. Verified by reading the
+   * service rather than assumed.
+   */
+
+  /**
+   * The assessment result. Determines the completion payment, so a silent edit
+   * moves money; and it is the single most consequential field on a learner's
+   * record for their own career.
+   */
+  EpaOutcomeRecord,
+
+  /**
+   * A break moves the expected end date and the funding schedule with it, and
+   * `reason` frequently holds health or caring information — special-category
+   * data under UK GDPR Article 9. Both facts argue for a trail.
+   */
+  BreakInLearning,
+
+  /**
+   * Closing a funding claim is a financial decision about money the provider
+   * will or will not receive. "Who wrote this off, and when" is exactly what a
+   * reconciliation asks, and the row itself only holds the current answer.
+   */
+  FundingClaimResolution,
+
+  /**
+   * Ofsted evidence of employer engagement. A visit record that can be edited
+   * after an inspection is announced, with no trace, is not evidence.
+   */
+  EmployerVisit,
 ]);
 
 export const AUDIT_EXCLUDED_FIELDS = new Set([

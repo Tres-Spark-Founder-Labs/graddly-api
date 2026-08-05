@@ -63,6 +63,38 @@ jobs:
       - name: Run unit tests
         run: yarn test --coverage
 
+
+  contract-drift:
+    name: Contract drift
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      # Security pass item 8. openapi.json is committed so type generation
+      # does not need a running API — which means it can go stale, and a
+      # stale contract is exactly what the frontend then generates types
+      # from. Regenerate and fail on any diff.
+      - name: Regenerate OpenAPI document
+        run: yarn openapi:emit
+
+      - name: Fail if the committed spec is stale
+        run: |
+          if ! git diff --quiet -- openapi.json; then
+            echo "::error::openapi.json is out of date. Run yarn openapi:emit and commit the result."
+            git diff --stat -- openapi.json
+            exit 1
+          fi
+          echo "openapi.json matches the committed version."
+
   migrations:
     name: DB migrations (apply + show)
     runs-on: ubuntu-latest

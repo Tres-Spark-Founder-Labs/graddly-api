@@ -13,6 +13,7 @@ import { LearnersModule } from '../learners/learners.module.js';
 import { LevyTransfer } from '../levy-exchange/entities/levy-transfer.entity.js';
 import { LevyExchangeModule } from '../levy-exchange/levy-exchange.module.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
+import { OfstedModule } from '../ofsted/ofsted.module.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { OtjModule } from '../otj/otj.module.js';
@@ -53,6 +54,21 @@ import { ReviewRemindersCronService } from './review-reminders-cron.service.js';
     DataRetentionModule,
     CommitmentsModule,
     NotificationsModule,
+    /**
+     * Provides EifScoreSnapshotService for EifSnapshotCronService.
+     *
+     * Its absence crash-looped the worker in production: the cron was in
+     * `providers` but the module supplying its dependency was never imported,
+     * so Nest failed at construction and took the whole worker down with it —
+     * every background job on the platform with it.
+     *
+     * A direct import is safe here; there is no cycle. OfstedModule imports
+     * only Auth, Storage, Redis, Pdf and OutcomeMetrics, and none of those
+     * reaches SchedulerModule. That is precisely why OutcomeMetricsModule was
+     * split out of ReportingModule — ReportingModule does import
+     * SchedulerModule, so importing it here would have created one.
+     */
+    OfstedModule,
     // F1.4.1 AC5 — the monthly ROI report cron.
     ReportingModule,
     // F2.2.5 AC3 — the tutor at-risk caseload alert sweep.

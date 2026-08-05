@@ -100,7 +100,10 @@ describe('DataRetentionService', () => {
       softDeletedPurged: 0,
       oldNotificationsPurged: 0,
     });
-    expect(auditRepo.createQueryBuilder).toHaveBeenCalled();
+    // Audit logs are append-only and deliberately not touched; the other
+    // repositories are what a forced run must still sweep.
+    expect(auditRepo.createQueryBuilder).not.toHaveBeenCalled();
+    expect(notificationRepo.createQueryBuilder).toHaveBeenCalled();
   });
 
   it('returns zero summary when retention cron is disabled', async () => {
@@ -113,11 +116,28 @@ describe('DataRetentionService', () => {
     expect(auditRepo.createQueryBuilder).not.toHaveBeenCalled();
   });
 
-  it('purges expired audit logs in batches', async () => {
+  /**
+   * Security hardening pass, item 7 — deliberate behaviour change.
+   *
+   * This used to assert that audit-log purging issued a query. It cannot: the
+   * `audit_log_entries_immutable` trigger RAISEs on DELETE for every role,
+   * including superuser, so the delete could only ever have thrown. It never
+   * did solely because the sweep ran with no tenant context and the preceding
+   * SELECT returned nothing.
+   *
+   * The method is now an explicit, logged no-op rather than an accidental one,
+   * so the assertion is inverted: it must NOT touch the repository at all.
+   * Issuing the query again would mean the retention cron starts crashing
+   * nightly the moment tenant context is available.
+   *
+   * Whether the 7-year retention or the immutable trail wins is question 17
+   * in DECISIONS-FOR-CLIENT.md.
+   */
+  it('does not attempt to purge audit logs, which are append-only', async () => {
     mockBatchDelete(auditRepo);
     const deleted = await service.purgeExpiredAuditLogs();
     expect(deleted).toBe(0);
-    expect(auditRepo.createQueryBuilder).toHaveBeenCalled();
+    expect(auditRepo.createQueryBuilder).not.toHaveBeenCalled();
   });
 
   it('reports whether retention cron is enabled', () => {

@@ -11,7 +11,10 @@ import { ERASED, scrubAuditChanges } from '../audit/audit-scrub.util.js';
 import { AuditLogEntry } from '../audit/entities/audit-log-entry.entity.js';
 import { AuditAction } from '../audit/enums/audit-action.enum.js';
 import { RefreshTokenService } from '../auth/refresh-token.service.js';
+import { EmployerVisit } from '../employer-visits/entities/employer-visit.entity.js';
+import { BreakInLearning } from '../enrolments/entities/break-in-learning.entity.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
+import { FundingClaimResolution } from '../ilr/entities/funding-claim-resolution.entity.js';
 import { Message } from '../messaging/entities/message.entity.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { User } from '../users/entities/user.entity.js';
@@ -39,6 +42,12 @@ export class ErasureService {
     private readonly otjRepo: Repository<OtjLogEntry>,
     @InjectRepository(Message)
     private readonly messageRepo: Repository<Message>,
+    @InjectRepository(BreakInLearning)
+    private readonly breakRepo: Repository<BreakInLearning>,
+    @InjectRepository(EmployerVisit)
+    private readonly visitRepo: Repository<EmployerVisit>,
+    @InjectRepository(FundingClaimResolution)
+    private readonly fundingClaimRepo: Repository<FundingClaimResolution>,
     @InjectRepository(AuditLogEntry)
     private readonly auditRepo: Repository<AuditLogEntry>,
     private readonly refreshTokenService: RefreshTokenService,
@@ -126,6 +135,82 @@ export class ErasureService {
         )`,
         { apprenticeId },
       )
+      .execute();
+
+    /**
+     * Security hardening pass, item 5 — free text added since this service was
+     * written, holding personal data reachable by an Article 17 request.
+     *
+     * Named column by column rather than through a blanket `save()`. The
+     * columns NOT listed here are the point: `startedOn`, `expectedReturnDate`,
+     * `actualReturnDate`, `visitedOn`, `visitType` and every foreign key stay
+     * exactly as they were, because they are the evidential skeleton an ESFA
+     * reconciliation and an Ofsted inspection are entitled to. Erasure removes
+     * the person from the record; it does not remove the record.
+     */
+
+    /**
+     * `break_in_learning.reason` is the sharpest case in this service.
+     *
+     * It routinely holds health or caring information — "long-term sickness",
+     * "maternity leave", "caring for a parent". That is special-category data
+     * under UK GDPR Article 9, held about a person who has asked to be
+     * forgotten, on a row we must keep for funding audit.
+     *
+     * The safer default is applied: the reason is scrubbed, the dates and the
+     * fact of the break survive. Whether the ESFA's retention duty overrides
+     * erasure for the coded reason itself is a legal question, not an
+     * engineering one — raised as question 16 in DECISIONS-FOR-CLIENT.md.
+     */
+    await this.breakRepo
+      .createQueryBuilder()
+      .update(BreakInLearning)
+      .set({ reason: ERASED })
+      .where(
+        `"enrolmentId" IN (SELECT id FROM enrolments WHERE "apprenticeId" = :apprenticeId)`,
+        { apprenticeId },
+      )
+      .execute();
+
+    /**
+     * Employer visit notes name people and discuss them by name. Scrubbed only
+     * for visits that actually discussed this learner — resolved through
+     * `employer_visit_learners` rather than by date, so a visit about a
+     * different apprentice keeps its notes.
+     */
+    await this.visitRepo
+      .createQueryBuilder()
+      .update(EmployerVisit)
+      .set({
+        attendees: ERASED,
+        discussionPoints: ERASED,
+        actionPoints: ERASED,
+      })
+      .where(
+        `id IN (
+          SELECT l."visitId" FROM employer_visit_learners l
+          JOIN enrolments e ON e.id = l."enrolmentId"
+          WHERE e."apprenticeId" = :apprenticeId
+        )`,
+        { apprenticeId },
+      )
+      .execute();
+
+    /**
+     * The funding-claim note explains why money was written off, which is
+     * evidential — but it is free text a human wrote about a named learner, so
+     * it can contain personal data. Scrubbed on the same reasoning as the
+     * others; the status, amounts and timestamps are untouched.
+     */
+    await this.fundingClaimRepo
+      .createQueryBuilder()
+      .update(FundingClaimResolution)
+      .set({ note: ERASED })
+      .where(
+        `"enrolmentId" IN (SELECT id FROM enrolments WHERE "apprenticeId" = :apprenticeId)`,
+        { apprenticeId },
+      )
+      .andWhere('"note" IS NOT NULL')
       .execute();
 
     const enrolments = await this.enrolmentRepo.find({

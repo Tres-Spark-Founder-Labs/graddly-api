@@ -5,7 +5,10 @@ import { Apprentice } from '../apprentices/entities/apprentice.entity.js';
 import { ERASED, scrubAuditChanges } from '../audit/audit-scrub.util.js';
 import { AuditLogEntry } from '../audit/entities/audit-log-entry.entity.js';
 import { RefreshTokenService } from '../auth/refresh-token.service.js';
+import { EmployerVisit } from '../employer-visits/entities/employer-visit.entity.js';
+import { BreakInLearning } from '../enrolments/entities/break-in-learning.entity.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
+import { FundingClaimResolution } from '../ilr/entities/funding-claim-resolution.entity.js';
 import { Message } from '../messaging/entities/message.entity.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { User } from '../users/entities/user.entity.js';
@@ -19,6 +22,10 @@ describe('ErasureService', () => {
   const enrolmentRepo = { find: jest.fn() };
   const otjRepo = { createQueryBuilder: jest.fn() };
   const messageRepo = { createQueryBuilder: jest.fn() };
+  // Security pass item 5 — erasure now also scrubs free text on these.
+  const breakRepo = { createQueryBuilder: jest.fn() };
+  const visitRepo = { createQueryBuilder: jest.fn() };
+  const fundingClaimRepo = { createQueryBuilder: jest.fn() };
   const auditRepo = {
     createQueryBuilder: jest.fn(),
     create: jest.fn(),
@@ -37,6 +44,12 @@ describe('ErasureService', () => {
         { provide: getRepositoryToken(Enrolment), useValue: enrolmentRepo },
         { provide: getRepositoryToken(OtjLogEntry), useValue: otjRepo },
         { provide: getRepositoryToken(Message), useValue: messageRepo },
+        { provide: getRepositoryToken(BreakInLearning), useValue: breakRepo },
+        { provide: getRepositoryToken(EmployerVisit), useValue: visitRepo },
+        {
+          provide: getRepositoryToken(FundingClaimResolution),
+          useValue: fundingClaimRepo,
+        },
         { provide: getRepositoryToken(AuditLogEntry), useValue: auditRepo },
         { provide: RefreshTokenService, useValue: refreshTokenService },
       ],
@@ -67,6 +80,17 @@ describe('ErasureService', () => {
       where: jest.fn().mockReturnThis(),
       execute: jest.fn().mockResolvedValue({ affected: 0 }),
     });
+
+    // Security pass item 5 — the three entities erasure now reaches.
+    for (const repo of [breakRepo, visitRepo, fundingClaimRepo]) {
+      repo.createQueryBuilder.mockReturnValue({
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 0 }),
+      });
+    }
   });
 
   /**

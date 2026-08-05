@@ -107,6 +107,17 @@ import { SarReportsService } from './sar-reports.service.js';
     EifScoreSnapshotService,
     EvidencePackBuilderService,
     EvidencePackDispatchService,
+    /**
+     * Consumed by `PdfGenerationProcessor` in the worker, which crash-looped
+     * without it. `BullmqWorkerModule` already imported this module — the
+     * service was simply a provider and never exported, so it was private to
+     * OfstedModule and invisible to the processor that needed it.
+     *
+     * Nest reports only the first unresolved dependency, so this was hidden
+     * behind the EifScoreSnapshotService failure and only appeared once that
+     * was fixed. Two separate wiring bugs, one crash message.
+     */
+    QipActionsService,
     TypeOrmModule,
   ],
 })

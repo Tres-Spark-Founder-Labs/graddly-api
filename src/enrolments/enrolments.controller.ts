@@ -71,6 +71,11 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
 
 @ApiTags('Enrolments')
 @ApiExtraModels(
+  // Referenced via getSchemaPath() on the break-in-learning routes but never
+  // registered, so the published spec carried three dangling $refs and type
+  // generation failed outright. Swagger UI renders that as an empty box, so
+  // nothing noticed until the contract-drift gate consumed the spec.
+  BreakInLearningResponseDto,
   LinkedProviderResponseDto,
   CounterpartOrganisationLookupResponseDto,
   EnrolmentJourneyResponseDto,

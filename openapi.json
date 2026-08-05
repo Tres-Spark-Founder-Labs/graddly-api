@@ -23214,6 +23214,53 @@
           "role"
         ]
       },
+      "BreakInLearningResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "enrolmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "startedOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "expectedReturnDate": {
+            "type": "string",
+            "nullable": true,
+            "format": "date"
+          },
+          "actualReturnDate": {
+            "type": "string",
+            "nullable": true,
+            "format": "date"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "False once the learner has returned."
+          },
+          "dasNotifiedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time",
+            "description": "When the ILR push was queued — not when the ESFA accepted it, which the push record tracks separately."
+          }
+        },
+        "required": [
+          "id",
+          "enrolmentId",
+          "reason",
+          "startedOn",
+          "active"
+        ]
+      },
       "LinkedProviderResponseDto": {
         "type": "object",
         "properties": {

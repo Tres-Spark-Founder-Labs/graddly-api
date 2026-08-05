@@ -90,6 +90,73 @@ export const CAPABILITY_ROLES: Readonly<
 
   /** Granting permissions is the one action that can widen every other one. */
   [Capability.MANAGE_STAFF]: [OrganisationRole.OWNER, OrganisationRole.ADMIN],
+
+  // ── Security hardening pass item 3 ───────────────────────────────────────
+  //
+  // Each entry below carries the EXACT role list of the @Roles(...) decorator
+  // it replaced. This was a behaviour-preserving refactor: no endpoint gained
+  // or lost a role. Two of them nearly did — see the notes.
+
+  [Capability.READ_AUDIT_TRAIL]: [
+    OrganisationRole.OWNER,
+    OrganisationRole.ADMIN,
+  ],
+  [Capability.RESOLVE_FUNDING_CLAIM]: [
+    OrganisationRole.OWNER,
+    OrganisationRole.ADMIN,
+  ],
+  [Capability.MANAGE_ILR_MAPPING]: [
+    OrganisationRole.OWNER,
+    OrganisationRole.ADMIN,
+  ],
+  [Capability.MANAGE_TUTOR_CASELOAD]: [
+    OrganisationRole.OWNER,
+    OrganisationRole.ADMIN,
+  ],
+
+  /**
+   * OWNER/ADMIN, matching the @Roles it replaced — and deliberately NOT
+   * folded into DOWNLOAD_EVIDENCE_PACK, which allows MEMBER.
+   *
+   * Two evidence-pack endpoints currently disagree: the QIP export route uses
+   * DOWNLOAD_EVIDENCE_PACK (wide, on the reasoning that being unable to
+   * produce evidence mid-inspection is worse than a tutor downloading it),
+   * while the pack-build route was @Roles(OWNER, ADMIN). Reusing the wide one
+   * would have granted MEMBER a permission it does not have today.
+   *
+   * Flagged for the client rather than resolved here — see decision 18.
+   */
+  [Capability.GENERATE_EVIDENCE_PACK]: [
+    OrganisationRole.OWNER,
+    OrganisationRole.ADMIN,
+  ],
+
+  [Capability.MANAGE_ORGANISATION]: [
+    OrganisationRole.OWNER,
+    OrganisationRole.ADMIN,
+  ],
+
+  /**
+   * OWNER/ADMIN, matching the @Roles it replaced. APPROVE_OTJ above allows
+   * MEMBER and is currently applied to no endpoint at all — it was written
+   * for provider-side sign-off, while these bulk routes are the employer side
+   * (F1.2.3), which the PRD restricts to line managers.
+   *
+   * They are genuinely different acts, so this is a separate capability
+   * rather than a reuse. Also flagged as decision 18: an unused capability
+   * whose mapping disagrees with the live endpoints is a trap for whoever
+   * applies it next.
+   */
+  [Capability.BULK_APPROVE_OTJ]: [
+    OrganisationRole.OWNER,
+    OrganisationRole.ADMIN,
+  ],
+
+  [Capability.MANAGE_REPORT_SUBSCRIPTIONS]: [
+    OrganisationRole.OWNER,
+    OrganisationRole.ADMIN,
+  ],
+  [Capability.MANAGE_SURVEYS]: [OrganisationRole.OWNER, OrganisationRole.ADMIN],
 });
 
 /** Whether any of a user's roles satisfies the capability. */

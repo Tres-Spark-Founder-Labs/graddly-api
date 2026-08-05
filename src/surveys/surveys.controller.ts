@@ -20,17 +20,17 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 
+import { Capability } from '../auth/capabilities/capability.enum.js';
+import { RequiresCapability } from '../auth/capabilities/requires-capability.decorator.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { Roles } from '../auth/decorators/roles.decorator.js';
 import { ActiveOrganisationGuard } from '../auth/guards/active-organisation.guard.js';
+import { CapabilityGuard } from '../auth/guards/capability.guard.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers.js';
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
-import { OrganisationRole } from '../organisations/organisation-role.enum.js';
 
 import { CreateSurveyCampaignDto } from './dto/create-survey-campaign.dto.js';
 import { CreateSurveyTemplateDto } from './dto/create-survey-template.dto.js';
@@ -60,8 +60,8 @@ export class SurveysController {
   constructor(private readonly service: SurveysService) {}
 
   @Post('templates')
-  @UseGuards(RolesGuard)
-  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
+  @UseGuards(CapabilityGuard)
+  @RequiresCapability(Capability.MANAGE_SURVEYS)
   @ResponseMessage('Survey template created successfully')
   @ApiOperation({ summary: 'Create a survey template (up to 10 questions)' })
   @ApiCreatedResponse({ description: 'The created template' })
@@ -97,8 +97,8 @@ export class SurveysController {
    * caller that discards them must create a new campaign.
    */
   @Post('campaigns')
-  @UseGuards(RolesGuard)
-  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
+  @UseGuards(CapabilityGuard)
+  @RequiresCapability(Capability.MANAGE_SURVEYS)
   @ResponseMessage('Survey campaign created successfully')
   @ApiOperation({
     summary: 'Create a campaign and mint one survey link per recipient',

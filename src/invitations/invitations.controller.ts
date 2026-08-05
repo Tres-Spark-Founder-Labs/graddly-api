@@ -30,11 +30,12 @@ import {
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 
+import { Capability } from '../auth/capabilities/capability.enum.js';
+import { RequiresCapability } from '../auth/capabilities/requires-capability.decorator.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { Roles } from '../auth/decorators/roles.decorator.js';
 import { ActiveOrganisationGuard } from '../auth/guards/active-organisation.guard.js';
+import { CapabilityGuard } from '../auth/guards/capability.guard.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { PORTAL_TYPE_HEADER } from '../common/constants/organisation-headers.js';
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import {
@@ -46,7 +47,6 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { parsePortalType } from '../common/utils/parse-portal-type.util.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
-import { OrganisationRole } from '../organisations/organisation-role.enum.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
 
 import { AcceptInvitationResultDto } from './dto/accept-invitation-result.dto.js';
@@ -152,8 +152,8 @@ export class InvitationsController {
   }
 
   @Post()
-  @UseGuards(ActiveOrganisationGuard, RolesGuard)
-  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
+  @UseGuards(ActiveOrganisationGuard, CapabilityGuard)
+  @RequiresCapability(Capability.MANAGE_STAFF)
   @Throttle({ default: { limit: 0 }, auth: { ttl: 60_000, limit: 5 } })
   @ApiHeader({
     name: 'X-Organisation-Id',
@@ -207,8 +207,8 @@ export class InvitationsController {
   }
 
   @Post(':id/resend')
-  @UseGuards(ActiveOrganisationGuard, RolesGuard)
-  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
+  @UseGuards(ActiveOrganisationGuard, CapabilityGuard)
+  @RequiresCapability(Capability.MANAGE_STAFF)
   @Throttle({ default: { limit: 0 }, auth: { ttl: 60_000, limit: 5 } })
   @ApiHeader({
     name: 'X-Organisation-Id',
@@ -259,8 +259,8 @@ export class InvitationsController {
   }
 
   @Delete(':id')
-  @UseGuards(ActiveOrganisationGuard, RolesGuard)
-  @Roles(OrganisationRole.OWNER, OrganisationRole.ADMIN)
+  @UseGuards(ActiveOrganisationGuard, CapabilityGuard)
+  @RequiresCapability(Capability.MANAGE_STAFF)
   @ApiHeader({
     name: 'X-Organisation-Id',
     description:

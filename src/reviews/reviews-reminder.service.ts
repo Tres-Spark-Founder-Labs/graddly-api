@@ -3,6 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, In, Repository } from 'typeorm';
 
+import {
+  getRlsBootstrap,
+  setRlsBootstrap,
+} from '../common/context/correlation-id-context.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
@@ -59,13 +63,33 @@ export class ReviewsReminderService {
     const dayEnd = new Date(targetDay);
     dayEnd.setUTCHours(23, 59, 59, 999);
 
-    const reviews = await this.reviewRepo.find({
-      where: {
-        status: ReviewStatus.SCHEDULED,
-        isDeleted: false,
-        scheduledAt: Between(dayStart, dayEnd),
-      },
-    });
+    /**
+     * Security hardening pass, item 7 — cron sweep needs bootstrap.
+     *
+     * `reviews_select` is keyed on the owning or linked organisation. A cron
+     * has none, so this returned zero reviews and **no reminder was ever sent**
+     * — while `sendDueReminders` returned a tidy count of 0.
+     *
+     * Worth noting how this hid: `review-reminders.e2e-spec.ts` passes today.
+     * It passes because an e2e process inherits the ambient tenant context
+     * left behind by the HTTP requests that built its fixture, which a real
+     * cron never has. A green test proving nothing is exactly what the
+     * commitment-chase entry in this log warned about.
+     */
+    const previousBootstrap = getRlsBootstrap();
+    setRlsBootstrap(true);
+    let reviews: Review[];
+    try {
+      reviews = await this.reviewRepo.find({
+        where: {
+          status: ReviewStatus.SCHEDULED,
+          isDeleted: false,
+          scheduledAt: Between(dayStart, dayEnd),
+        },
+      });
+    } finally {
+      setRlsBootstrap(previousBootstrap);
+    }
 
     return this.dispatchForReviews(reviews, kind, { daysAhead });
   }
@@ -83,13 +107,22 @@ export class ReviewsReminderService {
       now + (hoursAhead + toleranceHours) * 60 * 60 * 1000,
     );
 
-    const reviews = await this.reviewRepo.find({
-      where: {
-        status: ReviewStatus.SCHEDULED,
-        isDeleted: false,
-        scheduledAt: Between(windowStart, windowEnd),
-      },
-    });
+    // Same bootstrap requirement as `sendForKind` above — this is the 48-hour
+    // apprentice reminder and reads the same tenant-scoped table.
+    const previousBootstrap = getRlsBootstrap();
+    setRlsBootstrap(true);
+    let reviews: Review[];
+    try {
+      reviews = await this.reviewRepo.find({
+        where: {
+          status: ReviewStatus.SCHEDULED,
+          isDeleted: false,
+          scheduledAt: Between(windowStart, windowEnd),
+        },
+      });
+    } finally {
+      setRlsBootstrap(previousBootstrap);
+    }
 
     return this.dispatchForReviews(reviews, kind, { hoursAhead });
   }

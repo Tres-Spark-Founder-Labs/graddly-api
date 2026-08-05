@@ -10,6 +10,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CronJob } from 'cron';
 import { IsNull, Not, Repository } from 'typeorm';
 
+import {
+  getRlsBootstrap,
+  setRlsBootstrap,
+} from '../common/context/correlation-id-context.js';
 import { DasSyncDispatchService } from '../das/das-sync-dispatch.service.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 
@@ -62,10 +66,24 @@ export class DasSyncCronService implements OnModuleInit, OnModuleDestroy {
 
   async handleDasSyncCron(): Promise<void> {
     await this.cronLock.runExclusive(DAS_SYNC_CRON_NAME, async () => {
-      const organisations = await this.organisationsRepo.find({
-        where: { isDeleted: false, ukprn: Not(IsNull()) },
-        select: ['id'],
-      });
+      /**
+       * Security hardening pass, item 7 — cron sweep needs bootstrap.
+       *
+       * A cron has no signed-in user, so the organisation-keyed policy on
+       * organisations matched nothing and this returned zero rows for every
+       * organisation while the job reported success.
+       */
+      const previousBootstrap = getRlsBootstrap();
+      setRlsBootstrap(true);
+      let organisations;
+      try {
+        organisations = await this.organisationsRepo.find({
+          where: { isDeleted: false, ukprn: Not(IsNull()) },
+          select: ['id'],
+        });
+      } finally {
+        setRlsBootstrap(previousBootstrap);
+      }
 
       for (const organisation of organisations) {
         await this.dispatch.enqueueSync({ organisationId: organisation.id });

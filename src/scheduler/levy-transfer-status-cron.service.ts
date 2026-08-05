@@ -10,6 +10,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CronJob } from 'cron';
 import { In, Repository } from 'typeorm';
 
+import {
+  getRlsBootstrap,
+  setRlsBootstrap,
+} from '../common/context/correlation-id-context.js';
 import { LevyTransfer } from '../levy-exchange/entities/levy-transfer.entity.js';
 import { LevyTransferStatus } from '../levy-exchange/enums/levy-transfer-status.enum.js';
 import { LevyTransferService } from '../levy-exchange/services/levy-transfer.service.js';
@@ -75,16 +79,31 @@ export class LevyTransferStatusCronService
     await this.cronLock.runExclusive(
       LEVY_TRANSFER_STATUS_CRON_NAME,
       async () => {
-        const transfers = await this.transferRepo.find({
-          where: {
-            isDeleted: false,
-            status: In([
-              LevyTransferStatus.CONFIRMED,
-              LevyTransferStatus.ACTIVE,
-              LevyTransferStatus.PENDING_ESFA,
-            ]),
-          },
-        });
+        /**
+         * Security hardening pass, item 7 — cron sweep needs bootstrap.
+         *
+         * `levy_transfers_select` matches on donor or recipient organisation.
+         * A cron has neither, so this returned zero transfers and no in-flight
+         * ESFA transfer was ever polled for a status change — while the job
+         * logged a clean run.
+         */
+        const previousBootstrap = getRlsBootstrap();
+        setRlsBootstrap(true);
+        let transfers: LevyTransfer[];
+        try {
+          transfers = await this.transferRepo.find({
+            where: {
+              isDeleted: false,
+              status: In([
+                LevyTransferStatus.CONFIRMED,
+                LevyTransferStatus.ACTIVE,
+                LevyTransferStatus.PENDING_ESFA,
+              ]),
+            },
+          });
+        } finally {
+          setRlsBootstrap(previousBootstrap);
+        }
 
         let synced = 0;
         for (const transfer of transfers) {

@@ -134,22 +134,58 @@ export class ReviewsReminderService {
   ): Promise<number> {
     let sent = 0;
     for (const review of reviews) {
-      const existing = await this.dispatchRepo.findOne({
-        where: { reviewId: review.id, reminderKind: kind },
-      });
+      /**
+       * Security hardening pass, item 7 — the "already reminded?" guard is
+       * itself a tenant-scoped read.
+       *
+       * With no organisation context this returned null for every review, so
+       * the guard silently stopped guarding. Bootstrapped alongside the
+       * delivery below, because a duplicate reminder and a missing one are
+       * both failures of the same lookup.
+       */
+      const previousBootstrap = getRlsBootstrap();
+      setRlsBootstrap(true);
+      let existing: ReviewReminderDispatch | null;
+      try {
+        existing = await this.dispatchRepo.findOne({
+          where: { reviewId: review.id, reminderKind: kind },
+        });
+      } finally {
+        setRlsBootstrap(previousBootstrap);
+      }
       if (existing) {
         continue;
       }
 
       try {
-        if (kind === ReviewReminderKind.FORTY_EIGHT_HOURS) {
-          await this.notifyApprenticeOnly(
-            review,
-            kind,
-            timing.hoursAhead ?? 48,
+        /**
+         * Security hardening pass, item 7 — write the dispatch row only once
+         * delivery is confirmed.
+         *
+         * Both notify paths could reach nobody and return normally:
+         * `notifyApprenticeOnly` returns early when the apprentice user record
+         * is missing, and `notifySigners` skips any signer it cannot resolve.
+         * The dispatch row was written regardless, and it is the `existing`
+         * guard above — so a review whose reminder silently failed could
+         * **never be reminded again**.
+         *
+         * The same shape as otj-pace's weekly recurrence and the levy expiry
+         * alert. Left un-stamped, the review stays eligible for the next run.
+         */
+        const delivered =
+          kind === ReviewReminderKind.FORTY_EIGHT_HOURS
+            ? await this.notifyApprenticeOnly(
+                review,
+                kind,
+                timing.hoursAhead ?? 48,
+              )
+            : await this.notifySigners(review, kind, timing.daysAhead ?? 0);
+
+        if (!delivered) {
+          this.logger.warn(
+            `Review reminder ${kind} reached nobody for review ${review.id}; leaving it eligible for the next run`,
           );
-        } else {
-          await this.notifySigners(review, kind, timing.daysAhead ?? 0);
+          continue;
         }
 
         await this.dispatchRepo.save(
@@ -174,13 +210,23 @@ export class ReviewsReminderService {
     review: Review,
     kind: ReviewReminderKind,
     daysAhead: number,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const userIds = [
       review.tutorUserId,
       review.apprenticeUserId,
       review.employerManagerUserId,
     ];
-    const users = await this.userRepo.find({ where: { id: In(userIds) } });
+    // System read to discover who to notify — `users_select` needs a current
+    // user or organisation, and a cron has neither.
+    const previousBootstrap = getRlsBootstrap();
+    setRlsBootstrap(true);
+    let users: User[];
+    try {
+      users = await this.userRepo.find({ where: { id: In(userIds) } });
+    } finally {
+      setRlsBootstrap(previousBootstrap);
+    }
+    let delivered = 0;
     const scheduledLabel = review.scheduledAt.toISOString().slice(0, 10);
     const title = review.title ?? `Review on ${scheduledLabel}`;
 
@@ -198,6 +244,7 @@ export class ReviewsReminderService {
         body: `${title} is scheduled in ${daysAhead} day(s).`,
         metadata: { reviewId: review.id, reminderKind: kind },
       });
+      delivered += 1;
 
       if (signer.email) {
         await this.emailDispatchService.enqueue(
@@ -216,18 +263,29 @@ export class ReviewsReminderService {
         );
       }
     }
+
+    return delivered > 0;
   }
 
   private async notifyApprenticeOnly(
     review: Review,
     kind: ReviewReminderKind,
     hoursAhead: number,
-  ): Promise<void> {
-    const apprentice = await this.userRepo.findOne({
-      where: { id: review.apprenticeUserId, isDeleted: false },
-    });
+  ): Promise<boolean> {
+    const previousBootstrap = getRlsBootstrap();
+    setRlsBootstrap(true);
+    let apprentice: User | null;
+    try {
+      apprentice = await this.userRepo.findOne({
+        where: { id: review.apprenticeUserId, isDeleted: false },
+      });
+    } finally {
+      setRlsBootstrap(previousBootstrap);
+    }
     if (!apprentice) {
-      return;
+      // Reaching nobody is reported, not swallowed — the caller must not
+      // record this reminder as sent.
+      return false;
     }
 
     const scheduledLabel = review.scheduledAt.toISOString();
@@ -258,6 +316,9 @@ export class ReviewsReminderService {
         ),
       );
     }
+
+    // Reached the apprentice: the caller may record the reminder as sent.
+    return true;
   }
 
   private utcDateOnly(date: Date): Date {

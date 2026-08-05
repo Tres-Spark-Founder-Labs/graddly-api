@@ -110,4 +110,75 @@ describe('ReviewsReminderService', () => {
     );
     expect(emailDispatchService.enqueue).toHaveBeenCalledTimes(1);
   });
+
+  /**
+   * Security hardening pass, item 7 — write-before-confirm.
+   *
+   * `notifyApprenticeOnly` returns early when the apprentice user record
+   * cannot be resolved. The dispatch row used to be written regardless, and
+   * that row is the `existing` guard on every later run — so a reminder that
+   * silently reached nobody marked itself permanently handled, and that
+   * review could never be reminded again.
+   *
+   * The same shape as the commitment-chase bug and otj-pace's weekly
+   * recurrence: the record erased the evidence of itself.
+   */
+  it('does not record a dispatch when the apprentice cannot be resolved', async () => {
+    const scheduledAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    reviewRepo.find.mockImplementation(
+      ({ where }: { where: { scheduledAt?: unknown } }) =>
+        where && 'scheduledAt' in where
+          ? Promise.resolve([
+              {
+                id: 'r-unreachable',
+                status: ReviewStatus.SCHEDULED,
+                scheduledAt,
+                organisationId: 'org-1',
+                title: 'Progress review',
+                tutorUserId: 'u-1',
+                apprenticeUserId: 'u-2',
+                employerManagerUserId: 'u-3',
+              },
+            ])
+          : Promise.resolve([]),
+    );
+    dispatchRepo.findOne.mockResolvedValue(null);
+    // The apprentice account is gone, so delivery is impossible.
+    userRepo.findOne.mockResolvedValue(null);
+
+    const sent = await service.sendDueReminders();
+
+    expect(sent).toBe(0);
+    // The assertion that matters: nothing recorded, so tomorrow can retry.
+    expect(dispatchRepo.save).not.toHaveBeenCalled();
+    expect(notificationsService.createForUser).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The same guarantee on the multi-signer path, which skips any signer it
+   * cannot resolve rather than returning early.
+   */
+  it('does not record a dispatch when no signer can be resolved', async () => {
+    const scheduledAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    reviewRepo.find.mockResolvedValue([
+      {
+        id: 'r-nosigners',
+        status: ReviewStatus.SCHEDULED,
+        scheduledAt,
+        organisationId: 'org-1',
+        title: 'Progress review',
+        tutorUserId: 'u-1',
+        apprenticeUserId: 'u-2',
+        employerManagerUserId: 'u-3',
+      },
+    ]);
+    dispatchRepo.findOne.mockResolvedValue(null);
+    // No signer rows resolve at all.
+    userRepo.find.mockResolvedValue([]);
+    userRepo.findOne.mockResolvedValue(null);
+
+    await service.sendDueReminders();
+
+    expect(dispatchRepo.save).not.toHaveBeenCalled();
+  });
 });

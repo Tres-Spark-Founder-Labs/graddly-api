@@ -3,6 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, In, Repository } from 'typeorm';
 
+import {
+  getRlsBootstrap,
+  setRlsBootstrap,
+} from '../../common/context/correlation-id-context.js';
 import { EmailDispatchService } from '../../email/email-dispatch.service.js';
 import { EmailTemplate } from '../../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../../email/payloads/serialized-email.payload.js';
@@ -49,16 +53,35 @@ export class LevyExpiryAlertService {
     const dayEnd = new Date(targetDay);
     dayEnd.setUTCHours(23, 59, 59, 999);
 
-    const tranches = await this.trancheRepo.find({
-      where: {
-        isDeleted: false,
-        expiresOn: Between(
-          dayStart.toISOString().slice(0, 10),
-          dayEnd.toISOString().slice(0, 10),
-        ),
-      },
-      relations: { donorLink: true },
-    });
+    /**
+     * Security hardening pass, item 7 — cron sweep needs bootstrap.
+     *
+     * `das_levy_tranches_select` is keyed on the owning organisation. A cron
+     * has none, so this read returned zero tranches for every employer on the
+     * platform and no levy-expiry alert was ever generated — while the job
+     * reported a clean run.
+     *
+     * Levy funds expire 24 months after they are paid in. A missed alert is
+     * money the employer permanently loses, so the silence here was expensive
+     * as well as invisible.
+     */
+    const previousBootstrap = getRlsBootstrap();
+    setRlsBootstrap(true);
+    let tranches: DasLevyTranche[];
+    try {
+      tranches = await this.trancheRepo.find({
+        where: {
+          isDeleted: false,
+          expiresOn: Between(
+            dayStart.toISOString().slice(0, 10),
+            dayEnd.toISOString().slice(0, 10),
+          ),
+        },
+        relations: { donorLink: true },
+      });
+    } finally {
+      setRlsBootstrap(previousBootstrap);
+    }
 
     let sent = 0;
     for (const tranche of tranches) {
@@ -74,12 +97,35 @@ export class LevyExpiryAlertService {
       }
 
       try {
-        await this.notifyOrganisation(
+        /**
+         * Security hardening pass, item 7 — record the dispatch only once
+         * something was actually sent.
+         *
+         * `notifyOrganisation` returned void and simply looped over its
+         * recipients, so an empty recipient list was indistinguishable from a
+         * delivered alert. The dispatch row was written either way, and it is
+         * the `existing` guard a few lines above — so a levy tranche that
+         * failed to alert was **permanently excluded from alerting**, right up
+         * to the day the funds expired.
+         *
+         * Identical to the commitment-chase bug and to otj-pace's weekly
+         * recurrence: the record erased the evidence of itself and closed the
+         * door behind it.
+         */
+        const delivered = await this.notifyOrganisation(
           tranche.organisationId,
           tranche,
           alertType,
           daysAhead,
         );
+
+        if (!delivered) {
+          this.logger.warn(
+            `Levy expiry alert ${alertType} reached nobody for tranche ${tranche.id}; leaving it eligible for the next run`,
+          );
+          continue;
+        }
+
         await this.dispatchRepo.save(
           this.dispatchRepo.create({
             organisationId: tranche.organisationId,
@@ -105,16 +151,32 @@ export class LevyExpiryAlertService {
     tranche: DasLevyTranche,
     alertType: LevyExpiryAlertType,
     daysAhead: number,
-  ): Promise<void> {
-    const recipients = await this.membershipRepo.find({
-      where: {
-        organisation: { id: organisationId },
-        role: In([OrganisationRole.OWNER, OrganisationRole.ADMIN]),
-        status: MembershipStatus.ACTIVE,
-        isDeleted: false,
-      },
-      relations: { user: true },
-    });
+  ): Promise<boolean> {
+    /**
+     * Security hardening pass, item 7 — a second context gap, in the read that
+     * decides who gets told.
+     *
+     * Same shape as the caseload-alert membership lookup: a cron has no
+     * organisation context, so this returned no recipients and the alert
+     * reached nobody. Bootstrapped as a system read to discover who to notify,
+     * exactly as the commitment-chase signer lookup is.
+     */
+    const previousBootstrap = getRlsBootstrap();
+    setRlsBootstrap(true);
+    let recipients: OrganisationMembership[];
+    try {
+      recipients = await this.membershipRepo.find({
+        where: {
+          organisation: { id: organisationId },
+          role: In([OrganisationRole.OWNER, OrganisationRole.ADMIN]),
+          status: MembershipStatus.ACTIVE,
+          isDeleted: false,
+        },
+        relations: { user: true },
+      });
+    } finally {
+      setRlsBootstrap(previousBootstrap);
+    }
 
     const notificationType =
       alertType === LevyExpiryAlertType.DAYS_90
@@ -130,6 +192,10 @@ export class LevyExpiryAlertService {
       tranche.donorLink?.label ??
       tranche.donorLink?.ukprn ??
       'your DAS account';
+
+    // Counts real deliveries so the caller can tell an alert that went out
+    // from a recipient list that was empty.
+    let delivered = 0;
 
     for (const membership of recipients) {
       const user = membership.user;
@@ -151,6 +217,7 @@ export class LevyExpiryAlertService {
           amount: tranche.amount,
         },
       });
+      delivered += 1;
 
       if (user.email) {
         await this.emailDispatchService.enqueue(
@@ -165,6 +232,8 @@ export class LevyExpiryAlertService {
         );
       }
     }
+
+    return delivered > 0;
   }
 
   private resolveTransferCtaUrl(): string {

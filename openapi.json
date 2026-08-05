@@ -2150,6 +2150,280 @@
         ]
       }
     },
+    "/enrolments/{id}/break-in-learning": {
+      "post": {
+        "operationId": "EnrolmentsController_recordBreakInLearning",
+        "parameters": [
+          {
+            "name": "x-portal-type",
+            "in": "header",
+            "description": "Portal context for list scoping: provider (default) filters by organisationId; employer by employerOrganisationId; apprentice by apprenticeUserId.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordBreakInLearningDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The recorded break",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/BreakInLearningResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Enrolment is not active, or already on a break",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Record a break in learning (pauses the learner, notifies DAS)",
+        "tags": [
+          "Enrolments"
+        ]
+      },
+      "get": {
+        "operationId": "EnrolmentsController_listBreaksInLearning",
+        "parameters": [
+          {
+            "name": "x-portal-type",
+            "in": "header",
+            "description": "Portal context for list scoping: provider (default) filters by organisationId; employer by employerOrganisationId; apprentice by apprenticeUserId.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Breaks, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/BreakInLearningResponseDto"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List breaks in learning for an enrolment",
+        "tags": [
+          "Enrolments"
+        ]
+      }
+    },
+    "/enrolments/{id}/break-in-learning/end": {
+      "post": {
+        "operationId": "EnrolmentsController_endBreakInLearning",
+        "parameters": [
+          {
+            "name": "x-portal-type",
+            "in": "header",
+            "description": "Portal context for list scoping: provider (default) filters by organisationId; employer by employerOrganisationId; apprentice by apprenticeUserId.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndBreakInLearningDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The closed break",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/BreakInLearningResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Record the learner returning (reactivates, notifies DAS)",
+        "tags": [
+          "Enrolments"
+        ]
+      }
+    },
     "/enrolments": {
       "post": {
         "operationId": "EnrolmentsController_create",
@@ -4221,6 +4495,193 @@
         "summary": "Manually retry a failed DAS completion notification push",
         "tags": [
           "Completion Push"
+        ]
+      }
+    },
+    "/das/sync-status": {
+      "get": {
+        "operationId": "DasController_getSyncStatus",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Derived from the API activity log, never cached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/DasSyncStatusResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Sync health, last sync time and error count",
+        "tags": [
+          "DAS"
+        ]
+      }
+    },
+    "/das/activity": {
+      "get": {
+        "operationId": "DasController_listActivity",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "operation",
+            "required": false,
+            "in": "query",
+            "description": "Restrict to one DAS operation.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "oauth_token",
+                "levy_balance",
+                "funding_payments",
+                "enrolment_submit",
+                "completion_notify",
+                "transfer_consent",
+                "transfer_status"
+              ]
+            }
+          },
+          {
+            "name": "failedOnly",
+            "required": false,
+            "in": "query",
+            "description": "Show only calls that failed.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "perPage",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Newest first. Credentials are redacted on write.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DasApiActivityResponseDto"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Paginated log of every DAS API call",
+        "tags": [
+          "DAS"
         ]
       }
     },
@@ -6389,6 +6850,170 @@
         ]
       }
     },
+    "/otj-log-entries/{id}/flag": {
+      "post": {
+        "operationId": "OtjLogEntriesController_flag",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlagOtjLogEntryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/OtjLogEntryResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "OTJ log entry not found in organisation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Flag an OTJ entry for discussion (tutor)",
+        "tags": [
+          "OTJ Log Entries"
+        ]
+      }
+    },
+    "/otj-log-entries/{id}/unflag": {
+      "post": {
+        "operationId": "OtjLogEntriesController_unflag",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/OtjLogEntryResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Clear a flag once the conversation has happened",
+        "tags": [
+          "OTJ Log Entries"
+        ]
+      }
+    },
     "/ofsted/eif-criteria": {
       "get": {
         "description": "Returns the versioned criteria catalogue (slug + display label) used by EIF scores and QIP actions. Slugs are stable identifiers; scoring weights are configured server-side.",
@@ -6517,6 +7142,136 @@
           }
         ],
         "summary": "Get org-level EIF readiness scores",
+        "tags": [
+          "Ofsted"
+        ]
+      }
+    },
+    "/ofsted/eif-scores/trend": {
+      "get": {
+        "description": "F2.1.1 — one series per criterion plus overall readiness, oldest first, from the nightly snapshot. Not derived from the live score: the score is a function of the OTJ logs, reviews and documents as they stood on a given day, so history cannot be recomputed after the fact and is only as long as the snapshot has been running. `hasTrendData` is false until at least two days have been captured — one reading is a fact, not a trend.",
+        "operationId": "EifScoresController_getTrend",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trend series for the active organisation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/EifScoreTrendResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Twelve-month EIF score trend, per criterion",
+        "tags": [
+          "Ofsted"
+        ]
+      }
+    },
+    "/qip-actions/export": {
+      "post": {
+        "description": "F2.1.2 AC5 — grouped by EIF criterion, with owner names, target dates, status and overdue count. Poll `GET /pdf/jobs/{jobId}`.",
+        "operationId": "QipActionsController_exportPdf",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Queued PDF generation job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PdfJobResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Queue the Quality Improvement Plan as a PDF",
         "tags": [
           "Ofsted"
         ]
@@ -7072,6 +7827,89 @@
         ]
       }
     },
+    "/qip-actions/{id}/progress": {
+      "patch": {
+        "description": "F2.1.2 — status, evidence notes and supporting documents only. The plan's content (title, owner, target date, linked criterion) cannot be changed here; use PATCH /qip-actions/{id} for that.",
+        "operationId": "QipActionsController_updateProgress",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateQipActionProgressDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/QipActionResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Record progress on a QIP action",
+        "tags": [
+          "Ofsted"
+        ]
+      }
+    },
     "/ofsted/evidence-packs": {
       "post": {
         "description": "Enqueues a BullMQ job that gathers org-scoped OTJ, review, commitment, ILR, portfolio, and QIP artefacts into a ZIP organised by EIF theme folders. Optional additionalStorageKeys are merged under custom/. Poll GET /ofsted/evidence-packs/:id until status is completed or failed. Requires owner or admin role.",
@@ -7618,6 +8456,683 @@
         ]
       }
     },
+    "/sar-reports": {
+      "post": {
+        "description": "F2.1.3 AC1 — pre-populates each section from EIF scores, QIP progress, learner outcomes, review compliance and withdrawal rates. Idempotent: generating twice for the same year returns the existing draft rather than replacing the provider’s writing.",
+        "operationId": "SarReportsController_generate",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateSarReportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SarReportResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Generate a SAR draft for an academic year",
+        "tags": [
+          "Ofsted"
+        ]
+      },
+      "get": {
+        "description": "Readable by any org member — a self-assessment is a document staff are meant to have read.",
+        "operationId": "SarReportsController_findAll",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SAR reports",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SarReportResponseDto"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List SAR reports, newest academic year first",
+        "tags": [
+          "Ofsted"
+        ]
+      }
+    },
+    "/sar-reports/{id}": {
+      "get": {
+        "operationId": "SarReportsController_findOne",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SAR report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SarReportResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get one SAR report",
+        "tags": [
+          "Ofsted"
+        ]
+      },
+      "patch": {
+        "description": "Only narratives and grades can move. The section list itself comes from the template, so a client cannot invent or delete sections.",
+        "operationId": "SarReportsController_update",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSarReportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SarReportResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The report is locked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Edit section narratives and self-assessed grades",
+        "tags": [
+          "Ofsted"
+        ]
+      }
+    },
+    "/sar-reports/{id}/lock": {
+      "post": {
+        "description": "F2.1.3 AC4 — freezes the figures as they stand now and makes the report immutable, in the database as well as the service. There is no unlock: a historical record that can be reopened is not one.",
+        "operationId": "SarReportsController_lock",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Locked report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SarReportResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Already locked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lock the SAR for its academic year",
+        "tags": [
+          "Ofsted"
+        ]
+      }
+    },
+    "/sar-reports/{id}/export": {
+      "get": {
+        "operationId": "SarReportsController_exportDocx",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Word document",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Download the SAR as a Word document",
+        "tags": [
+          "Ofsted"
+        ]
+      }
+    },
+    "/pdf/jobs": {
+      "post": {
+        "operationId": "PdfController_createJob",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePdfJobDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Queued PDF job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PdfJobResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Queue async PDF generation",
+        "tags": [
+          "PDF"
+        ]
+      }
+    },
+    "/pdf/jobs/{id}": {
+      "get": {
+        "operationId": "PdfController_getJob",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF job status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PdfJobResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get PDF job status (poll until completed)",
+        "tags": [
+          "PDF"
+        ]
+      }
+    },
+    "/pdf/hello": {
+      "get": {
+        "operationId": "PdfController_hello",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF file bytes",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Generate a sync hello PDF (pdfkit baseline proof)",
+        "tags": [
+          "PDF"
+        ]
+      }
+    },
     "/reviews": {
       "post": {
         "operationId": "ReviewsController_create",
@@ -7909,6 +9424,81 @@
           }
         ],
         "summary": "Bulk schedule reviews (max 20)",
+        "tags": [
+          "Reviews"
+        ]
+      }
+    },
+    "/reviews/bulk-schedule/from-enrolments": {
+      "post": {
+        "description": "Derives apprentice, tutor and employer manager from each enrolment. An enrolment missing a participant is reported as a per-learner failure rather than failing the batch.",
+        "operationId": "ReviewsController_bulkScheduleFromEnrolments",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkScheduleFromEnrolmentsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Bulk scheduling result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/BulkScheduleReviewsResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Bulk schedule one date across enrolments (max 20)",
         "tags": [
           "Reviews"
         ]
@@ -8368,6 +9958,86 @@
         ]
       }
     },
+    "/reviews/{id}/previous-goals": {
+      "get": {
+        "operationId": "ReviewsController_getPreviousGoals",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Previous goals (empty when there is no earlier review)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "objective": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "SMART goals from this enrolment's last completed review",
+        "tags": [
+          "Reviews"
+        ]
+      }
+    },
     "/reviews/{id}/snapshot-pdf": {
       "post": {
         "operationId": "ReviewsController_requestSnapshot",
@@ -8737,210 +10407,6 @@
         "summary": "Embed signature in PDF and store signed artefact",
         "tags": [
           "E-Signature"
-        ]
-      }
-    },
-    "/pdf/jobs": {
-      "post": {
-        "operationId": "PdfController_createJob",
-        "parameters": [
-          {
-            "name": "x-organisation-id",
-            "in": "header",
-            "description": "Active organisation UUID (optional override)",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreatePdfJobDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Queued PDF job",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "$ref": "#/components/schemas/PdfJobResponseDto"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid bearer token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "No active organisation context",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Queue async PDF generation",
-        "tags": [
-          "PDF"
-        ]
-      }
-    },
-    "/pdf/jobs/{id}": {
-      "get": {
-        "operationId": "PdfController_getJob",
-        "parameters": [
-          {
-            "name": "x-organisation-id",
-            "in": "header",
-            "description": "Active organisation UUID (optional override)",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "PDF job status",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "$ref": "#/components/schemas/PdfJobResponseDto"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid bearer token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "No active organisation context",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Get PDF job status (poll until completed)",
-        "tags": [
-          "PDF"
-        ]
-      }
-    },
-    "/pdf/hello": {
-      "get": {
-        "operationId": "PdfController_hello",
-        "parameters": [
-          {
-            "name": "x-organisation-id",
-            "in": "header",
-            "description": "Active organisation UUID (optional override)",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "PDF file bytes",
-            "content": {
-              "application/pdf": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid bearer token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "No active organisation context",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Generate a sync hello PDF (pdfkit baseline proof)",
-        "tags": [
-          "PDF"
         ]
       }
     },
@@ -9317,6 +10783,79 @@
           }
         ],
         "summary": "Download link for the fully signed commitment PDF",
+        "tags": [
+          "Commitment Statements"
+        ]
+      }
+    },
+    "/commitment-statements/{id}/audit-trail/export": {
+      "post": {
+        "description": "F1.3.3 AC3 — queues an Ofsted-ready PDF of the full audit trail for this statement: every version, every signature, every view, with the actor's name and role as they were at the time. Poll `GET /pdf/jobs/{jobId}` for the result. Available to any party to the enrolment, because the statement is drafted by the provider but the employer is the one Ofsted asks for evidence.",
+        "operationId": "CommitmentsController_exportAuditTrail",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Queued PDF job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PdfJobResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Export the audit trail for a commitment statement as PDF",
         "tags": [
           "Commitment Statements"
         ]
@@ -9852,6 +11391,197 @@
         "summary": "Sign commitment as assigned party (apprentice → tutor → employer manager)",
         "tags": [
           "Commitment Statements"
+        ]
+      }
+    },
+    "/audit/export": {
+      "get": {
+        "operationId": "AuditController_export",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "json",
+              "type": "string",
+              "enum": [
+                "json",
+                "csv"
+              ]
+            }
+          },
+          {
+            "name": "entityType",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "example": "invitations",
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "insert",
+                "update",
+                "delete",
+                "erase",
+                "view",
+                "sign",
+                "version_change"
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "2026-01-01T00:00:00.000Z",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "2026-12-31T23:59:59.999Z",
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "perPage",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated audit log entries (JSON envelope) or CSV file",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AuditLogEntryDto"
+                          }
+                        },
+                        "meta": {
+                          "$ref": "#/components/schemas/PaginationMetaDto"
+                        }
+                      }
+                    },
+                    {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  ]
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AuditLogEntryDto"
+                          }
+                        },
+                        "meta": {
+                          "$ref": "#/components/schemas/PaginationMetaDto"
+                        }
+                      }
+                    },
+                    {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions or no active organisation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Export paginated audit log entries (JSON or CSV)",
+        "tags": [
+          "Audit"
         ]
       }
     },
@@ -11658,6 +13388,398 @@
         ]
       }
     },
+    "/learners/cohort/filter-options": {
+      "get": {
+        "description": "F2.2.1 AC2. Derived from the provider’s own cohort, so every option matches at least one learner rather than listing the whole table.",
+        "operationId": "LearnersController_cohortFilterOptions",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Filter options"
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context, non-provider org, or enrolment not accessible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Employer, standard and tutor options for the cohort filters",
+        "tags": [
+          "Learners"
+        ]
+      }
+    },
+    "/learners/cohort/export": {
+      "post": {
+        "description": "F2.2.1 AC5. Accepts the same filters as GET /learners/cohort and prints them on the document. Poll `GET /pdf/jobs/{jobId}`.",
+        "operationId": "LearnersController_exportCohortPdf",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "employerOrganisationId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by employer organisation",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "standardId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by apprenticeship standard",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "statusBadge",
+            "required": false,
+            "in": "query",
+            "description": "Filter by derived status badge",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "on_track",
+                "at_risk",
+                "overdue",
+                "break_in_learning",
+                "withdrawn",
+                "epa_ready"
+              ]
+            }
+          },
+          {
+            "name": "tutorUserId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by assigned tutor user",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "epaMonth",
+            "required": false,
+            "in": "query",
+            "description": "Filter by EPA month (YYYY-MM)",
+            "schema": {
+              "example": "2026-09",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "description": "Sort field",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "learnerName",
+                "employerName",
+                "standardTitle",
+                "startDate",
+                "otjPercent",
+                "nextReviewDate",
+                "epaDate",
+                "statusBadge",
+                "tutorName"
+              ]
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "asc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "format",
+            "required": false,
+            "in": "query",
+            "description": "Response format; csv returns attachment",
+            "schema": {
+              "default": "json",
+              "type": "string",
+              "enum": [
+                "json",
+                "csv"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "perPage",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Queued PDF generation job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PdfJobResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context, non-provider org, or enrolment not accessible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Queue the learner cohort table as a PDF",
+        "tags": [
+          "Learners"
+        ]
+      }
+    },
+    "/learners/caseload": {
+      "get": {
+        "operationId": "LearnersController_getCaseload",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sorted worst-first; includes an Unassigned row",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/TutorCaseloadResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context, non-provider org, or enrolment not accessible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Learner count, at-risk count and review compliance per tutor",
+        "tags": [
+          "Learners"
+        ]
+      }
+    },
+    "/learners/caseload/assign-tutor": {
+      "post": {
+        "operationId": "LearnersController_assignTutorInBulk",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkAssignTutorDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "How many enrolments were reassigned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "updated": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context, non-provider org, or enrolment not accessible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Assign or clear a tutor across many enrolments",
+        "tags": [
+          "Learners"
+        ]
+      }
+    },
     "/learners/intervention-queue": {
       "get": {
         "description": "Lists active enrolments flagged for intervention (OTJ behind, missed review, gateway stalled) sorted by severity score then days since last activity. Includes atRiskCount for sidebar badge. Filter with tutorUserId or mine=true for tutor caseload.",
@@ -11931,7 +14053,7 @@
     },
     "/reporting/levy-roi": {
       "get": {
-        "description": "PRD F1.4.1 / F1.1.5 — aggregates DAS balance, forecast, surplus, enrolment counts, and v1 stub metrics (EPA pass rate, monthly contributions). Employer portal only.",
+        "description": "PRD F1.4.1 / F1.1.5 — aggregates DAS balance, forecast, surplus, enrolment counts, EPA pass rate (from recorded assessment outcomes) and the year-on-year comparison. Employer portal only. `totalLevySpendToDate` remains a proxy: latest DAS balance plus confirmed outbound transfers, pending true contribution history.",
         "operationId": "LevyRoiReportController_getSummary",
         "parameters": [
           {
@@ -12136,6 +14258,284 @@
           }
         ],
         "summary": "Queue async board-ready levy ROI PDF export",
+        "tags": [
+          "Reporting"
+        ]
+      }
+    },
+    "/reporting/levy-roi/provider-comparison.csv": {
+      "get": {
+        "description": "F1.4.2 AC3. Every metric is calculated from platform data — off-the-job logs, scheduled reviews, recorded EPA outcomes and enrolment status — never self-reported by the provider (AC2). Blank cells mean a metric cannot be calculated yet, not zero.",
+        "operationId": "LevyRoiReportController_exportComparisonCsv",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CSV file",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires employer portal organisation or no active org context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Provider performance comparison as CSV",
+        "tags": [
+          "Reporting"
+        ]
+      }
+    },
+    "/reporting/levy-roi/provider-comparison/export": {
+      "post": {
+        "description": "F1.4.2 AC3 — a standalone comparison document, not the breakdown section of the levy report. Poll `GET /pdf/jobs/{jobId}`.",
+        "operationId": "LevyRoiReportController_exportComparisonPdf",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Queued PDF generation job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PdfJobResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires employer portal organisation or no active org context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Queue the provider performance comparison as PDF",
+        "tags": [
+          "Reporting"
+        ]
+      }
+    },
+    "/reporting/levy-roi/subscribers": {
+      "get": {
+        "description": "F1.4.1 AC5 — the distribution list for the monthly email.",
+        "operationId": "LevyRoiReportController_listSubscribers",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ReportSubscriberDto"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires employer portal organisation or no active org context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Who receives the scheduled monthly levy ROI report",
+        "tags": [
+          "Reporting"
+        ]
+      },
+      "put": {
+        "description": "F1.4.1 AC5 — recipients must be active members of the organisation. The list is replaced wholesale; an empty array stops delivery.",
+        "operationId": "LevyRoiReportController_setSubscribers",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetReportSubscribersDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ReportSubscriberDto"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "One or more user ids are not active members",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires employer portal organisation or no active org context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Replace the monthly levy ROI report distribution list",
         "tags": [
           "Reporting"
         ]
@@ -12531,6 +14931,348 @@
         "summary": "Provider portal dashboard aggregate",
         "tags": [
           "Reporting"
+        ]
+      }
+    },
+    "/employer-visits": {
+      "post": {
+        "operationId": "EmployerVisitsController_create",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEmployerVisitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The recorded visit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/EmployerVisitResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A named learner is not enrolled with this employer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context, or not a provider portal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Record an employer visit",
+        "tags": [
+          "Employer Visits"
+        ]
+      },
+      "get": {
+        "operationId": "EmployerVisitsController_list",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "employerOrganisationId",
+            "required": false,
+            "in": "query",
+            "description": "Restrict to one employer — the employer profile view.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "perPage",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/EmployerVisitResponseDto"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context, or not a provider portal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List employer visits, newest first",
+        "tags": [
+          "Employer Visits"
+        ]
+      }
+    },
+    "/employer-visits/next-visit-suggestion": {
+      "get": {
+        "operationId": "EmployerVisitsController_suggestNextVisit",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "employerOrganisationId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/NextVisitSuggestionResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context, or not a provider portal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Suggested next visit date for an employer",
+        "tags": [
+          "Employer Visits"
+        ]
+      }
+    },
+    "/employer-visits/{id}": {
+      "get": {
+        "operationId": "EmployerVisitsController_findOne",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/EmployerVisitResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context, or not a provider portal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Visit not found in this organisation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get one employer visit",
+        "tags": [
+          "Employer Visits"
         ]
       }
     },
@@ -15972,6 +18714,203 @@
         ]
       }
     },
+    "/ilr/funding-claims": {
+      "get": {
+        "operationId": "FundingClaimsController_list",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "discrepanciesOnly",
+            "required": false,
+            "in": "query",
+            "description": "Show only claims with a discrepancy. The question a finance lead arrives with is \"what is wrong\", not \"list every learner\".",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "perPage",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Amounts are computed on read, never cached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/FundingClaimResponseDto"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Claimed vs received funding per enrolment, with discrepancies",
+        "tags": [
+          "ILR Funding Claims"
+        ]
+      }
+    },
+    "/ilr/funding-claims/{enrolmentId}/resolution": {
+      "patch": {
+        "operationId": "FundingClaimsController_setResolution",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "enrolmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFundingClaimResolutionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated claim",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/FundingClaimResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Enrolment not found, or closing a claim without a note explaining why",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Record progress on a funding discrepancy",
+        "tags": [
+          "ILR Funding Claims"
+        ]
+      }
+    },
     "/enrolment-pushes/failed": {
       "get": {
         "description": "Returns pushes that failed after BullMQ retries. Use POST /:id/retry to re-queue delivery to DAS.",
@@ -18256,9 +21195,9 @@
         ]
       }
     },
-    "/audit/export": {
-      "get": {
-        "operationId": "AuditController_export",
+    "/surveys/templates": {
+      "post": {
+        "operationId": "SurveysController_createTemplate",
         "parameters": [
           {
             "name": "x-organisation-id",
@@ -18268,146 +21207,28 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "format",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "default": "json",
-              "type": "string",
-              "enum": [
-                "json",
-                "csv"
-              ]
-            }
-          },
-          {
-            "name": "entityType",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "maxLength": 100,
-              "example": "invitations",
-              "type": "string"
-            }
-          },
-          {
-            "name": "action",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "insert",
-                "update",
-                "delete",
-                "erase"
-              ]
-            }
-          },
-          {
-            "name": "from",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "example": "2026-01-01T00:00:00.000Z",
-              "type": "string"
-            }
-          },
-          {
-            "name": "to",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "example": "2026-12-31T23:59:59.999Z",
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "minimum": 1,
-              "default": 1,
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/Object"
-                }
-              ]
-            }
-          },
-          {
-            "name": "perPage",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20,
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/Object"
-                }
-              ]
-            }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSurveyTemplateDto"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": {
-            "description": "Paginated audit log entries (JSON envelope) or CSV file",
+          "201": {
+            "description": "The created template"
+          },
+          "400": {
+            "description": "More than 10 questions, or an invalid question type",
             "content": {
               "application/json": {
                 "schema": {
-                  "oneOf": [
-                    {
-                      "properties": {
-                        "message": {
-                          "type": "string"
-                        },
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/AuditLogEntryDto"
-                          }
-                        },
-                        "meta": {
-                          "$ref": "#/components/schemas/PaginationMetaDto"
-                        }
-                      }
-                    },
-                    {
-                      "type": "string",
-                      "format": "binary"
-                    }
-                  ]
-                }
-              },
-              "text/csv": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "properties": {
-                        "message": {
-                          "type": "string"
-                        },
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/AuditLogEntryDto"
-                          }
-                        },
-                        "meta": {
-                          "$ref": "#/components/schemas/PaginationMetaDto"
-                        }
-                      }
-                    },
-                    {
-                      "type": "string",
-                      "format": "binary"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponseDto"
                 }
               }
             }
@@ -18423,7 +21244,7 @@
             }
           },
           "403": {
-            "description": "Insufficient permissions or no active organisation",
+            "description": "No active organisation context, or not a provider portal",
             "content": {
               "application/json": {
                 "schema": {
@@ -18438,9 +21259,334 @@
             "bearer": []
           }
         ],
-        "summary": "Export paginated audit log entries (JSON or CSV)",
+        "summary": "Create a survey template (up to 10 questions)",
         "tags": [
-          "Audit"
+          "Employer Surveys"
+        ]
+      },
+      "get": {
+        "operationId": "SurveysController_listTemplates",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Templates, newest first"
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context, or not a provider portal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List survey templates",
+        "tags": [
+          "Employer Surveys"
+        ]
+      }
+    },
+    "/surveys/campaigns": {
+      "post": {
+        "description": "Returns plaintext survey links once — tokens are stored hashed and cannot be recovered afterwards.",
+        "operationId": "SurveysController_createCampaign",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSurveyCampaignDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The campaign and its survey links"
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context, or not a provider portal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Template not found in this organisation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a campaign and mint one survey link per recipient",
+        "tags": [
+          "Employer Surveys"
+        ]
+      },
+      "get": {
+        "operationId": "SurveysController_listCampaigns",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Campaigns, newest first"
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context, or not a provider portal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List survey campaigns with response progress",
+        "tags": [
+          "Employer Surveys"
+        ]
+      }
+    },
+    "/surveys/campaigns/{id}/results": {
+      "get": {
+        "description": "Scores are withheld until 24 hours after the survey closes (AC4). Response counts are always returned, so a provider can tell whether to chase, without seeing how anyone scored them.",
+        "operationId": "SurveysController_getResults",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Results, or counts only while embargoed"
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context, or not a provider portal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Campaign not found in this organisation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Response rate, per-question averages, NPS and free-text terms",
+        "tags": [
+          "Employer Surveys"
+        ]
+      }
+    },
+    "/public/surveys/{token}": {
+      "get": {
+        "description": "Returns only the campaign name and its questions. Nothing about the provider, the other recipients, or how anyone else answered.",
+        "operationId": "PublicSurveysController_getSurvey",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The survey to complete"
+          },
+          "404": {
+            "description": "Link not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Open a survey by its emailed link — no login required",
+        "tags": [
+          "Employer Surveys (public)"
+        ]
+      }
+    },
+    "/public/surveys/{token}/responses": {
+      "post": {
+        "operationId": "PublicSurveysController_submit",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitSurveyResponseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response recorded"
+          },
+          "400": {
+            "description": "Survey closed, already answered, or an answer outside its scale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Link not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Submit answers — no login required",
+        "tags": [
+          "Employer Surveys (public)"
         ]
       }
     },
@@ -20256,6 +23402,16 @@
             "nullable": true,
             "description": "EPA date (YYYY-MM-DD) or null when not yet confirmed"
           },
+          "epaOrganisationName": {
+            "type": "string",
+            "nullable": true,
+            "description": "End-point assessment organisation name; null until appointed"
+          },
+          "epaOrganisationUkprn": {
+            "type": "string",
+            "nullable": true,
+            "description": "EPAO UKPRN (8 digits) as it appears on the ILR"
+          },
           "daysToEpa": {
             "type": "number",
             "nullable": true,
@@ -20538,6 +23694,16 @@
             "nullable": true,
             "description": "Confirmed end-point assessment date (YYYY-MM-DD)"
           },
+          "epaOrganisationName": {
+            "type": "string",
+            "nullable": true,
+            "description": "End-point assessment organisation name"
+          },
+          "epaOrganisationUkprn": {
+            "type": "string",
+            "nullable": true,
+            "description": "EPAO UKPRN (8 digits) as it appears on the ILR"
+          },
           "otjPaceAlertLevel": {
             "nullable": true,
             "enum": [
@@ -20587,6 +23753,8 @@
           "pipelineIlrCreatedAt",
           "pipelineDasConfirmedAt",
           "epaDate",
+          "epaOrganisationName",
+          "epaOrganisationUkprn",
           "otjPaceAlertLevel",
           "otjBehindPercent"
         ]
@@ -20677,6 +23845,18 @@
             "type": "string",
             "description": "Confirmed EPA date (YYYY-MM-DD)",
             "example": "2026-09-01"
+          },
+          "epaOrganisationName": {
+            "type": "string",
+            "description": "End-point assessment organisation name.",
+            "maxLength": 255,
+            "example": "Innovate Awarding"
+          },
+          "epaOrganisationUkprn": {
+            "type": "string",
+            "pattern": "^\\d{8}$",
+            "description": "EPAO UKPRN — eight digits, as it appears on the ILR. Stored alongside the name because several trading names can map to one registration.",
+            "example": "10012345"
           }
         }
       },
@@ -20719,6 +23899,40 @@
             "format": "uuid",
             "description": "Platform user ID for the employer line manager",
             "example": "c3d4e5f6-a7b8-9012-cdef-123456789012"
+          }
+        }
+      },
+      "RecordBreakInLearningDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Why the learner is taking a break.",
+            "example": "Long-term sickness absence"
+          },
+          "startedOn": {
+            "type": "string",
+            "format": "date",
+            "description": "Defaults to today when omitted."
+          },
+          "expectedReturnDate": {
+            "type": "string",
+            "format": "date",
+            "description": "When the learner is expected back. Optional because it is genuinely unknown for some breaks — a made-up date on a funding record is worse than an honest blank."
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "EndBreakInLearningDto": {
+        "type": "object",
+        "properties": {
+          "actualReturnDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Defaults to today when omitted."
           }
         }
       },
@@ -21034,6 +24248,116 @@
           "externalReference"
         ]
       },
+      "DasSyncStatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "lastSyncAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time",
+            "description": "When a sync operation last succeeded. Null when none ever has — which is a different state from \"the last one failed\"."
+          },
+          "lastAttemptAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time",
+            "description": "When a sync was last attempted, successful or not."
+          },
+          "health": {
+            "enum": [
+              "green",
+              "amber",
+              "red"
+            ],
+            "type": "string",
+            "description": "green: recent success, no recent failures. amber: succeeding but with failures in the window, or no sync in over a day. red: the most recent attempt failed, or nothing has ever succeeded."
+          },
+          "errorCount": {
+            "type": "number",
+            "description": "Failed DAS calls within the window (all operations)."
+          },
+          "windowHours": {
+            "type": "number",
+            "description": "Hours the error count is measured over."
+          },
+          "lastErrorMessage": {
+            "type": "string",
+            "nullable": true,
+            "description": "The most recent failure message, for the indicator tooltip."
+          }
+        },
+        "required": [
+          "health",
+          "errorCount",
+          "windowHours"
+        ]
+      },
+      "DasApiActivityResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "operation": {
+            "enum": [
+              "oauth_token",
+              "levy_balance",
+              "funding_payments",
+              "enrolment_submit",
+              "completion_notify",
+              "transfer_consent",
+              "transfer_status"
+            ],
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "example": "POST"
+          },
+          "url": {
+            "type": "string",
+            "description": "Credentials in the query string are redacted."
+          },
+          "responseStatus": {
+            "type": "number",
+            "nullable": true,
+            "description": "Null when no reply was received at all — a timeout or a DNS failure. Distinct from a 5xx, which means the ESFA answered and refused."
+          },
+          "succeeded": {
+            "type": "boolean"
+          },
+          "durationMs": {
+            "type": "number"
+          },
+          "errorMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestSummary": {
+            "type": "object",
+            "nullable": true
+          },
+          "triggeredByUserId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "operation",
+          "method",
+          "url",
+          "succeeded",
+          "durationMs",
+          "occurredAt"
+        ]
+      },
       "NotificationResponseDto": {
         "type": "object",
         "properties": {
@@ -21063,7 +24387,8 @@
               "ilr_submission_failed",
               "levy_expiry_90",
               "levy_expiry_30",
-              "message"
+              "message",
+              "caseload_at_risk"
             ],
             "type": "string"
           },
@@ -21120,7 +24445,8 @@
               "ilr_submission_failed",
               "levy_expiry_90",
               "levy_expiry_30",
-              "message"
+              "message",
+              "caseload_at_risk"
             ],
             "type": "string"
           },
@@ -21599,6 +24925,16 @@
           "rejectionReason": {
             "type": "string",
             "nullable": true
+          },
+          "flaggedAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "F2.2.4 AC3 — a tutor flag, distinct from the approval decision. An\nentry can be approved and flagged at once: the hours count, and the\ntutor still wants a conversation about them.",
+            "format": "date-time"
+          },
+          "flagNote": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
@@ -21616,7 +24952,9 @@
           "evidence",
           "status",
           "paceFlag",
-          "rejectionReason"
+          "rejectionReason",
+          "flaggedAt",
+          "flagNote"
         ]
       },
       "OtjActivityCategoryDefinitionDto": {
@@ -21867,6 +25205,21 @@
           "reason"
         ]
       },
+      "FlagOtjLogEntryDto": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 2000,
+            "description": "Why this entry needs a conversation.",
+            "example": "Eight hours logged for a day marked as annual leave."
+          }
+        },
+        "required": [
+          "note"
+        ]
+      },
       "EifCriterionScoreDto": {
         "type": "object",
         "properties": {
@@ -21965,6 +25318,106 @@
         "required": [
           "slug",
           "label"
+        ]
+      },
+      "EifTrendPointDto": {
+        "type": "object",
+        "properties": {
+          "capturedOn": {
+            "type": "string",
+            "example": "2026-07-14",
+            "format": "date"
+          },
+          "percent": {
+            "type": "number",
+            "example": 78
+          },
+          "rag": {
+            "enum": [
+              "red",
+              "amber",
+              "green"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "capturedOn",
+          "percent",
+          "rag"
+        ]
+      },
+      "EifCriterionTrendDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "example": "safeguarding"
+          },
+          "label": {
+            "type": "string",
+            "example": "Safeguarding"
+          },
+          "points": {
+            "description": "Oldest first, one point per captured day.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EifTrendPointDto"
+            }
+          }
+        },
+        "required": [
+          "slug",
+          "label",
+          "points"
+        ]
+      },
+      "EifScoreTrendResponseDto": {
+        "type": "object",
+        "properties": {
+          "criteria": {
+            "description": "One series per EIF criterion, in the catalogue order used by the hub.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EifCriterionTrendDto"
+            }
+          },
+          "overall": {
+            "description": "Overall readiness across the same days.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EifTrendPointDto"
+            }
+          },
+          "pointCount": {
+            "type": "number",
+            "example": 34,
+            "description": "How many days were captured in the window."
+          },
+          "hasTrendData": {
+            "type": "boolean",
+            "example": false,
+            "description": "True once there is enough history to read as a trend rather than a handful of readings. Below this the client should say so rather than draw a line."
+          },
+          "earliestCapturedOn": {
+            "type": "string",
+            "nullable": true,
+            "example": "2026-06-28",
+            "format": "date",
+            "description": "Earliest captured day in the window; null when empty."
+          },
+          "windowMonths": {
+            "type": "number",
+            "example": 12
+          }
+        },
+        "required": [
+          "criteria",
+          "overall",
+          "pointCount",
+          "hasTrendData",
+          "earliestCapturedOn",
+          "windowMonths"
         ]
       },
       "QipActionResponseDto": {
@@ -22176,6 +25629,31 @@
           }
         }
       },
+      "UpdateQipActionProgressDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              "not_started",
+              "in_progress",
+              "completed"
+            ],
+            "type": "string",
+            "description": "Progress on the action."
+          },
+          "evidenceNotes": {
+            "type": "string",
+            "description": "Free-text notes about evidence gathered for this action."
+          },
+          "evidenceAttachmentKeys": {
+            "description": "Org-scoped storage keys for supporting documents (F2.1.2 AC6).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "EvidencePackJobResponseDto": {
         "type": "object",
         "properties": {
@@ -22358,6 +25836,251 @@
           "storageKey"
         ]
       },
+      "SarSectionResponseDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "curriculum_intent"
+          },
+          "heading": {
+            "type": "string",
+            "example": "Quality of education — intent"
+          },
+          "narrative": {
+            "type": "string",
+            "description": "The provider's narrative for this section."
+          },
+          "grade": {
+            "nullable": true,
+            "enum": [
+              "outstanding",
+              "good",
+              "requires_improvement",
+              "inadequate"
+            ],
+            "type": "string"
+          },
+          "graded": {
+            "type": "boolean",
+            "description": "Whether this section carries a grade."
+          },
+          "eifCriterionSlug": {
+            "type": "string",
+            "nullable": true,
+            "description": "EIF criterion whose live score seeds this section."
+          },
+          "guidance": {
+            "type": "string",
+            "description": "Explains to the writer what belongs in this section."
+          }
+        },
+        "required": [
+          "key",
+          "heading",
+          "narrative",
+          "grade",
+          "graded",
+          "eifCriterionSlug",
+          "guidance"
+        ]
+      },
+      "SarReportResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organisationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "academicYear": {
+            "type": "string",
+            "example": "2025-26"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "locked"
+            ],
+            "type": "string"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SarSectionResponseDto"
+            }
+          },
+          "metrics": {
+            "type": "object",
+            "description": "The figures behind the report. Live while the SAR is a draft; frozen at the moment of locking, so a historical SAR keeps the numbers it was written against."
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lockedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "editable": {
+            "type": "boolean",
+            "description": "False once locked. AC4 — a locked SAR is a historical record and is immutable in the database, not only in the service."
+          }
+        },
+        "required": [
+          "id",
+          "organisationId",
+          "academicYear",
+          "status",
+          "sections",
+          "metrics",
+          "generatedAt",
+          "editable"
+        ]
+      },
+      "GenerateSarReportDto": {
+        "type": "object",
+        "properties": {
+          "academicYear": {
+            "type": "string",
+            "description": "Academic year, `YYYY-YY`.",
+            "maxLength": 9,
+            "pattern": "^\\d{4}-\\d{2}$",
+            "example": "2025-26"
+          }
+        },
+        "required": [
+          "academicYear"
+        ]
+      },
+      "UpdateSarSectionDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "curriculum_intent"
+          },
+          "narrative": {
+            "type": "string",
+            "description": "Generous but bounded. A SAR section is a few hundred words; 20k characters\nis far beyond any real narrative and still stops an unbounded write into\na jsonb column.",
+            "maxLength": 20000
+          },
+          "grade": {
+            "nullable": true,
+            "enum": [
+              "outstanding",
+              "good",
+              "requires_improvement",
+              "inadequate"
+            ],
+            "type": "string",
+            "description": "Self-assessed grade. Never inferred from the platform score — the grade is a judgement the provider must be willing to defend."
+          }
+        },
+        "required": [
+          "key"
+        ]
+      },
+      "UpdateSarReportDto": {
+        "type": "object",
+        "properties": {
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UpdateSarSectionDto"
+            }
+          }
+        },
+        "required": [
+          "sections"
+        ]
+      },
+      "PdfJobResponseDto": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "processing",
+              "completed",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "template": {
+            "enum": [
+              "hello",
+              "review_snapshot",
+              "commitment_snapshot",
+              "levy_transfer_agreement",
+              "levy_roi_report",
+              "commitment_audit_trail",
+              "provider_comparison",
+              "qip_plan",
+              "learner_cohort"
+            ],
+            "type": "string"
+          },
+          "outputKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "errorMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "completedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "downloadUrl": {
+            "type": "string"
+          },
+          "downloadExpiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId",
+          "status",
+          "template",
+          "createdAt"
+        ]
+      },
+      "CreatePdfJobDto": {
+        "type": "object",
+        "properties": {
+          "template": {
+            "enum": [
+              "hello",
+              "review_snapshot",
+              "commitment_snapshot",
+              "levy_transfer_agreement",
+              "levy_roi_report",
+              "commitment_audit_trail",
+              "provider_comparison",
+              "qip_plan",
+              "learner_cohort"
+            ],
+            "type": "string",
+            "example": "hello"
+          }
+        },
+        "required": [
+          "template"
+        ]
+      },
       "ReviewResponseDto": {
         "type": "object",
         "properties": {
@@ -22472,6 +26195,32 @@
           "timeBound"
         ]
       },
+      "PreviousGoalProgressDto": {
+        "type": "object",
+        "properties": {
+          "objective": {
+            "type": "string",
+            "description": "The objective as agreed at the last review."
+          },
+          "outcome": {
+            "enum": [
+              "achieved",
+              "partially_achieved",
+              "not_achieved",
+              "carried_forward"
+            ],
+            "type": "string"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Evidence or explanation."
+          }
+        },
+        "required": [
+          "objective",
+          "outcome"
+        ]
+      },
       "WellbeingDto": {
         "type": "object",
         "properties": {
@@ -22493,6 +26242,17 @@
             "items": {
               "$ref": "#/components/schemas/SmartGoalDto"
             }
+          },
+          "previousGoalProgress": {
+            "description": "Optional because a learner's first review has nothing to look back on —\nrequired would make the first review of every apprenticeship impossible\nto submit.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PreviousGoalProgressDto"
+            }
+          },
+          "otjDiscussion": {
+            "type": "string",
+            "description": "What was discussed about off-the-job hours: pace, shortfall, plan."
           },
           "wellbeing": {
             "$ref": "#/components/schemas/WellbeingDto"
@@ -22641,61 +26401,6 @@
           "nextParty"
         ]
       },
-      "PdfJobResponseDto": {
-        "type": "object",
-        "properties": {
-          "jobId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "status": {
-            "enum": [
-              "queued",
-              "processing",
-              "completed",
-              "failed"
-            ],
-            "type": "string"
-          },
-          "template": {
-            "enum": [
-              "hello",
-              "review_snapshot",
-              "commitment_snapshot",
-              "levy_transfer_agreement",
-              "levy_roi_report"
-            ],
-            "type": "string"
-          },
-          "outputKey": {
-            "type": "string",
-            "nullable": true
-          },
-          "errorMessage": {
-            "type": "string",
-            "nullable": true
-          },
-          "createdAt": {
-            "type": "string"
-          },
-          "completedAt": {
-            "type": "string",
-            "nullable": true
-          },
-          "downloadUrl": {
-            "type": "string"
-          },
-          "downloadExpiresAt": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "jobId",
-          "status",
-          "template",
-          "createdAt"
-        ]
-      },
       "CreateReviewDto": {
         "type": "object",
         "properties": {
@@ -22759,6 +26464,38 @@
         },
         "required": [
           "items"
+        ]
+      },
+      "BulkScheduleFromEnrolmentsDto": {
+        "type": "object",
+        "properties": {
+          "enrolmentIds": {
+            "minItems": 1,
+            "description": "Enrolments to schedule a review for.",
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "scheduledAt": {
+            "type": "string",
+            "description": "The same scheduled date and time for every learner.",
+            "example": "2026-09-15T10:00:00.000Z"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "reviewType": {
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "enrolmentIds",
+          "scheduledAt"
         ]
       },
       "UpdateReviewDto": {
@@ -22925,25 +26662,6 @@
         },
         "required": [
           "signatureImageKey"
-        ]
-      },
-      "CreatePdfJobDto": {
-        "type": "object",
-        "properties": {
-          "template": {
-            "enum": [
-              "hello",
-              "review_snapshot",
-              "commitment_snapshot",
-              "levy_transfer_agreement",
-              "levy_roi_report"
-            ],
-            "type": "string",
-            "example": "hello"
-          }
-        },
-        "required": [
-          "template"
         ]
       },
       "CommitmentStatementContentDto": {
@@ -23474,6 +27192,61 @@
         "required": [
           "party",
           "signatureImageKey"
+        ]
+      },
+      "AuditLogEntryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "actorUserId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "organisationId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "entityType": {
+            "type": "string"
+          },
+          "entityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "action": {
+            "enum": [
+              "insert",
+              "update",
+              "delete",
+              "erase",
+              "view",
+              "sign",
+              "version_change"
+            ],
+            "type": "string"
+          },
+          "changes": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "id",
+          "createdAt",
+          "actorUserId",
+          "organisationId",
+          "entityType",
+          "entityId",
+          "action",
+          "changes"
         ]
       },
       "KsbDefinitionResponseDto": {
@@ -24458,6 +28231,16 @@
             "type": "string",
             "nullable": true,
             "format": "date"
+          },
+          "epaOrganisationName": {
+            "type": "string",
+            "nullable": true,
+            "description": "F2.2.4 AC1 — \"EPA organisation\".\n\nThe profile previously showed when the assessment was and what the\noutcome had been, and never who was assessing — so a tutor chasing an\noverdue result had nobody to ring.\n\nNull until an EPAO is appointed, which normally happens part-way through\nrather than at enrolment."
+          },
+          "epaOrganisationUkprn": {
+            "type": "string",
+            "nullable": true,
+            "description": "UKPRN as it appears on the ILR."
           }
         },
         "required": [
@@ -24540,13 +28323,28 @@
               "rejected"
             ],
             "type": "string"
+          },
+          "activityName": {
+            "type": "string",
+            "description": "What the learner said they did."
+          },
+          "flaggedAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "F2.2.4 AC3 — \"tutor can flag entries\".\n\nA flag is not a rejection. Rejecting is the employer's decision that the\nhours do not count; flagging keeps the hours and says the session needs a\nconversation. The profile shows both so a tutor can see, in one list,\nwhich sessions they have already queried.",
+            "format": "date-time"
+          },
+          "flagNote": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
           "id",
           "loggedDate",
           "minutes",
-          "status"
+          "status",
+          "activityName"
         ]
       },
       "LearnerProfileOtjDto": {
@@ -24556,6 +28354,14 @@
             "type": "number",
             "nullable": true
           },
+          "totalCount": {
+            "type": "number",
+            "description": "Every non-deleted entry on the enrolment, not just the ones returned.\n\nF2.2.4 AC3 asks for \"all sessions submitted\" and AC7 asks for a\ntwo-second load. `recentEntries` is capped so one pathological account\ncannot blow the budget; `totalCount` and `truncated` let the screen say\n\"showing 500 of 812\" rather than quietly showing less than it promised."
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "True when the cap bit and recentEntries is not the full log."
+          },
           "recentEntries": {
             "type": "array",
             "items": {
@@ -24564,7 +28370,69 @@
           }
         },
         "required": [
+          "totalCount",
+          "truncated",
           "recentEntries"
+        ]
+      },
+      "MessageThreadSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "counterpartyParty": {
+            "enum": [
+              "tutor",
+              "employer_manager"
+            ],
+            "type": "string"
+          },
+          "counterpartyUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "counterpartyName": {
+            "type": "string",
+            "nullable": true,
+            "description": "Null when the counterparty user record has been removed."
+          },
+          "messageCount": {
+            "type": "number",
+            "description": "Messages in the thread, read or unread."
+          },
+          "unreadCount": {
+            "type": "number",
+            "description": "Unread messages for the requesting user."
+          },
+          "lastMessageAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "lastMessagePreview": {
+            "type": "string",
+            "nullable": true,
+            "description": "First 160 characters of the most recent message. Enough to recognise the conversation; the full thread is at GET /messaging/threads/:id/messages."
+          },
+          "lastMessageSenderUserId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "archivedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "counterpartyParty",
+          "counterpartyUserId",
+          "messageCount",
+          "unreadCount"
         ]
       },
       "LearnerProfileBreakInLearningDto": {
@@ -24628,11 +28496,11 @@
               "$ref": "#/components/schemas/LearnerDocumentItemDto"
             }
           },
-          "messageThreadIds": {
-            "description": "Message thread UUIDs for this enrolment",
+          "messageThreads": {
+            "description": "F2.2.4 AC5 — \"communication thread with the learner is visible\".\n\nThis was `messageThreadIds: string[]` — a list of UUIDs and nothing else.\nA screen given only ids cannot show a conversation; it can only show that\none exists somewhere. Now each entry carries who the thread is with, how\nmany messages, how many unread, and a preview of the latest, so the panel\nrenders from the profile response alone. Opening a thread still goes to\n`GET /messaging/threads/:id/messages` for the full history.\n\nOnly threads the requesting user may read appear here — provider admins\nsee both, a tutor sees their own.",
             "type": "array",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/MessageThreadSummaryDto"
             }
           },
           "breakInLearning": {
@@ -24648,7 +28516,7 @@
           "reviews",
           "otj",
           "documents",
-          "messageThreadIds",
+          "messageThreads",
           "breakInLearning"
         ]
       },
@@ -24745,6 +28613,96 @@
             "default": false
           }
         }
+      },
+      "TutorCaseloadEntryDto": {
+        "type": "object",
+        "properties": {
+          "tutorUserId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid",
+            "description": "Null for the unassigned row. Learners with no tutor are the most urgent caseload problem a manager has, so they are reported rather than filtered out."
+          },
+          "tutorName": {
+            "type": "string",
+            "example": "Tom Reid"
+          },
+          "learnerCount": {
+            "type": "number",
+            "description": "Active learners assigned to this tutor."
+          },
+          "atRiskCount": {
+            "type": "number",
+            "description": "Learners the intervention queue considers at risk — the same severity scoring, so the two screens cannot disagree."
+          },
+          "reviewComplianceRate": {
+            "type": "number",
+            "nullable": true,
+            "description": "Percentage of this tutor's reviews that are not overdue. Null when they have no reviews scheduled at all, which is different from 100%."
+          },
+          "exceedsAtRiskThreshold": {
+            "type": "boolean",
+            "description": "True when atRiskCount exceeds the configured threshold (AC3)."
+          }
+        },
+        "required": [
+          "tutorName",
+          "learnerCount",
+          "atRiskCount",
+          "exceedsAtRiskThreshold"
+        ]
+      },
+      "TutorCaseloadResponseDto": {
+        "type": "object",
+        "properties": {
+          "tutors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TutorCaseloadEntryDto"
+            }
+          },
+          "atRiskThreshold": {
+            "type": "number",
+            "description": "The at-risk count above which a tutor is flagged. Returned so the screen states the rule rather than hardcoding a number that can drift from the server."
+          },
+          "totalLearners": {
+            "type": "number",
+            "description": "Active learners across all tutors."
+          },
+          "totalAtRisk": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "tutors",
+          "atRiskThreshold",
+          "totalLearners",
+          "totalAtRisk"
+        ]
+      },
+      "BulkAssignTutorDto": {
+        "type": "object",
+        "properties": {
+          "enrolmentIds": {
+            "minItems": 1,
+            "maxItems": 500,
+            "description": "Enrolments to reassign. Ids outside this provider are ignored.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "tutorUserId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Null un-assigns, moving these learners to the Unassigned row.",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "enrolmentIds"
+        ]
       },
       "LevyRoiForecastSliceDto": {
         "type": "object",
@@ -24869,6 +28827,118 @@
           "currency"
         ]
       },
+      "LevyRoiPeriodDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "example": "2025-08 to 2026-07"
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "starts": {
+            "type": "number",
+            "example": 14,
+            "description": "Enrolments activated in period"
+          },
+          "completions": {
+            "type": "number",
+            "example": 8,
+            "description": "Enrolments completed in period"
+          },
+          "withdrawals": {
+            "type": "number",
+            "example": 2,
+            "description": "Enrolments cancelled in period"
+          },
+          "levySpend": {
+            "type": "number",
+            "example": 182000,
+            "description": "Levy spend drawn from monthly DAS history for these months"
+          },
+          "averageCostPerCompletion": {
+            "type": "number",
+            "nullable": true,
+            "example": 18500
+          },
+          "epaPassRate": {
+            "type": "number",
+            "nullable": true,
+            "example": 87.5,
+            "description": "Null when nothing was assessed in the period"
+          }
+        },
+        "required": [
+          "label",
+          "from",
+          "to",
+          "starts",
+          "completions",
+          "withdrawals",
+          "levySpend",
+          "averageCostPerCompletion",
+          "epaPassRate"
+        ]
+      },
+      "LevyRoiYearOnYearDto": {
+        "type": "object",
+        "properties": {
+          "currentPeriod": {
+            "$ref": "#/components/schemas/LevyRoiPeriodDto"
+          },
+          "priorPeriod": {
+            "nullable": true,
+            "description": "Null when no prior-year data exists. Not a zeroed period — the distinction between \"no activity\" and \"no records\" matters on a board report.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LevyRoiPeriodDto"
+              }
+            ]
+          },
+          "hasPriorPeriodData": {
+            "type": "boolean",
+            "example": true,
+            "description": "False for organisations less than two years live, or before the monthly levy history has accumulated. Every delta below is null when this is false."
+          },
+          "startsChangePercent": {
+            "type": "number",
+            "nullable": true,
+            "example": 16.67
+          },
+          "completionsChangePercent": {
+            "type": "number",
+            "nullable": true,
+            "example": -12.5
+          },
+          "levySpendChangePercent": {
+            "type": "number",
+            "nullable": true,
+            "example": 8.4
+          },
+          "epaPassRatePointChange": {
+            "type": "number",
+            "nullable": true,
+            "example": 4.5,
+            "description": "Percentage *points*, not percent: 50% → 75% is +25 points. Rates are read as point movements on a board report."
+          }
+        },
+        "required": [
+          "currentPeriod",
+          "priorPeriod",
+          "hasPriorPeriodData",
+          "startsChangePercent",
+          "completionsChangePercent",
+          "levySpendChangePercent",
+          "epaPassRatePointChange"
+        ]
+      },
       "LevyRoiReportResponseDto": {
         "type": "object",
         "properties": {
@@ -24925,8 +28995,13 @@
           "epaPassRate": {
             "type": "number",
             "nullable": true,
-            "description": "Reserved until EPA outcomes entity exists (F1.4.1 stub)",
-            "example": null
+            "description": "% of assessed apprentices who passed (pass, merit or distinction). Null when no EPA outcome has been recorded yet — not zero.",
+            "example": 87.5
+          },
+          "epaAssessedCount": {
+            "type": "number",
+            "example": 8,
+            "description": "How many apprentices the pass rate is calculated from"
           },
           "estimatedProductivityUplift": {
             "type": "number",
@@ -24942,6 +29017,9 @@
           },
           "fundingSummary": {
             "$ref": "#/components/schemas/LevyRoiFundingSummaryDto"
+          },
+          "yearOnYear": {
+            "$ref": "#/components/schemas/LevyRoiYearOnYearDto"
           },
           "generatedAt": {
             "type": "string",
@@ -24961,9 +29039,11 @@
           "completionCount",
           "averageCostPerCompletion",
           "epaPassRate",
+          "epaAssessedCount",
           "estimatedProductivityUplift",
           "monthlyContributions",
           "fundingSummary",
+          "yearOnYear",
           "generatedAt"
         ]
       },
@@ -25015,6 +29095,17 @@
             "nullable": true,
             "example": 4.5,
             "description": "% of all enrolments in this group (any status) where the apprentice withdrew or the enrolment was cancelled."
+          },
+          "epaPassRate": {
+            "type": "number",
+            "nullable": true,
+            "description": "% of assessed apprentices in this group who passed. Null when none have been assessed yet.",
+            "example": 92.3
+          },
+          "epaAssessedCount": {
+            "type": "number",
+            "example": 3,
+            "description": "Assessments behind the rate. A 100% pass rate from one apprentice is not comparable to one from thirty, and a side-by-side table has to say so."
           }
         },
         "required": [
@@ -25025,7 +29116,58 @@
           "averageCostPerCompletion",
           "averageOtjPercent",
           "reviewComplianceRate",
-          "withdrawalRate"
+          "withdrawalRate",
+          "epaPassRate",
+          "epaAssessedCount"
+        ]
+      },
+      "ReportSubscriberDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Ada Lovelace"
+          },
+          "email": {
+            "type": "string",
+            "example": "ada@example.com"
+          },
+          "lastSentAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time",
+            "description": "Null until the first scheduled send reaches them."
+          }
+        },
+        "required": [
+          "userId",
+          "name",
+          "email",
+          "lastSentAt"
+        ]
+      },
+      "SetReportSubscribersDto": {
+        "type": "object",
+        "properties": {
+          "userIds": {
+            "maxItems": 50,
+            "description": "User ids to receive the report. Must be members of the active organisation; the list is replaced, so an empty array turns delivery off.",
+            "example": [
+              "3f7a1c8e-2b4d-4f6a-9c1e-8d5b2a7f4e30"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "userIds"
         ]
       },
       "LevyUtilisationSegmentsDto": {
@@ -25491,6 +29633,175 @@
         },
         "required": [
           "summary"
+        ]
+      },
+      "EmployerVisitLearnerDto": {
+        "type": "object",
+        "properties": {
+          "enrolmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "apprenticeName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "enrolmentId",
+          "apprenticeName"
+        ]
+      },
+      "EmployerVisitResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employerOrganisationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "visitedOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "visitType": {
+            "enum": [
+              "on_site",
+              "video",
+              "phone"
+            ],
+            "type": "string"
+          },
+          "attendees": {
+            "type": "string"
+          },
+          "discussionPoints": {
+            "type": "string"
+          },
+          "actionPoints": {
+            "type": "string",
+            "nullable": true
+          },
+          "nextVisitDate": {
+            "type": "string",
+            "nullable": true,
+            "format": "date"
+          },
+          "learners": {
+            "description": "AC2 — the learners discussed at this visit.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmployerVisitLearnerDto"
+            }
+          },
+          "recordedByUserId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "employerOrganisationId",
+          "visitedOn",
+          "visitType",
+          "attendees",
+          "discussionPoints",
+          "learners",
+          "createdAt"
+        ]
+      },
+      "NextVisitSuggestionResponseDto": {
+        "type": "object",
+        "properties": {
+          "lastVisitedOn": {
+            "type": "string",
+            "nullable": true,
+            "format": "date",
+            "description": "Null when this employer has never been visited."
+          },
+          "suggestedDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Counted from the last visit, not from today — a visit recorded late should not push the whole schedule back by the delay."
+          },
+          "intervalWeeks": {
+            "type": "number",
+            "description": "Weeks between visits this suggestion assumes."
+          }
+        },
+        "required": [
+          "suggestedDate",
+          "intervalWeeks"
+        ]
+      },
+      "CreateEmployerVisitDto": {
+        "type": "object",
+        "properties": {
+          "employerOrganisationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "visitedOn": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-08-03"
+          },
+          "visitType": {
+            "enum": [
+              "on_site",
+              "video",
+              "phone"
+            ],
+            "type": "string"
+          },
+          "attendees": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 1000,
+            "description": "Who was there, as free text — most attendees are not platform users.",
+            "example": "Sarah Patel (Operations Manager), Tom Reid (tutor)"
+          },
+          "discussionPoints": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 5000
+          },
+          "actionPoints": {
+            "type": "string",
+            "maxLength": 5000
+          },
+          "nextVisitDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Optional. A guessed date on an Ofsted evidence record is worse than an honest blank; GET /employer-visits/next-visit-suggestion offers one."
+          },
+          "enrolmentIds": {
+            "maxItems": 200,
+            "description": "AC2 — enrolments discussed. Each must be with this employer, not merely belong to this provider.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "employerOrganisationId",
+          "visitedOn",
+          "visitType",
+          "attendees",
+          "discussionPoints"
         ]
       },
       "DonorLinkResponseDto": {
@@ -26792,6 +31103,119 @@
           "manualOverrides"
         ]
       },
+      "FundingClaimResponseDto": {
+        "type": "object",
+        "properties": {
+          "enrolmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "apprenticeName": {
+            "type": "string"
+          },
+          "standardTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "enrolmentStatus": {
+            "enum": [
+              "draft",
+              "active",
+              "completed",
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "claimedAmount": {
+            "type": "number",
+            "example": 15000,
+            "description": "Agreed price on the enrolment, in pounds."
+          },
+          "receivedAmount": {
+            "type": "number",
+            "example": 9000,
+            "description": "Sum of DAS funding payments received for this enrolment."
+          },
+          "varianceAmount": {
+            "type": "number",
+            "example": -6000,
+            "description": "Signed: received minus claimed. Negative is a shortfall, positive an overpayment. A caller reading an absolute value cannot tell which way the money went."
+          },
+          "paymentCount": {
+            "type": "number"
+          },
+          "clawbackNotices": {
+            "description": "Clawback notices from the ESFA against these payments.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "discrepancy": {
+            "enum": [
+              "none",
+              "clawback",
+              "shortfall",
+              "overpayment"
+            ],
+            "type": "string",
+            "description": "A shortfall only counts once the enrolment is completed. Funding arrives monthly, so an active learner having received less than the agreed price is the funding model working, not a discrepancy."
+          },
+          "resolutionStatus": {
+            "nullable": true,
+            "enum": [
+              "open",
+              "investigating",
+              "resolved",
+              "written_off"
+            ],
+            "type": "string",
+            "description": "Null when there is nothing to resolve. Defaults to \"open\" for a discrepancy nobody has engaged with yet."
+          },
+          "resolutionNote": {
+            "type": "string",
+            "nullable": true
+          },
+          "resolvedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "enrolmentId",
+          "apprenticeName",
+          "enrolmentStatus",
+          "claimedAmount",
+          "receivedAmount",
+          "varianceAmount",
+          "paymentCount",
+          "clawbackNotices",
+          "discrepancy"
+        ]
+      },
+      "UpdateFundingClaimResolutionDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              "open",
+              "investigating",
+              "resolved",
+              "written_off"
+            ],
+            "type": "string"
+          },
+          "note": {
+            "type": "string",
+            "description": "Required when resolving or writing off — an ESFA reconciliation asks why a gap was closed, and \"someone clicked resolved\" is not an answer.",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
       "EnrolmentSubmissionPushResponseDto": {
         "type": "object",
         "properties": {
@@ -27863,56 +32287,116 @@
           }
         }
       },
-      "AuditLogEntryDto": {
+      "SurveyQuestionDto": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "createdAt": {
-            "type": "string"
-          },
-          "actorUserId": {
-            "type": "string",
-            "nullable": true,
-            "format": "uuid"
-          },
-          "organisationId": {
-            "type": "string",
-            "nullable": true,
-            "format": "uuid"
-          },
-          "entityType": {
-            "type": "string"
-          },
-          "entityId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "action": {
+          "type": {
             "enum": [
-              "insert",
-              "update",
-              "delete",
-              "erase"
+              "likert",
+              "nps",
+              "text"
             ],
             "type": "string"
           },
-          "changes": {
-            "type": "object",
-            "additionalProperties": true
+          "prompt": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 300
           }
         },
         "required": [
-          "id",
-          "createdAt",
-          "actorUserId",
-          "organisationId",
-          "entityType",
-          "entityId",
-          "action",
-          "changes"
+          "type",
+          "prompt"
+        ]
+      },
+      "CreateSurveyTemplateDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 160
+          },
+          "questions": {
+            "minItems": 1,
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SurveyQuestionDto"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "questions"
+        ]
+      },
+      "SurveyRecipientDto": {
+        "type": "object",
+        "properties": {
+          "contactEmail": {
+            "type": "string",
+            "maxLength": 320,
+            "format": "email"
+          },
+          "employerOrganisationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Links the response to a known employer. Optional — a survey may go to a contact who is not yet an organisation on the platform."
+          }
+        },
+        "required": [
+          "contactEmail"
+        ]
+      },
+      "CreateSurveyCampaignDto": {
+        "type": "object",
+        "properties": {
+          "templateId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 160
+          },
+          "closesAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the survey stops accepting responses. Results unlock 24 hours later (AC4)."
+          },
+          "recipients": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SurveyRecipientDto"
+            }
+          }
+        },
+        "required": [
+          "templateId",
+          "name",
+          "closesAt",
+          "recipients"
+        ]
+      },
+      "SubmitSurveyResponseDto": {
+        "type": "object",
+        "properties": {
+          "answers": {
+            "type": "object",
+            "description": "questionId → answer. Numbers for scales, strings for text.",
+            "example": {
+              "q1": 5,
+              "q2": 9,
+              "q3": "Communication has been excellent."
+            }
+          }
+        },
+        "required": [
+          "answers"
         ]
       },
       "ErasureResponseDto": {

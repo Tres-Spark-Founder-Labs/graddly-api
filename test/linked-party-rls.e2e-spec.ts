@@ -339,4 +339,106 @@ describe('Linked-party RLS (e2e)', () => {
       ).toBe(0);
     });
   });
+
+  /**
+   * Security hardening pass, item 4 — writes for the thread counterparty.
+   *
+   * Item 1 gave them the read; migration 48 gives them exactly the write the
+   * service already authorises (`isParticipant`) and nothing more.
+   */
+  describe('messaging participant writes', () => {
+    let threadId: string;
+
+    beforeAll(async () => {
+      /**
+       * The `tutor` slot, because the describe above already holds the
+       * `employer_manager` thread for this enrolment and
+       * `UQ_message_threads_enrolment_party` allows one of each.
+       */
+      const thread = await sudo.query<{ id: string }>(
+        `INSERT INTO message_threads
+           ("organisationId", "enrolmentId", "apprenticeId", "counterpartyParty",
+            "apprenticeUserId", "counterpartyUserId")
+         VALUES ($1, $2, $3, 'tutor', $4, $5) RETURNING id`,
+        [
+          providerOrgId,
+          enrolmentId,
+          apprenticeId,
+          providerUserId,
+          employerUserId,
+        ],
+      );
+      threadId = thread.rows[0].id;
+    });
+
+    /**
+     * The gap this closes: the row is stamped with the thread's organisation
+     * (the provider's), while the sender's active organisation is the
+     * employer. Owner-scoped INSERT refused it, so the counterparty could read
+     * the conversation and not reply to it.
+     */
+    it('lets the counterparty send a message in their own thread', async () => {
+      await setTenantGucs(appDb, employerUserId, employerOrgId);
+      const res = await appDb.query(
+        `INSERT INTO messages ("organisationId", "threadId", "senderUserId", body)
+         VALUES ($1, $2, $3, 'Reply from the employer') RETURNING id`,
+        [providerOrgId, threadId, employerUserId],
+      );
+      expect(res.rowCount).toBe(1);
+    });
+
+    it('refuses a message from someone who is not a participant', async () => {
+      await setTenantGucs(appDb, strangerUserId, strangerOrgId);
+      await expect(
+        appDb.query(
+          `INSERT INTO messages ("organisationId", "threadId", "senderUserId", body)
+           VALUES ($1, $2, $3, 'Intruder')`,
+          [providerOrgId, threadId, strangerUserId],
+        ),
+      ).rejects.toThrow();
+    });
+
+    it('lets the counterparty mark their own thread read', async () => {
+      await setTenantGucs(appDb, employerUserId, employerOrgId);
+      const res = await appDb.query(
+        `INSERT INTO message_thread_reads
+           ("organisationId", "threadId", "userId", "lastReadAt")
+         VALUES ($1, $2, $3, now()) RETURNING id`,
+        [providerOrgId, threadId, employerUserId],
+      );
+      expect(res.rowCount).toBe(1);
+    });
+
+    /** Read markers are per-user bookkeeping; nobody writes someone else's. */
+    it('refuses a read marker written on behalf of another user', async () => {
+      await setTenantGucs(appDb, employerUserId, employerOrgId);
+      await expect(
+        appDb.query(
+          `INSERT INTO message_thread_reads
+             ("organisationId", "threadId", "userId", "lastReadAt")
+           VALUES ($1, $2, $3, now())`,
+          [providerOrgId, threadId, strangerUserId],
+        ),
+      ).rejects.toThrow();
+    });
+
+    /**
+     * Reads widened; editing and deleting a sent message did not. This product
+     * offers neither to anyone, and a read fix must not quietly add them.
+     */
+    it('still refuses the counterparty editing or deleting a message', async () => {
+      await setTenantGucs(appDb, employerUserId, employerOrgId);
+      const update = await appDb.query(
+        `UPDATE messages SET body = 'tampered' WHERE "threadId" = $1`,
+        [threadId],
+      );
+      expect(update.rowCount).toBe(0);
+
+      const del = await appDb.query(
+        `DELETE FROM messages WHERE "threadId" = $1`,
+        [threadId],
+      );
+      expect(del.rowCount).toBe(0);
+    });
+  });
 });

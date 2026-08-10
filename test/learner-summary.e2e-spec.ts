@@ -80,9 +80,7 @@ describe('Learner summary (e2e)', () => {
     it('keeps approved and pending separate, and publishes no merged total', async () => {
       const data = await summaryFor(ctx.learnerA.headers);
 
-      expect(data.otjPace.approvedMinutes).not.toBe(
-        data.otjPace.loggedMinutes,
-      );
+      expect(data.otjPace.approvedMinutes).not.toBe(data.otjPace.loggedMinutes);
       expect(data.otjPace).not.toHaveProperty('totalMinutes');
       expect(data.otjPace).not.toHaveProperty('combinedMinutes');
     });
@@ -135,7 +133,11 @@ describe('Learner summary (e2e)', () => {
            ("organisationId", "enrolmentId", "apprenticeId", "loggedDate",
             minutes, "activityName", category, status, "approvedAt")
          VALUES ($1, $2, $3, CURRENT_DATE, 600, 'B-EXTRA', 'other', 'approved', NOW())`,
-        [ctx.providerOrgId, ctx.learnerB.enrolmentId, ctx.learnerB.apprenticeId],
+        [
+          ctx.providerOrgId,
+          ctx.learnerB.enrolmentId,
+          ctx.learnerB.apprenticeId,
+        ],
       );
 
       const after = await summaryFor(ctx.learnerA.headers);

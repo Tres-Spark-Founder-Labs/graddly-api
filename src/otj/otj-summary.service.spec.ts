@@ -147,9 +147,7 @@ describe('OtjSummaryService', () => {
 
       // Unknown, never zero. A 0 renders as "you have logged nothing".
       await expect(
-        service.percentForEnrolment(
-          enrolment({ plannedDurationMonths: null }),
-        ),
+        service.percentForEnrolment(enrolment({ plannedDurationMonths: null })),
       ).resolves.toBeNull();
     });
 

@@ -65,7 +65,6 @@ export class EpaPackJobsController {
   constructor(private readonly jobsService: EpaPackJobsService) {}
 
   @LearnerAccessible()
-
   @Post()
   @ResponseMessage('EPA evidence pack job queued successfully')
   @ApiOperation({
@@ -103,7 +102,6 @@ export class EpaPackJobsController {
   }
 
   @LearnerAccessible()
-
   @Get(':id')
   @ResponseMessage('EPA evidence pack job retrieved successfully')
   @ApiOperation({

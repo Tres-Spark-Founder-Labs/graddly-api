@@ -115,7 +115,9 @@ describe('LearnerScopeService', () => {
   });
 
   it('is not a learner anywhere without an active organisation', async () => {
-    const scope = await service.resolve(userWith({ organisationId: undefined }));
+    const scope = await service.resolve(
+      userWith({ organisationId: undefined }),
+    );
 
     expect(scope.isLearner).toBe(false);
     expect(find).not.toHaveBeenCalled();

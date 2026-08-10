@@ -122,8 +122,7 @@ export class OtjLogEntriesService {
      * be narrowed. The distinction matters: an empty array here would silently
      * blank the provider's approval queue.
      */
-    const learnerEnrolmentIds =
-      await this.learnerScope.ownEnrolmentIds(user);
+    const learnerEnrolmentIds = await this.learnerScope.ownEnrolmentIds(user);
     if (learnerEnrolmentIds !== null) {
       qb.andWhere('otj.enrolmentId IN (:...learnerEnrolmentIds)', {
         learnerEnrolmentIds,
@@ -429,8 +428,7 @@ export class OtjLogEntriesService {
     user: AuthenticatedUser,
     id: string,
   ): Promise<OtjLogEntry | null> {
-    const learnerEnrolmentIds =
-      await this.learnerScope.ownEnrolmentIds(user);
+    const learnerEnrolmentIds = await this.learnerScope.ownEnrolmentIds(user);
     if (learnerEnrolmentIds !== null) {
       return this.repo.findOne({
         where: {

@@ -58,9 +58,7 @@ export class OtjSummaryService {
    * the apprentice dashboard's critical path, and four round trips for four
    * numbers off the same rows is three too many.
    */
-  async minutesForEnrolment(
-    enrolmentId: string,
-  ): Promise<OtjMinutesBreakdown> {
+  async minutesForEnrolment(enrolmentId: string): Promise<OtjMinutesBreakdown> {
     const row = await this.otjRepo
       .createQueryBuilder('entry')
       .select('COALESCE(SUM(entry.minutes), 0)', 'logged')

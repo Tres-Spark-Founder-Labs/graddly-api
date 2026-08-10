@@ -160,7 +160,13 @@ describe('Learner scope surface (e2e)', () => {
    * needs its own evidence.
    */
   describe('routes a learner reaches, narrowed to their own rows', () => {
-    const SCOPED: ReadonlyArray<[string, string, 'marker' | 'reviewMarker' | 'evidenceMarker' | 'enrolmentId']> = [
+    const SCOPED: ReadonlyArray<
+      [
+        string,
+        string,
+        'marker' | 'reviewMarker' | 'evidenceMarker' | 'enrolmentId',
+      ]
+    > = [
       ['OTJ sessions', '/api/v1/otj-log-entries', 'marker'],
       ['reviews', '/api/v1/reviews', 'reviewMarker'],
       ['portfolio evidence', '/api/v1/ksb-evidence-items', 'evidenceMarker'],
@@ -289,7 +295,7 @@ describe('Learner scope surface (e2e)', () => {
       })[label] as string;
 
     it.each(INDISTINGUISHABLE)(
-      "a %s that is not mine is indistinguishable from one that does not exist",
+      'a %s that is not mine is indistinguishable from one that does not exist',
       async (label, route) => {
         const notMine = await request(app.getHttpServer())
           .get(route(idFor(label)))
@@ -345,10 +351,25 @@ describe('Learner scope surface (e2e)', () => {
     );
 
     it.each([
-      ['OTJ entry', (c: ILearnerScopeContext) => `/api/v1/otj-log-entries/${c.learnerA.submittedOtjEntryId}`],
-      ['enrolment', (c: ILearnerScopeContext) => `/api/v1/enrolments/${c.learnerA.enrolmentId}`],
-      ['review', (c: ILearnerScopeContext) => `/api/v1/reviews/${c.learnerA.reviewId}`],
-      ['evidence', (c: ILearnerScopeContext) => `/api/v1/ksb-evidence-items/${c.learnerA.evidenceId}`],
+      [
+        'OTJ entry',
+        (c: ILearnerScopeContext) =>
+          `/api/v1/otj-log-entries/${c.learnerA.submittedOtjEntryId}`,
+      ],
+      [
+        'enrolment',
+        (c: ILearnerScopeContext) =>
+          `/api/v1/enrolments/${c.learnerA.enrolmentId}`,
+      ],
+      [
+        'review',
+        (c: ILearnerScopeContext) => `/api/v1/reviews/${c.learnerA.reviewId}`,
+      ],
+      [
+        'evidence',
+        (c: ILearnerScopeContext) =>
+          `/api/v1/ksb-evidence-items/${c.learnerA.evidenceId}`,
+      ],
     ])("refuses another organisation's %s by id", async (_label, route) => {
       const res = await request(app.getHttpServer())
         .get(route(ctx))

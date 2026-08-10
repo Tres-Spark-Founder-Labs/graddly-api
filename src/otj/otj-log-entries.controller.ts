@@ -61,6 +61,7 @@ import { loadOtjActivityCategoriesConfig } from './otj-activity-categories.confi
 import { OtjLogEntriesService } from './otj-log-entries.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('OTJ Log Entries')
 @ApiExtraModels(
@@ -90,6 +91,7 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
 export class OtjLogEntriesController {
   constructor(private readonly service: OtjLogEntriesService) {}
 
+  @LearnerAccessible()
   @Get('categories')
   @ResponseMessage('OTJ activity categories retrieved successfully')
   @ApiOperation({
@@ -118,6 +120,7 @@ export class OtjLogEntriesController {
     }));
   }
 
+  @LearnerAccessible()
   @Post()
   @ResponseMessage('OTJ log entry created successfully')
   @ApiOperation({
@@ -155,6 +158,7 @@ export class OtjLogEntriesController {
     return this.service.create(user, dto);
   }
 
+  @LearnerAccessible()
   @Get()
   @ResponseMessage('OTJ log entries retrieved successfully')
   @ApiOperation({
@@ -250,6 +254,7 @@ export class OtjLogEntriesController {
     return this.service.bulkReject(user, dto.ids, dto.reason);
   }
 
+  @LearnerAccessible()
   @Get(':id')
   @ResponseMessage('OTJ log entry retrieved successfully')
   @ApiOperation({ summary: 'Get an OTJ log entry by id' })
@@ -331,6 +336,7 @@ export class OtjLogEntriesController {
     return this.service.unflag(user, id);
   }
 
+  @LearnerAccessible()
   @Patch(':id')
   @ResponseMessage('OTJ log entry updated successfully')
   @ApiOperation({
@@ -370,6 +376,7 @@ export class OtjLogEntriesController {
     return this.service.update(user, id, dto);
   }
 
+  @LearnerAccessible()
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ResponseMessage('OTJ log entry deleted successfully')

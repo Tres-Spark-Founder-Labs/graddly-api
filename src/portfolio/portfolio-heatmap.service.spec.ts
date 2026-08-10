@@ -9,6 +9,7 @@ import { KsbDefinitionsService } from './ksb-definitions.service.js';
 import { PortfolioEnrolmentContext } from './portfolio-enrolment.context.js';
 import { PortfolioHeatmapCacheService } from './portfolio-heatmap-cache.service.js';
 import { PortfolioHeatmapService } from './portfolio-heatmap.service.js';
+import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
 
 describe('PortfolioHeatmapService', () => {
   const coverageRepo = {
@@ -59,6 +60,7 @@ describe('PortfolioHeatmapService', () => {
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
+        staffLearnerScopeProvider(),
         PortfolioHeatmapService,
         {
           provide: getRepositoryToken(EnrolmentKsbCoverage),

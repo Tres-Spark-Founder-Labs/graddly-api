@@ -42,6 +42,7 @@ import { MessageResponseDto } from '../dto/message-response.dto.js';
 import { MessagesService } from '../messages.service.js';
 
 import type { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface.js';
+import { LearnerAccessible } from '../../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('Messaging')
 @ApiExtraModels(MessageResponseDto, PaginationMetaDto, CreateMessageDto)
@@ -64,6 +65,7 @@ import type { AuthenticatedUser } from '../../auth/interfaces/authenticated-user
 export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
 
+  @LearnerAccessible()
   @Get()
   @ResponseMessage('Messages retrieved successfully')
   @ApiOperation({
@@ -99,6 +101,7 @@ export class MessagesController {
     return this.messagesService.list(user, threadId, query);
   }
 
+  @LearnerAccessible()
   @Post()
   @ResponseMessage('Message sent successfully')
   @ApiOperation({

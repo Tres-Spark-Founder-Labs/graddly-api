@@ -29,6 +29,7 @@ import { CreateMessageAttachmentUploadUrlDto } from '../dto/create-message.dto.j
 import { MessageAttachmentsService } from '../message-attachments.service.js';
 
 import type { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface.js';
+import { LearnerAccessible } from '../../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('Messaging')
 @ApiExtraModels(PresignedUploadResponseDto, CreateMessageAttachmentUploadUrlDto)
@@ -51,6 +52,7 @@ import type { AuthenticatedUser } from '../../auth/interfaces/authenticated-user
 export class MessageAttachmentsController {
   constructor(private readonly attachmentsService: MessageAttachmentsService) {}
 
+  @LearnerAccessible()
   @Post('upload-url')
   @ResponseMessage('Messaging attachment upload URL created successfully')
   @ApiOperation({

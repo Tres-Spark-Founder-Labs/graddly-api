@@ -80,6 +80,7 @@ import { TutorCaseloadService } from './tutor-caseload.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 import type { Response } from 'express';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 function isCsvCohortResult(
   result:
@@ -136,6 +137,7 @@ export class LearnersController {
     private readonly tutorCaseloadService: TutorCaseloadService,
   ) {}
 
+  @LearnerAccessible()
   @Get('me/documents')
   @ResponseMessage('Learner documents retrieved successfully')
   @ApiOperation({
@@ -165,6 +167,7 @@ export class LearnersController {
     return this.documentsService.listMyDocuments(user, query);
   }
 
+  @LearnerAccessible()
   @Get('me/summary')
   @ResponseMessage('Learner summary retrieved successfully')
   @ApiOperation({

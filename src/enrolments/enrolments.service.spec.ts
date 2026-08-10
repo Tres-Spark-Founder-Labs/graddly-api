@@ -23,6 +23,7 @@ import { Enrolment } from './entities/enrolment.entity.js';
 import { EpaOutcomeRecord } from './entities/epa-outcome.entity.js';
 import { EnrolmentPipelineState } from './enums/enrolment-pipeline-state.enum.js';
 import { EnrolmentStatus } from './enums/enrolment-status.enum.js';
+import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
 
 describe('EnrolmentsService', () => {
   let service: EnrolmentsService;
@@ -48,6 +49,7 @@ describe('EnrolmentsService', () => {
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
+        staffLearnerScopeProvider(),
         EnrolmentsService,
         {
           provide: getRepositoryToken(Enrolment),

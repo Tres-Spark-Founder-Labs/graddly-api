@@ -68,6 +68,7 @@ import { EnrolmentJourneyService } from './enrolment-journey.service.js';
 import { EnrolmentsService } from './enrolments.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('Enrolments')
 @ApiExtraModels(
@@ -239,6 +240,7 @@ export class EnrolmentsController {
     return this.enrolmentsService.create(user, dto);
   }
 
+  @LearnerAccessible()
   @Get()
   @ResponseMessage('Enrolments retrieved successfully')
   @ApiOperation({
@@ -376,6 +378,7 @@ export class EnrolmentsController {
     return this.enrolmentsService.listEmployerManagerOptions(user);
   }
 
+  @LearnerAccessible()
   @Get(':id/journey')
   @ResponseMessage('Enrolment journey retrieved successfully')
   @ApiOperation({
@@ -469,6 +472,7 @@ export class EnrolmentsController {
     return this.enrolmentsService.getParticipantOptions(user, id);
   }
 
+  @LearnerAccessible()
   @Get(':id')
   @ResponseMessage('Enrolment retrieved successfully')
   @ApiOperation({ summary: 'Get enrolment by id' })

@@ -39,6 +39,7 @@ import { NotificationsService } from './notifications.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 import type { PaginatedResult } from '../common/pagination/paginated-result.js';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('Notifications')
 @ApiExtraModels(
@@ -59,6 +60,7 @@ export class NotificationsController {
     private readonly preferencesService: NotificationPreferencesService,
   ) {}
 
+  @LearnerAccessible()
   @Get()
   @ResponseMessage('Notifications retrieved successfully')
   @ApiOperation({ summary: 'List notifications for the current user' })
@@ -88,6 +90,7 @@ export class NotificationsController {
     );
   }
 
+  @LearnerAccessible()
   @Patch('read-all')
   @ResponseMessage('Notifications marked as read')
   @ApiOperation({ summary: 'Mark all unread notifications as read' })
@@ -122,6 +125,7 @@ export class NotificationsController {
    * Scoped to the OTJ digest because that is the only digest the platform
    * sends; a `type` parameter would be generality with nothing behind it.
    */
+  @LearnerAccessible()
   @Get('preferences/digest')
   @ResponseMessage('Digest preference retrieved successfully')
   @ApiOperation({
@@ -148,6 +152,7 @@ export class NotificationsController {
     return { type: NotificationType.OTJ, frequency };
   }
 
+  @LearnerAccessible()
   @Patch('preferences/digest')
   @ResponseMessage('Digest preference updated successfully')
   @ApiOperation({
@@ -178,6 +183,7 @@ export class NotificationsController {
     return { type: NotificationType.OTJ, frequency: saved.frequency };
   }
 
+  @LearnerAccessible()
   @Patch(':id/read')
   @ResponseMessage('Notification marked as read')
   @ApiOperation({ summary: 'Mark a notification as read' })

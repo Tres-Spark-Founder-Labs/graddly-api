@@ -24,6 +24,7 @@ import { PortfolioEnrolmentContext } from './portfolio-enrolment.context.js';
 import { PortfolioHeatmapCacheService } from './portfolio-heatmap-cache.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
+import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
 
 const apprenticeUser = {
   id: 'user-1',
@@ -49,7 +50,14 @@ describe('KsEvidenceItemsService', () => {
   const mappingRepo = { find: mappingFind };
   const transaction = jest.fn();
   const dataSource = { transaction };
-  const enrolmentContext = { requireEnrolment: jest.fn() };
+  const enrolmentContext = {
+    requireEnrolment: jest.fn(),
+    // Defaults to allowed, so these specs keep asserting what their names say.
+    // The refusal path is covered end-to-end in
+    // `test/learner-scope-surface.e2e-spec.ts`, where a real learner principal
+    // exists to be refused — a boolean stub here would only be testing itself.
+    canAccessEnrolment: jest.fn().mockReturnValue(true),
+  };
   const ksbDefinitionsService = {
     findEntitiesForStandard: jest.fn(),
     findResponsesByIds: jest.fn(),
@@ -80,6 +88,7 @@ describe('KsEvidenceItemsService', () => {
 
     const moduleRef = await Test.createTestingModule({
       providers: [
+        staffLearnerScopeProvider(),
         KsEvidenceItemsService,
         {
           provide: getRepositoryToken(KsEvidenceItem),

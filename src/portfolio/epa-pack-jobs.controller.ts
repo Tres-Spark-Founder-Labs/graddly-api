@@ -40,6 +40,7 @@ import { EpaPackJobResponseDto } from './dto/epa-pack-job-response.dto.js';
 import { EpaPackJobsService } from './epa-pack-jobs.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('Portfolio')
 @ApiExtraModels(EpaPackJobResponseDto, CreateEpaPackJobDto)
@@ -62,6 +63,8 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
 })
 export class EpaPackJobsController {
   constructor(private readonly jobsService: EpaPackJobsService) {}
+
+  @LearnerAccessible()
 
   @Post()
   @ResponseMessage('EPA evidence pack job queued successfully')
@@ -98,6 +101,8 @@ export class EpaPackJobsController {
     setLastKnownUserIdForGuc(user.id);
     return this.jobsService.create(user, dto);
   }
+
+  @LearnerAccessible()
 
   @Get(':id')
   @ResponseMessage('EPA evidence pack job retrieved successfully')

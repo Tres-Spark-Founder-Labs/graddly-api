@@ -34,6 +34,7 @@ import { MessagingUnreadCountResponseDto } from '../dto/messaging-unread-count-r
 import { MessageThreadsService } from '../message-threads.service.js';
 
 import type { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface.js';
+import { LearnerAccessible } from '../../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('Messaging')
 @ApiExtraModels(
@@ -60,6 +61,7 @@ import type { AuthenticatedUser } from '../../auth/interfaces/authenticated-user
 export class MessageThreadsController {
   constructor(private readonly threadsService: MessageThreadsService) {}
 
+  @LearnerAccessible()
   @Get('unread-count')
   @ResponseMessage('Messaging unread count retrieved successfully')
   @ApiOperation({
@@ -84,6 +86,7 @@ export class MessageThreadsController {
     return this.threadsService.getUnreadCount(user);
   }
 
+  @LearnerAccessible()
   @Get()
   @ResponseMessage('Message threads retrieved successfully')
   @ApiOperation({
@@ -114,6 +117,7 @@ export class MessageThreadsController {
     return this.threadsService.list(user, query);
   }
 
+  @LearnerAccessible()
   @Get(':id')
   @ResponseMessage('Message thread retrieved successfully')
   @ApiOperation({
@@ -143,6 +147,7 @@ export class MessageThreadsController {
     return this.threadsService.findOne(user, id);
   }
 
+  @LearnerAccessible()
   @Patch(':id/read')
   @ResponseMessage('Message thread marked as read successfully')
   @ApiOperation({

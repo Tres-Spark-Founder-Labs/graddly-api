@@ -9,6 +9,7 @@ import { Review } from './entities/review.entity.js';
 import { ReviewStatus } from './enums/review-status.enum.js';
 import { REVIEW_BULK_SCHEDULE_MAX } from './reviews.constants.js';
 import { ReviewsService } from './reviews.service.js';
+import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
 
 describe('ReviewsService', () => {
   const reviewRepo = {
@@ -25,6 +26,7 @@ describe('ReviewsService', () => {
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
+        staffLearnerScopeProvider(),
         ReviewsService,
         { provide: getRepositoryToken(Review), useValue: reviewRepo },
         { provide: getRepositoryToken(Enrolment), useValue: enrolmentRepo },

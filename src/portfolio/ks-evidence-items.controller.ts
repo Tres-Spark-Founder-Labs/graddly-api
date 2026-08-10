@@ -47,6 +47,7 @@ import { UpdateKsEvidenceItemDto } from './dto/update-ks-evidence-item.dto.js';
 import { KsEvidenceItemsService } from './ks-evidence-items.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('KSB Evidence')
 @ApiExtraModels(
@@ -73,6 +74,7 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
 export class KsEvidenceItemsController {
   constructor(private readonly service: KsEvidenceItemsService) {}
 
+  @LearnerAccessible()
   @Post('upload-url')
   @ResponseMessage('Evidence upload URL created successfully')
   @ApiOperation({
@@ -96,6 +98,7 @@ export class KsEvidenceItemsController {
     return this.service.createUploadUrl(user, dto);
   }
 
+  @LearnerAccessible()
   @Post()
   @ResponseMessage('KSB evidence item created successfully')
   @ApiOperation({ summary: 'Create draft KSB evidence' })
@@ -117,6 +120,7 @@ export class KsEvidenceItemsController {
     return this.service.create(user, dto);
   }
 
+  @LearnerAccessible()
   @Get()
   @ResponseMessage('KSB evidence items retrieved successfully')
   @ApiOperation({ summary: 'List KSB evidence items' })
@@ -139,6 +143,7 @@ export class KsEvidenceItemsController {
     return this.service.findAll(user, query);
   }
 
+  @LearnerAccessible()
   @Get(':id')
   @ResponseMessage('KSB evidence item retrieved successfully')
   @ApiOperation({ summary: 'Get KSB evidence item by id' })
@@ -158,6 +163,7 @@ export class KsEvidenceItemsController {
     return this.service.findOne(user, id);
   }
 
+  @LearnerAccessible()
   @Patch(':id')
   @ResponseMessage('KSB evidence item updated successfully')
   @ApiOperation({ summary: 'Update draft KSB evidence' })
@@ -180,6 +186,7 @@ export class KsEvidenceItemsController {
     return this.service.update(user, id, dto);
   }
 
+  @LearnerAccessible()
   @Post(':id/submit')
   @ResponseMessage('KSB evidence submitted successfully')
   @ApiOperation({ summary: 'Submit draft evidence for review' })
@@ -269,6 +276,7 @@ export class KsEvidenceItemsController {
     return this.service.returnToDraft(user, id, dto.reason);
   }
 
+  @LearnerAccessible()
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ResponseMessage('KSB evidence item deleted successfully')

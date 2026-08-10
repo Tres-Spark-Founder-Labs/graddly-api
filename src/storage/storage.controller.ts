@@ -35,6 +35,7 @@ import {
 import { StorageService } from './storage.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('Storage')
 @ApiExtraModels(PresignedUploadResponseDto, PresignedDownloadResponseDto)
@@ -57,6 +58,7 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
 export class StorageController {
   constructor(private readonly storageService: StorageService) {}
 
+  @LearnerAccessible()
   @Post('upload-url')
   @ResponseMessage('Presigned upload URL created successfully')
   @ApiOperation({

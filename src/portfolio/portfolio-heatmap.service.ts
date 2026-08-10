@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -19,6 +23,7 @@ import { PortfolioHeatmapCacheService } from './portfolio-heatmap-cache.service.
 import { HEATMAP_STRENGTH_ADEQUATE_MIN } from './portfolio.constants.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
+import { LearnerScopeService } from '../common/learner-scope/learner-scope.service.js';
 
 interface IAcceptedEvidenceRow {
   ksbDefinitionId: string;
@@ -33,6 +38,7 @@ export class PortfolioHeatmapService {
     private readonly enrolmentContext: PortfolioEnrolmentContext,
     private readonly ksbDefinitionsService: KsbDefinitionsService,
     private readonly heatmapCache: PortfolioHeatmapCacheService,
+    private readonly learnerScope: LearnerScopeService,
   ) {}
 
   async getHeatmap(
@@ -40,6 +46,17 @@ export class PortfolioHeatmapService {
     enrolmentId: string,
   ): Promise<KsbHeatmapResponseDto> {
     const organisationId = user.organisationId!;
+
+    /**
+     * D3 — the heatmap is a per-learner competence picture, and `enrolmentId`
+     * arrives from the client. Checked before the cache read, because a cache
+     * hit would otherwise return another learner's cells without ever reaching
+     * the org check below.
+     */
+    const ownEnrolmentIds = await this.learnerScope.ownEnrolmentIds(user);
+    if (ownEnrolmentIds !== null && !ownEnrolmentIds.includes(enrolmentId)) {
+      throw new NotFoundException('Enrolment not found');
+    }
     const cached = await this.heatmapCache.get(organisationId, enrolmentId);
     if (cached) {
       return { enrolmentId, cells: cached };

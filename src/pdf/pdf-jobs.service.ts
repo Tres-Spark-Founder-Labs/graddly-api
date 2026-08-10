@@ -11,6 +11,7 @@ import { PdfJobStatus } from './enums/pdf-job-status.enum.js';
 import { PdfDispatchService } from './pdf-dispatch.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
+import { LearnerScopeService } from '../common/learner-scope/learner-scope.service.js';
 
 @Injectable()
 export class PdfJobsService {
@@ -19,6 +20,7 @@ export class PdfJobsService {
     private readonly storage: StorageService,
     @InjectRepository(PdfGenerationJob)
     private readonly jobRepo: Repository<PdfGenerationJob>,
+    private readonly learnerScope: LearnerScopeService,
   ) {}
 
   async create(
@@ -39,8 +41,20 @@ export class PdfJobsService {
     jobId: string,
   ): Promise<PdfJobResponseDto> {
     const organisationId = user.organisationId!;
+
+    /**
+     * D3. A PDF job is org-scoped, and its `resultKey` presigns to a rendered
+     * document — a cohort table or a learner profile. A learner polling job ids
+     * would have been able to collect other learners' reports, so a learner is
+     * narrowed to jobs they themselves requested.
+     */
+    const scope = await this.learnerScope.resolve(user);
     const job = await this.jobRepo.findOne({
-      where: { id: jobId, organisationId },
+      where: {
+        id: jobId,
+        organisationId,
+        ...(scope.isLearner ? { requestedByUserId: user.id } : {}),
+      },
     });
     if (!job) {
       throw new NotFoundException('PDF job not found');

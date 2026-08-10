@@ -56,6 +56,7 @@ import { ReviewsService } from './reviews.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 import type { Request } from 'express';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('Reviews')
 @ApiExtraModels(
@@ -197,6 +198,7 @@ export class ReviewsController {
     return this.reviewsService.findAll(user, query);
   }
 
+  @LearnerAccessible()
   @Get()
   @ResponseMessage('Reviews retrieved successfully')
   @ApiOperation({ summary: 'List reviews with filters' })
@@ -219,6 +221,7 @@ export class ReviewsController {
     return this.reviewsService.findAll(user, query);
   }
 
+  @LearnerAccessible()
   @Get(':id')
   @ResponseMessage('Review retrieved successfully')
   @ApiOperation({ summary: 'Get a review by id' })
@@ -356,6 +359,7 @@ export class ReviewsController {
     return this.snapshotService.requestSnapshot(user, id);
   }
 
+  @LearnerAccessible()
   @Post(':id/sign')
   @ResponseMessage('Review party signed successfully')
   @ApiOperation({

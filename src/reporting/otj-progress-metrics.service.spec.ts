@@ -4,6 +4,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 
+import { OtjSummaryService } from '../otj/otj-summary.service.js';
+
 import { OtjProgressMetricsService } from './otj-progress-metrics.service.js';
 
 /** Joins every WHERE/AND WHERE fragment so a predicate can be asserted on. */
@@ -38,6 +40,12 @@ describe('OtjProgressMetricsService', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         OtjProgressMetricsService,
+        /**
+         * P0-A — real, not stubbed. The queries this spec asserts predicates on
+         * moved into OtjSummaryService, which needs only the same repository
+         * mock. Stubbing it would delete the assertions' subject.
+         */
+        OtjSummaryService,
         {
           provide: getRepositoryToken(OtjLogEntry),
           useValue: otjLogRepo,
@@ -105,17 +113,32 @@ describe('OtjProgressMetricsService', () => {
     expect(predicates).not.toContain('entry.organisationId');
   });
 
+  /**
+   * P0-A — the single-enrolment lookup is now one conditional-sum query in
+   * `OtjSummaryService`, so the mock returns the four named columns rather than
+   * a lone `total`. The property under test is unchanged and is the one that
+   * matters: it must not filter on `entry.organisationId`, because those rows
+   * are stamped with the provider and the caller may be the employer.
+   */
   it('scopes a single enrolment lookup the same way', async () => {
     const singleQueryBuilder = {
       select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      getRawOne: jest.fn().mockResolvedValue({ total: '3600' }),
+      setParameters: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({
+        logged: '4200',
+        pending: '600',
+        approved: '3600',
+        rejected: '0',
+      }),
     };
     otjLogRepo.createQueryBuilder.mockReturnValueOnce(singleQueryBuilder);
 
     const minutes = await service.approvedMinutesForEnrolment('enr-1');
 
+    // Approved, not logged — the delegation must not quietly widen the figure.
     expect(minutes).toBe(3600);
     expect(collectPredicates(singleQueryBuilder)).not.toContain(
       'entry.organisationId',

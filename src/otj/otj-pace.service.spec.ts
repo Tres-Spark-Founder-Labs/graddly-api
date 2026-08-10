@@ -13,6 +13,7 @@ import { User } from '../users/entities/user.entity.js';
 import { OtjLogEntry } from './entities/otj-log-entry.entity.js';
 import { OtjPaceAlertLevel } from './enums/otj-pace-alert-level.enum.js';
 import { OtjPaceService } from './otj-pace.service.js';
+import { OtjSummaryService } from './otj-summary.service.js';
 
 describe('OtjPaceService', () => {
   const otjRepo = {
@@ -29,12 +30,41 @@ describe('OtjPaceService', () => {
   const notifications = { createForUser: jest.fn() };
   const emailDispatchService = { enqueue: jest.fn() };
 
+  /**
+   * The conditional-sum query `OtjSummaryService.minutesForEnrolment` runs.
+   * pg returns SUM() as a string, so the mock does too — the Number() coercion
+   * in the service is part of what these tests cover.
+   */
+  const minutesQb = (approvedMinutes: number) => ({
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    setParameters: jest.fn().mockReturnThis(),
+    getRawOne: jest.fn().mockResolvedValue({
+      logged: String(approvedMinutes),
+      pending: '0',
+      approved: String(approvedMinutes),
+      rejected: '0',
+    }),
+  });
+
   let service: OtjPaceService;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         OtjPaceService,
+        /**
+         * P0-A — provided for real, not stubbed.
+         *
+         * `OtjSummaryService` now owns the approved-minutes sum this service
+         * used to compute itself, and it needs only the OTJ repository, which
+         * is already mocked below. Substituting a stub here would replace the
+         * arithmetic under test with an assertion that the stub returns what
+         * the stub was told to return.
+         */
+        OtjSummaryService,
         { provide: getRepositoryToken(OtjLogEntry), useValue: otjRepo },
         { provide: getRepositoryToken(Enrolment), useValue: enrolmentRepo },
         { provide: getRepositoryToken(User), useValue: userRepo },
@@ -50,12 +80,9 @@ describe('OtjPaceService', () => {
     service = moduleRef.get(OtjPaceService);
     jest.clearAllMocks();
 
-    otjRepo.createQueryBuilder.mockReturnValue({
-      select: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getRawOne: jest.fn().mockResolvedValue({ total: '0' }),
-    });
+    // The single conditional-sum query `OtjSummaryService.minutesForEnrolment`
+    // runs. Numbers arrive as strings, exactly as pg returns SUM().
+    otjRepo.createQueryBuilder.mockReturnValue(minutesQb(0));
     otjRepo.find.mockResolvedValue([]);
     otjRepo.save.mockResolvedValue(undefined);
     enrolmentRepo.save.mockImplementation((value: Enrolment) =>
@@ -88,12 +115,7 @@ describe('OtjPaceService', () => {
       otjPaceAlertedAt: null,
     } as Enrolment;
 
-    otjRepo.createQueryBuilder.mockReturnValue({
-      select: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getRawOne: jest.fn().mockResolvedValue({ total: '100' }),
-    });
+    otjRepo.createQueryBuilder.mockReturnValue(minutesQb(100));
 
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2025-10-01T00:00:00.000Z'));
@@ -127,12 +149,7 @@ describe('OtjPaceService', () => {
         otjPaceAlertedAt: new Date(),
       },
     ]);
-    otjRepo.createQueryBuilder.mockReturnValue({
-      select: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getRawOne: jest.fn().mockResolvedValue({ total: '7200' }),
-    });
+    otjRepo.createQueryBuilder.mockReturnValue(minutesQb(7200));
 
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2025-07-01T00:00:00.000Z'));
@@ -173,12 +190,7 @@ describe('OtjPaceService', () => {
     beforeEach(() => {
       // Almost no hours logged against a year-long programme, evaluated nine
       // months in — comfortably past the 30% threshold.
-      otjRepo.createQueryBuilder.mockReturnValue({
-        select: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getRawOne: jest.fn().mockResolvedValue({ total: '100' }),
-      });
+      otjRepo.createQueryBuilder.mockReturnValue(minutesQb(100));
       jest.useFakeTimers();
       jest.setSystemTime(new Date('2025-10-01T00:00:00.000Z'));
     });

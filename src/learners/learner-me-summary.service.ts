@@ -6,7 +6,7 @@ import { EnrolmentJourneyService } from '../enrolments/enrolment-journey.service
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
-import { OtjProgressMetricsService } from '../reporting/otj-progress-metrics.service.js';
+import { OtjSummaryService } from '../otj/otj-summary.service.js';
 import { ReportingPortalService } from '../reporting/reporting-portal.service.js';
 import { Review } from '../reviews/entities/review.entity.js';
 import { ReviewStatus } from '../reviews/enums/review-status.enum.js';
@@ -23,7 +23,7 @@ export class LearnerMeSummaryService {
     @InjectRepository(Review)
     private readonly reviewRepo: Repository<Review>,
     private readonly journeyService: EnrolmentJourneyService,
-    private readonly otjMetrics: OtjProgressMetricsService,
+    private readonly otjSummary: OtjSummaryService,
   ) {}
 
   async getSummary(
@@ -56,6 +56,9 @@ export class LearnerMeSummaryService {
           alertLevel: null,
           otjPercent: null,
           approvedMinutes: 0,
+          loggedMinutes: 0,
+          pendingMinutes: 0,
+          rejectedMinutes: 0,
         },
         nextReviewDate: null,
         daysToEpa: null,
@@ -63,9 +66,18 @@ export class LearnerMeSummaryService {
       };
     }
 
-    const [journey, otjPercent, nextReviewDate] = await Promise.all([
+    /**
+     * P0-A — one call to the shared pace service instead of two independent
+     * derivations.
+     *
+     * This previously took `approvedMinutes` from the journey service and
+     * `otjPercent` from the reporting metrics service: two round trips, two
+     * separate approved-minute sums, and two chances for the headline number
+     * and the percentage beside it to disagree on the same screen.
+     */
+    const [journey, pace, nextReviewDate] = await Promise.all([
       this.journeyService.getJourney(user, enrolment.id),
-      this.otjMetrics.percentForEnrolment(enrolment),
+      this.otjSummary.paceForEnrolment(enrolment),
       this.loadNextReviewDate(enrolment.id, organisationId),
     ]);
 
@@ -75,9 +87,12 @@ export class LearnerMeSummaryService {
       programmeTitle: enrolment.standard.title,
       enrolmentStatus: enrolment.status,
       otjPace: {
-        alertLevel: journey.pace.alertLevel,
-        otjPercent,
-        approvedMinutes: journey.pace.approvedMinutes,
+        alertLevel: pace.alertLevel,
+        otjPercent: pace.otjPercent,
+        approvedMinutes: pace.approvedMinutes,
+        loggedMinutes: pace.loggedMinutes,
+        pendingMinutes: pace.pendingMinutes,
+        rejectedMinutes: pace.rejectedMinutes,
       },
       nextReviewDate,
       daysToEpa: journey.daysToEpa,

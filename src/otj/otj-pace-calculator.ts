@@ -1,6 +1,16 @@
-import { OTJ_HOURS_PER_PLANNED_MONTH } from '../reporting/otj-progress-metrics.service.js';
-
 import { OtjPaceAlertLevel } from './enums/otj-pace-alert-level.enum.js';
+
+/**
+ * Expected OTJ hours per month of programme duration — the 20% off-the-job
+ * rule, expressed as a monthly baseline.
+ *
+ * P0-A moved this here from `reporting/otj-progress-metrics.service.ts`. It is
+ * the single most fundamental constant in OTJ pace arithmetic, and this file
+ * — the only place that arithmetic lives — was importing it *from* reporting,
+ * which meant the domain rule was owned by a consumer of the domain. The
+ * reporting service now imports it from here like every other consumer.
+ */
+export const OTJ_HOURS_PER_PLANNED_MONTH = 20;
 
 export type OtjPaceSnapshot = {
   totalTargetMinutes: number;
@@ -9,6 +19,31 @@ export type OtjPaceSnapshot = {
   behindPercent: number | null;
   alertLevel: OtjPaceAlertLevel | null;
   requiredWeeklyHours: number | null;
+};
+
+/**
+ * D2 — the learner-facing minute breakdown.
+ *
+ * Four components, never a merged total. The client decided that approved
+ * minutes are the authoritative figure and pending minutes are displayed
+ * separately, so a combined field would have no consumer and would only invite
+ * one.
+ *
+ * `loggedMinutes` is every non-deleted entry at any status, drafts included.
+ * That makes draft minutes derivable —
+ * `loggedMinutes - pendingMinutes - approvedMinutes - rejectedMinutes` — so the
+ * four figures reconcile without a fifth field.
+ *
+ * REJECTED MINUTES, stated explicitly rather than left implicit: they are
+ * counted in `loggedMinutes` and excluded from both `pendingMinutes` and
+ * `approvedMinutes`, and they are exposed on their own so a consumer can show
+ * "sent back" work without inferring it from a subtraction.
+ */
+export type OtjMinutesBreakdown = {
+  loggedMinutes: number;
+  pendingMinutes: number;
+  approvedMinutes: number;
+  rejectedMinutes: number;
 };
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -100,6 +135,43 @@ export function computeOtjPaceSnapshot(input: {
  * side of it the rule falls on — which is the only thing AC2 and AC3 actually
  * specify.
  */
+/**
+ * Percentage of the programme's total OTJ target that has been **approved**.
+ *
+ * Distinct from `behindPercent`, which measures the gap against what should
+ * have been done *by today*. Both are needed and they are not interchangeable:
+ * a learner three months into a two-year programme can be at 12% of target and
+ * perfectly on track.
+ *
+ * Moved here from `OtjProgressMetricsService.computePercentForEnrolment` in
+ * P0-A. It shared `months * OTJ_HOURS_PER_PLANNED_MONTH * 60` with
+ * `computeOtjPaceSnapshot` above — the same target arithmetic maintained in two
+ * files.
+ *
+ * Approved only, per D2: the thresholds and the headline both evaluate on
+ * evidenced training, and a percentage padded with unapproved hours would let a
+ * learner look compliant when they are not.
+ *
+ * `null` when the programme has no planned duration — unknown, not zero.
+ */
+export function computeOtjPercentOfTarget(
+  plannedDurationMonths: number | null,
+  approvedMinutes: number,
+): number | null {
+  if (!plannedDurationMonths || plannedDurationMonths <= 0) {
+    return null;
+  }
+
+  const expectedMinutes =
+    plannedDurationMonths * OTJ_HOURS_PER_PLANNED_MONTH * 60;
+  if (expectedMinutes <= 0) {
+    return null;
+  }
+
+  const percent = (approvedMinutes / expectedMinutes) * 100;
+  return Number(Math.min(percent, 100).toFixed(2));
+}
+
 export function resolveAlertLevel(
   behindPercent: number | null,
 ): OtjPaceAlertLevel | null {

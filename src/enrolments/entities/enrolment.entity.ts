@@ -171,6 +171,22 @@ export class Enrolment extends BaseEntity {
   @Column({ type: 'numeric', precision: 6, scale: 2, nullable: true })
   otjBehindPercent!: string | number | null;
 
+  /**
+   * F3.2.2 AC5, client decision Q3 — the moment gateway readiness was reached,
+   * as a recorded fact rather than something recomputed on each render.
+   *
+   * Kept separate from `gatewayReadyNotifiedAt` because they answer different
+   * questions: this one is "when did this apprentice become ready", which may
+   * be asked long afterwards if the timing of an EPA nomination is ever
+   * queried; the other is "have we already told the provider", which exists
+   * only to stop the notification firing twice.
+   *
+   * Cleared when readiness lapses, so it always describes the *current*
+   * readiness rather than the high-water mark (decision Q3a).
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  gatewayReadyAt!: Date | null;
+
   @Column({ type: 'timestamptz', nullable: true })
   gatewayReadyNotifiedAt!: Date | null;
 }

@@ -23180,7 +23180,9 @@
             "enum": [
               "complete",
               "current",
-              "upcoming"
+              "upcoming",
+              "overdue",
+              "cancelled"
             ],
             "type": "string"
           }
@@ -23293,8 +23295,15 @@
             "description": "Days remaining until EPA; null when EPA date unset"
           },
           "epaCountdownBand": {
-            "type": "object",
-            "description": "EPA countdown colour band: green / amber / red / unset",
+            "description": "EPA countdown colour band. green ≥90 days, amber 30–89, red ≤29 (including the day itself), overdue once the date has passed with no completion recorded, unset when the provider has not confirmed a date.",
+            "enum": [
+              "green",
+              "amber",
+              "red",
+              "overdue",
+              "unset"
+            ],
+            "type": "string",
             "example": "amber"
           },
           "milestones": {
@@ -23315,6 +23324,12 @@
           },
           "gatewayReady": {
             "type": "boolean"
+          },
+          "gatewayReadyAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true,
+            "description": "When gateway readiness was reached; null when not currently ready"
           },
           "pace": {
             "$ref": "#/components/schemas/EnrolmentJourneyPaceDto"

@@ -6,6 +6,7 @@ import {
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
 import { Apprentice } from '../apprentices/entities/apprentice.entity.js';
 import { CompletionPushService } from '../completion-push/completion-push.service.js';
 import { MessageThreadsService } from '../messaging/message-threads.service.js';
@@ -23,7 +24,6 @@ import { Enrolment } from './entities/enrolment.entity.js';
 import { EpaOutcomeRecord } from './entities/epa-outcome.entity.js';
 import { EnrolmentPipelineState } from './enums/enrolment-pipeline-state.enum.js';
 import { EnrolmentStatus } from './enums/enrolment-status.enum.js';
-import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
 
 describe('EnrolmentsService', () => {
   let service: EnrolmentsService;

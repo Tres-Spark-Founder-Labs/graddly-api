@@ -12,6 +12,9 @@ import { createProviderDirectoryContext } from './helpers/reporting-e2e.js';
 
 import type { App } from 'supertest/types';
 
+/** Computed key: a literal `Authorization:` trips the naming-convention rule. */
+const AUTH_HEADER = 'Authorization';
+
 /**
  * P0-A — `GET /learners/me/summary`, the endpoint four features are about to
  * consume.
@@ -158,7 +161,7 @@ describe('Learner summary (e2e)', () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/learners/me/summary')
         .set({
-          Authorization: `Bearer ${stranger.owner.accessToken}`,
+          [AUTH_HEADER]: `Bearer ${stranger.owner.accessToken}`,
           [ORGANISATION_ID_HEADER]: stranger.providerOrgId,
         })
         .expect(200);
@@ -180,7 +183,7 @@ describe('Learner summary (e2e)', () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/learners/me/summary')
         .set({
-          Authorization: `Bearer ${ctx.learnerA.accessToken}`,
+          [AUTH_HEADER]: `Bearer ${ctx.learnerA.accessToken}`,
           [ORGANISATION_ID_HEADER]: stranger.providerOrgId,
         });
 

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+import { LearnerScopeService } from '../common/learner-scope/learner-scope.service.js';
 import { StorageService } from '../storage/storage.service.js';
 
 import { CreatePdfJobDto } from './dto/create-pdf-job.dto.js';
@@ -11,7 +12,6 @@ import { PdfJobStatus } from './enums/pdf-job-status.enum.js';
 import { PdfDispatchService } from './pdf-dispatch.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
-import { LearnerScopeService } from '../common/learner-scope/learner-scope.service.js';
 
 @Injectable()
 export class PdfJobsService {

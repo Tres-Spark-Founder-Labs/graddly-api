@@ -3,7 +3,6 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
-
 import { OtjSummaryService } from '../otj/otj-summary.service.js';
 
 import { OtjProgressMetricsService } from './otj-progress-metrics.service.js';

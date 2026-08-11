@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 
+import { LearnerScopeService } from '../common/learner-scope/learner-scope.service.js';
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
@@ -33,7 +34,6 @@ import { PortfolioHeatmapCacheService } from './portfolio-heatmap-cache.service.
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 import type { PresignedUploadResponseDto } from '../storage/dto/create-presigned-upload.dto.js';
-import { LearnerScopeService } from '../common/learner-scope/learner-scope.service.js';
 
 @Injectable()
 export class KsEvidenceItemsService {

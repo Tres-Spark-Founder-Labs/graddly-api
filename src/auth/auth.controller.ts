@@ -38,6 +38,7 @@ import {
   ValidationErrorResponseDto,
 } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 import { parsePortalType } from '../common/utils/parse-portal-type.util.js';
 import { OrganisationListItemDto } from '../organisations/dto/organisation-list-item.dto.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
@@ -59,7 +60,6 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { MfaChallengeResponseDto } from './mfa/dto/mfa-challenge-response.dto.js';
 
 import type { AuthenticatedUser } from './interfaces/authenticated-user.interface.js';
-import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 type MeResult = Omit<
   AuthenticatedUser,

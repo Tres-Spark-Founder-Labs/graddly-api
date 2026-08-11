@@ -1,6 +1,8 @@
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
+
 import { EnrolmentKsbCoverage } from './entities/enrolment-ksb-coverage.entity.js';
 import { KsbCoverageAssessment } from './enums/ksb-coverage-assessment.enum.js';
 import { KsbHeatmapStrength } from './enums/ksb-heatmap-strength.enum.js';
@@ -9,7 +11,6 @@ import { KsbDefinitionsService } from './ksb-definitions.service.js';
 import { PortfolioEnrolmentContext } from './portfolio-enrolment.context.js';
 import { PortfolioHeatmapCacheService } from './portfolio-heatmap-cache.service.js';
 import { PortfolioHeatmapService } from './portfolio-heatmap.service.js';
-import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
 
 describe('PortfolioHeatmapService', () => {
   const coverageRepo = {

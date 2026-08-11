@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+import { LearnerScopeService } from '../common/learner-scope/learner-scope.service.js';
 import { OrganisationRole } from '../organisations/organisation-role.enum.js';
 
 import { KsbCoverageResponseDto } from './dto/ksb-coverage-response.dto.js';
@@ -23,7 +24,6 @@ import { PortfolioHeatmapCacheService } from './portfolio-heatmap-cache.service.
 import { HEATMAP_STRENGTH_ADEQUATE_MIN } from './portfolio.constants.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
-import { LearnerScopeService } from '../common/learner-scope/learner-scope.service.js';
 
 interface IAcceptedEvidenceRow {
   ksbDefinitionId: string;

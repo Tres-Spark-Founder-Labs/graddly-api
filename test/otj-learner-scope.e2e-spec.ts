@@ -12,6 +12,9 @@ import { createProviderDirectoryContext } from './helpers/reporting-e2e.js';
 
 import type { App } from 'supertest/types';
 
+/** Computed key: a literal `Authorization:` trips the naming-convention rule. */
+const AUTH_HEADER = 'Authorization';
+
 /**
  * Portal 3, survey finding 4 — the suspected cross-learner OTJ exposure,
  * settled.
@@ -45,7 +48,7 @@ describe('OTJ learner scope (e2e)', () => {
 
     const stranger = await createProviderDirectoryContext(app, 'otjscope-x');
     strangerHeaders = {
-      Authorization: `Bearer ${stranger.owner.accessToken}`,
+      [AUTH_HEADER]: `Bearer ${stranger.owner.accessToken}`,
       [ORGANISATION_ID_HEADER]: stranger.providerOrgId,
     };
   }, 180_000);

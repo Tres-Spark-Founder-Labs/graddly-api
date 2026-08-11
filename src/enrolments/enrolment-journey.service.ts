@@ -156,7 +156,20 @@ export class EnrolmentJourneyService {
       criteriaDefs.length > 0
         ? Math.round((completeCount / criteriaDefs.length) * 100)
         : 0;
-    const gatewayReady = gatewayCompletionPercent === 100;
+    /**
+     * Counted, not derived from the rounded percentage.
+     *
+     * This is defensive rather than a fix for a live defect: `Math.round`
+     * reaches 100 from 99.5, but only the four codes in `criterionCompletion`
+     * can ever evaluate complete, so today the percentage cannot round to 100
+     * with a criterion outstanding. That safety is incidental — it depends on
+     * the completion map staying small, not on anything stated — while
+     * `standards.gatewayCriteria` is client-configurable and this boolean
+     * gates a recorded moment and the notification that puts an apprentice
+     * forward for EPA nomination. Counting says what is meant directly.
+     */
+    const gatewayReady =
+      criteriaDefs.length > 0 && completeCount === criteriaDefs.length;
 
     const milestones = await this.buildMilestones(
       enrolment,

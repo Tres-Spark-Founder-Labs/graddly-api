@@ -43,12 +43,11 @@ describe('OTJ category contract (F3.1.1 AC2)', () => {
     source = null;
   }
 
-  const maybeIt = source ? it : it.skip;
-
   it('reports whether the frontend constant could be read', () => {
     if (!source) {
       // Deliberately not a failure: the API repo must build on its own. But it
       // must be visible that the contract went unchecked, not silently green.
+      // eslint-disable-next-line no-console -- the visibility is the point
       console.warn(
         `OTJ category contract UNCHECKED — apprentice app not found at ${constantsPath}`,
       );
@@ -56,33 +55,45 @@ describe('OTJ category contract (F3.1.1 AC2)', () => {
     expect(true).toBe(true);
   });
 
-  maybeIt('offers exactly the categories the API accepts', () => {
-    const block = source!.match(
-      /OTJ_CATEGORY_OPTIONS\s*=\s*Object\.freeze\(\[([\s\S]*?)\]\)/,
-    );
-    expect(block).not.toBeNull();
+  /**
+   * Skipped at the `describe` level rather than per-test via an aliased `it`.
+   * An alias reads fine but hides the assertions from `jest/no-standalone-expect`,
+   * which then cannot tell a real standalone `expect` from a skipped one — so
+   * the lint rule that exists to catch assertions outside a test block gets
+   * switched off for exactly the file that most needs it.
+   */
+  const whenApprenticeAppPresent = source ? describe : describe.skip;
 
-    const frontendValues = [...block![1].matchAll(/value:\s*"([^"]+)"/g)].map(
-      (m) => m[1],
-    );
-    const apiValues = Object.values(OtjActivityCategory);
+  whenApprenticeAppPresent('against the checked-out apprentice app', () => {
+    const optionsBlock = () =>
+      source!.match(
+        /OTJ_CATEGORY_OPTIONS\s*=\s*Object\.freeze\(\[([\s\S]*?)\]\)/,
+      );
 
-    // Sorted comparison: AC2 fixes the display order, which is a UI concern.
-    // What must match is the set of accepted values.
-    expect([...frontendValues].sort()).toEqual([...apiValues].sort());
-  });
+    it('offers exactly the categories the API accepts', () => {
+      const block = optionsBlock();
+      expect(block).not.toBeNull();
 
-  maybeIt('gives every option a non-empty label', () => {
-    const block = source!.match(
-      /OTJ_CATEGORY_OPTIONS\s*=\s*Object\.freeze\(\[([\s\S]*?)\]\)/,
-    );
-    const labels = [...block![1].matchAll(/text:\s*"([^"]+)"/g)].map(
-      (m) => m[1],
-    );
+      const frontendValues = [...block![1].matchAll(/value:\s*"([^"]+)"/g)].map(
+        (m) => m[1],
+      );
+      const apiValues = Object.values(OtjActivityCategory);
 
-    expect(labels).toHaveLength(Object.values(OtjActivityCategory).length);
-    for (const label of labels) {
-      expect(label.trim().length).toBeGreaterThan(0);
-    }
+      // Sorted comparison: AC2 fixes the display order, which is a UI concern.
+      // What must match is the set of accepted values.
+      expect([...frontendValues].sort()).toEqual([...apiValues].sort());
+    });
+
+    it('gives every option a non-empty label', () => {
+      const block = optionsBlock();
+      const labels = [...block![1].matchAll(/text:\s*"([^"]+)"/g)].map(
+        (m) => m[1],
+      );
+
+      expect(labels).toHaveLength(Object.values(OtjActivityCategory).length);
+      for (const label of labels) {
+        expect(label.trim().length).toBeGreaterThan(0);
+      }
+    });
   });
 });

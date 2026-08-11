@@ -43,6 +43,7 @@ import {
 } from '../common/dto/error-response.dto.js';
 import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
@@ -61,7 +62,6 @@ import { loadOtjActivityCategoriesConfig } from './otj-activity-categories.confi
 import { OtjLogEntriesService } from './otj-log-entries.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
-import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('OTJ Log Entries')
 @ApiExtraModels(

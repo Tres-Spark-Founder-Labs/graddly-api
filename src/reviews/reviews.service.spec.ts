@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 
@@ -9,7 +10,6 @@ import { Review } from './entities/review.entity.js';
 import { ReviewStatus } from './enums/review-status.enum.js';
 import { REVIEW_BULK_SCHEDULE_MAX } from './reviews.constants.js';
 import { ReviewsService } from './reviews.service.js';
-import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
 
 describe('ReviewsService', () => {
   const reviewRepo = {

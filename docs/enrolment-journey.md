@@ -14,12 +14,81 @@ Returns:
 | `gatewayChecklist` | Standard-specific criteria with status (`complete` / `not_started` / `blocked`) |
 | `gatewayCompletionPercent` | 0–100 checklist progress |
 | `gatewayReady` | `true` when all criteria complete |
-| `epaDate` / `daysToEpa` / `epaCountdownBand` | EPA countdown (green >90d, amber 30–90d, red <30d) |
+| `gatewayReadyAt` | When readiness was reached; `null` whenever not currently ready |
+| `epaDate` / `daysToEpa` / `epaCountdownBand` | EPA countdown — see bands below |
 | `pace` | OTJ pace snapshot vs EPA target |
 
 `PATCH /api/v1/enrolments/:id/journey` — set `epaDate` (YYYY-MM-DD).
 
-When `gatewayReady` becomes true for the first time, provider org admins receive an in-app notification (`action: gateway_ready`).
+## Timeline milestones (client decision Q2)
+
+Review milestones are sourced from the reviews that **actually exist** on the
+enrolment, not from a schedule derived from the start date. A late, rescheduled
+or missed review therefore appears as it really is. The timeline is untidier for
+it, and that is the point — the untidiness is the signal that something slipped.
+
+`JourneyMilestoneStatus` values for a review:
+
+| Status | When |
+|---|---|
+| `complete` | Review status is `completed`, however late it was held |
+| `cancelled` | Review status is `cancelled` |
+| `overdue` | Scheduled date has passed and the review is neither completed nor cancelled |
+| `upcoming` | Scheduled in the future |
+| `current` | Applied to the first upcoming milestone in the whole timeline |
+
+`overdue` and `cancelled` were added by decision Q2. Before it, every review
+that was not completed or cancelled reported as `current` (so several reviews
+were simultaneously "current"), and a *cancelled* review reported as `upcoming`.
+
+## EPA countdown bands (client decision Q4)
+
+Arithmetic lives in `src/enrolments/epa-countdown.ts` as pure functions, tested
+on both sides of every boundary in `epa-countdown.spec.ts`.
+
+| `epaCountdownBand` | When |
+|---|---|
+| `green` | 90 days or more remaining |
+| `amber` | 30 to 89 days |
+| `red` | 29 days or fewer, **including the day of the EPA itself** |
+| `overdue` | EPA date has passed with no completion recorded |
+| `unset` | Provider has not confirmed an EPA date (F3.2.3 AC3) |
+
+The PRD's prose ("green >90 / amber 30–90 / red <30") does not partition the
+range — days 90 and 30 each appear twice. The table above is the client's
+decision, and it corrected an off-by-one: day 90 previously fell into amber.
+
+`daysToEpa` stays truthful and goes negative once the date has passed; `band`
+is what clients switch on, so an overdue EPA is not rendered as a countdown
+running backwards.
+
+## Gateway readiness as a recorded moment (client decision Q3)
+
+Readiness is recorded, not recomputed and forgotten:
+
+- **`gatewayReadyAt`** — when readiness was reached.
+- **`gatewayReadyNotifiedAt`** — whether the provider has been told.
+
+Two columns rather than one, so a notification dispatch that throws leaves
+readiness recorded and is retried on the next read.
+
+When `gatewayReady` first becomes true, provider org owners and admins receive
+an in-app notification (`action: gateway_ready`).
+
+**Readiness can lapse (Q3a).** If a criterion is later withdrawn or
+invalidated, both columns clear and the badge disappears — the response
+describes the current position, not a high-water mark.
+
+**Regaining readiness re-notifies (Q3b).** Because the lapse clears the
+notification marker too, a second readiness sends a fresh notification. If the
+first notification led to no action because readiness lapsed, only a second one
+reopens it.
+
+> **Known limitation.** This reconciliation runs on read. Nothing observes
+> readiness until someone opens the journey, so `gatewayReadyAt` records when
+> readiness was first *seen*, not when the last criterion was met. Closing that
+> gap needs a sweep like `otj-pace-cron.service.ts`; tracked in
+> `OPEN_QUESTIONS.md`.
 
 ## Gateway criteria
 

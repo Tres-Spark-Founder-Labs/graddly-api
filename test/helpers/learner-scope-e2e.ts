@@ -10,6 +10,9 @@ import type { INestApplication } from '@nestjs/common';
 import type { Client } from 'pg';
 import type { App } from 'supertest/types';
 
+/** Computed key: a literal `Authorization:` trips the naming-convention rule. */
+const AUTH_HEADER = 'Authorization';
+
 /**
  * Two learners under one provider organisation.
  *
@@ -184,7 +187,7 @@ async function seedLearner(
     evidenceMarker,
     evidenceId: evidence.rows[0].id,
     headers: {
-      Authorization: `Bearer ${user.accessToken}`,
+      [AUTH_HEADER]: `Bearer ${user.accessToken}`,
       [ORGANISATION_ID_HEADER]: providerOrgId,
     },
   };
@@ -225,7 +228,7 @@ export async function createLearnerScopeContext(
   const employerOrgId = (employerRes.body as { data: { id: string } }).data.id;
 
   const staffHeaders: Record<string, string> = {
-    Authorization: `Bearer ${owner.accessToken}`,
+    [AUTH_HEADER]: `Bearer ${owner.accessToken}`,
     [ORGANISATION_ID_HEADER]: providerOrgId,
   };
 

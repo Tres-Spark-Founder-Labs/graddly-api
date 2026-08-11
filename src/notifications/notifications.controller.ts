@@ -24,6 +24,7 @@ import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import {
@@ -39,7 +40,6 @@ import { NotificationsService } from './notifications.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 import type { PaginatedResult } from '../common/pagination/paginated-result.js';
-import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('Notifications')
 @ApiExtraModels(

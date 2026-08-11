@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
@@ -18,7 +19,6 @@ import { OtjLogEntry } from './entities/otj-log-entry.entity.js';
 import { OtjActivityCategory } from './enums/otj-activity-category.enum.js';
 import { OtjLogStatus } from './enums/otj-log-status.enum.js';
 import { OtjLogEntriesService } from './otj-log-entries.service.js';
-import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
 
 describe('OtjLogEntriesService', () => {
   const repo = {

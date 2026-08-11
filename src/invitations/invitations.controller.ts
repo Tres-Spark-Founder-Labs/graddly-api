@@ -45,6 +45,7 @@ import {
 import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 import { parsePortalType } from '../common/utils/parse-portal-type.util.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
@@ -57,7 +58,6 @@ import { InvitationResponseDto } from './dto/invitation-response.dto.js';
 import { InvitationsService } from './invitations.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
-import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('Invitations')
 @ApiExtraModels(

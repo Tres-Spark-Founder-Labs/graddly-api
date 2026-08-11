@@ -23,13 +23,13 @@ import {
   ValidationErrorResponseDto,
 } from '../../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../../common/interceptors/response-message.decorator.js';
+import { LearnerAccessible } from '../../common/learner-scope/learner-accessible.decorator.js';
 import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
 import { PresignedUploadResponseDto } from '../../storage/dto/create-presigned-upload.dto.js';
 import { CreateMessageAttachmentUploadUrlDto } from '../dto/create-message.dto.js';
 import { MessageAttachmentsService } from '../message-attachments.service.js';
 
 import type { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface.js';
-import { LearnerAccessible } from '../../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('Messaging')
 @ApiExtraModels(PresignedUploadResponseDto, CreateMessageAttachmentUploadUrlDto)

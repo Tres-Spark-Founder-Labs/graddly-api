@@ -34,6 +34,7 @@ import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { PresignedUploadResponseDto } from '../storage/dto/create-presigned-upload.dto.js';
@@ -47,7 +48,6 @@ import { UpdateKsEvidenceItemDto } from './dto/update-ks-evidence-item.dto.js';
 import { KsEvidenceItemsService } from './ks-evidence-items.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
-import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('KSB Evidence')
 @ApiExtraModels(

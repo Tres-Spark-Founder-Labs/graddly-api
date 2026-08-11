@@ -33,6 +33,7 @@ import {
   ValidationErrorResponseDto,
 } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CreateEpaPackJobDto } from './dto/create-epa-pack-job.dto.js';
@@ -40,7 +41,6 @@ import { EpaPackJobResponseDto } from './dto/epa-pack-job-response.dto.js';
 import { EpaPackJobsService } from './epa-pack-jobs.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
-import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('Portfolio')
 @ApiExtraModels(EpaPackJobResponseDto, CreateEpaPackJobDto)

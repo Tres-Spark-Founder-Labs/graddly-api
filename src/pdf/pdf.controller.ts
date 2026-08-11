@@ -32,6 +32,7 @@ import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { SkipResponseEnvelope } from '../common/interceptors/skip-response-envelope.decorator.js';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CreatePdfJobDto } from './dto/create-pdf-job.dto.js';
@@ -40,7 +41,6 @@ import { PdfJobsService } from './pdf-jobs.service.js';
 import { PdfService } from './pdf.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
-import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('PDF')
 @ApiExtraModels(PdfJobResponseDto, CreatePdfJobDto)

@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
+import { LearnerScopeService } from '../common/learner-scope/learner-scope.service.js';
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
@@ -22,7 +23,6 @@ import { ReviewStatus } from './enums/review-status.enum.js';
 import { REVIEW_BULK_SCHEDULE_MAX } from './reviews.constants.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
-import { LearnerScopeService } from '../common/learner-scope/learner-scope.service.js';
 
 @Injectable()
 export class ReviewsService {

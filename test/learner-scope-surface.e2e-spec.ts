@@ -12,6 +12,9 @@ import { createProviderDirectoryContext } from './helpers/reporting-e2e.js';
 
 import type { App } from 'supertest/types';
 
+/** Computed key: a literal `Authorization:` trips the naming-convention rule. */
+const AUTH_HEADER = 'Authorization';
+
 /**
  * P0-B step 4 — the wider learner-reachable surface.
  *
@@ -50,7 +53,7 @@ describe('Learner scope surface (e2e)', () => {
 
     const stranger = await createProviderDirectoryContext(app, 'scope-x');
     strangerHeaders = {
-      Authorization: `Bearer ${stranger.owner.accessToken}`,
+      [AUTH_HEADER]: `Bearer ${stranger.owner.accessToken}`,
       [ORGANISATION_ID_HEADER]: stranger.providerOrgId,
     };
   }, 180_000);
@@ -277,28 +280,43 @@ describe('Learner scope surface (e2e)', () => {
      * message, because identical statuses with different bodies leak just as
      * effectively.
      */
-    const INDISTINGUISHABLE: ReadonlyArray<[string, (id: string) => string]> = [
-      ['OTJ entry', (id) => `/api/v1/otj-log-entries/${id}`],
-      ['enrolment', (id) => `/api/v1/enrolments/${id}`],
-      ['review', (id) => `/api/v1/reviews/${id}`],
-      ['portfolio evidence', (id) => `/api/v1/ksb-evidence-items/${id}`],
-      ['apprentice record', (id) => `/api/v1/apprentices/${id}`],
+    /**
+     * Each row carries its own id accessor rather than a label-keyed lookup.
+     * The accessor is a thunk because `ctx` is not populated until `beforeAll`
+     * has run, and the table is built at describe time.
+     */
+    const INDISTINGUISHABLE: ReadonlyArray<
+      [string, (id: string) => string, () => string]
+    > = [
+      [
+        'OTJ entry',
+        (id) => `/api/v1/otj-log-entries/${id}`,
+        () => ctx.learnerB.submittedOtjEntryId,
+      ],
+      [
+        'enrolment',
+        (id) => `/api/v1/enrolments/${id}`,
+        () => ctx.learnerB.enrolmentId,
+      ],
+      ['review', (id) => `/api/v1/reviews/${id}`, () => ctx.learnerB.reviewId],
+      [
+        'portfolio evidence',
+        (id) => `/api/v1/ksb-evidence-items/${id}`,
+        () => ctx.learnerB.evidenceId,
+      ],
+      [
+        'apprentice record',
+        (id) => `/api/v1/apprentices/${id}`,
+        () => ctx.learnerB.apprenticeId,
+      ],
     ];
-
-    const idFor = (label: string) =>
-      ({
-        'OTJ entry': ctx.learnerB.submittedOtjEntryId,
-        enrolment: ctx.learnerB.enrolmentId,
-        review: ctx.learnerB.reviewId,
-        'portfolio evidence': ctx.learnerB.evidenceId,
-        'apprentice record': ctx.learnerB.apprenticeId,
-      })[label] as string;
 
     it.each(INDISTINGUISHABLE)(
       'a %s that is not mine is indistinguishable from one that does not exist',
-      async (label, route) => {
+      async (_label, route, idOf) => {
+        const targetId = idOf();
         const notMine = await request(app.getHttpServer())
-          .get(route(idFor(label)))
+          .get(route(targetId))
           .set(asA());
         const notReal = await request(app.getHttpServer())
           .get(route(NON_EXISTENT_UUID))
@@ -315,7 +333,7 @@ describe('Learner scope surface (e2e)', () => {
         const normalise = (res: request.Response, id: string) =>
           ((res.body as { message?: string }).message ?? '').replace(id, ':id');
 
-        expect(normalise(notMine, idFor(label))).toBe(
+        expect(normalise(notMine, targetId)).toBe(
           normalise(notReal, NON_EXISTENT_UUID),
         );
       },

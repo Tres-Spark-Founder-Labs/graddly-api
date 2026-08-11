@@ -36,13 +36,13 @@ import {
 import { PaginationMetaDto } from '../../common/dto/pagination-meta.dto.js';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 import { ResponseMessage } from '../../common/interceptors/response-message.decorator.js';
+import { LearnerAccessible } from '../../common/learner-scope/learner-accessible.decorator.js';
 import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
 import { CreateMessageDto } from '../dto/create-message.dto.js';
 import { MessageResponseDto } from '../dto/message-response.dto.js';
 import { MessagesService } from '../messages.service.js';
 
 import type { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface.js';
-import { LearnerAccessible } from '../../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('Messaging')
 @ApiExtraModels(MessageResponseDto, PaginationMetaDto, CreateMessageDto)

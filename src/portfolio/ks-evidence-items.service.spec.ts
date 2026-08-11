@@ -7,6 +7,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 
+import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 import { OrganisationRole } from '../organisations/organisation-role.enum.js';
@@ -24,7 +25,6 @@ import { PortfolioEnrolmentContext } from './portfolio-enrolment.context.js';
 import { PortfolioHeatmapCacheService } from './portfolio-heatmap-cache.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
-import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
 
 const apprenticeUser = {
   id: 'user-1',

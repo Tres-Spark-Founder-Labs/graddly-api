@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
 import { StorageService } from '../storage/storage.service.js';
 
 import { PdfGenerationJob } from './entities/pdf-generation-job.entity.js';
@@ -11,7 +12,6 @@ import { PdfDispatchService } from './pdf-dispatch.service.js';
 import { PdfJobsService } from './pdf-jobs.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
-import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
 
 const user = {
   id: 'user-1',

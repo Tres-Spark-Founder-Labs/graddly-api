@@ -8,8 +8,8 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Observable, from, switchMap } from 'rxjs';
 
-import { LearnerScopeService } from './learner-scope.service.js';
 import { LEARNER_ACCESSIBLE_KEY } from './learner-accessible.decorator.js';
+import { LearnerScopeService } from './learner-scope.service.js';
 
 import type { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface.js';
 

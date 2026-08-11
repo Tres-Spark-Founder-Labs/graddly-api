@@ -27,6 +27,7 @@ import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { KsbCoverageResponseDto } from './dto/ksb-coverage-response.dto.js';
@@ -35,7 +36,6 @@ import { UpsertKsbCoverageDto } from './dto/upsert-ksb-coverage.dto.js';
 import { PortfolioHeatmapService } from './portfolio-heatmap.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
-import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('Portfolio')
 @ApiExtraModels(KsbHeatmapResponseDto, KsbCoverageResponseDto)

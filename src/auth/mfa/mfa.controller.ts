@@ -28,6 +28,7 @@ import {
   ValidationErrorResponseDto,
 } from '../../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../../common/interceptors/response-message.decorator.js';
+import { LearnerAccessible } from '../../common/learner-scope/learner-accessible.decorator.js';
 import { AuthService } from '../auth.service.js';
 import { CurrentUser } from '../decorators/current-user.decorator.js';
 import { AuthResponseDto } from '../dto/auth-response.dto.js';
@@ -41,7 +42,6 @@ import { MfaVerifyDto } from './dto/mfa-verify.dto.js';
 import { MfaService } from './mfa.service.js';
 
 import type { AuthenticatedUser } from '../interfaces/authenticated-user.interface.js';
-import { LearnerAccessible } from '../../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('Auth')
 // Every DTO reachable through getSchemaPath() must be registered here, or the

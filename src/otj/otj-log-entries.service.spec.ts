@@ -18,6 +18,7 @@ import { OtjLogEntry } from './entities/otj-log-entry.entity.js';
 import { OtjActivityCategory } from './enums/otj-activity-category.enum.js';
 import { OtjLogStatus } from './enums/otj-log-status.enum.js';
 import { OtjLogEntriesService } from './otj-log-entries.service.js';
+import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
 
 describe('OtjLogEntriesService', () => {
   const repo = {
@@ -41,6 +42,7 @@ describe('OtjLogEntriesService', () => {
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
+        staffLearnerScopeProvider(),
         OtjLogEntriesService,
         { provide: getRepositoryToken(OtjLogEntry), useValue: repo },
         { provide: NotificationsService, useValue: notificationsService },

@@ -59,6 +59,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { MfaChallengeResponseDto } from './mfa/dto/mfa-challenge-response.dto.js';
 
 import type { AuthenticatedUser } from './interfaces/authenticated-user.interface.js';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 type MeResult = Omit<
   AuthenticatedUser,
@@ -350,6 +351,7 @@ export class AuthController {
     return this.authService.refresh(dto.refreshToken);
   }
 
+  @LearnerAccessible()
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard)
@@ -369,6 +371,7 @@ export class AuthController {
     return this.authService.logout(dto.refreshToken);
   }
 
+  @LearnerAccessible()
   @Post('logout-all')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard)
@@ -388,6 +391,7 @@ export class AuthController {
     return this.authService.logoutAll(user.id);
   }
 
+  @LearnerAccessible()
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -443,6 +447,7 @@ export class AuthController {
     return { ...publicUser, activeOrganisation, organisations };
   }
 
+  @LearnerAccessible()
   @Patch('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

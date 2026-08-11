@@ -11,6 +11,7 @@ import { PdfDispatchService } from './pdf-dispatch.service.js';
 import { PdfJobsService } from './pdf-jobs.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
+import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
 
 const user = {
   id: 'user-1',
@@ -29,6 +30,7 @@ describe('PdfJobsService', () => {
     jest.clearAllMocks();
     const moduleRef = await Test.createTestingModule({
       providers: [
+        staffLearnerScopeProvider(),
         PdfJobsService,
         { provide: PdfDispatchService, useValue: dispatch },
         { provide: StorageService, useValue: storage },

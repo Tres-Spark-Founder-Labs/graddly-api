@@ -23,6 +23,8 @@ import { BullmqModule } from './bullmq/bullmq.module.js';
 import { CommitmentsModule } from './commitments/commitments.module.js';
 import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard.js';
 import { TenantContextInterceptor } from './common/interceptors/tenant-context.interceptor.js';
+import { LearnerScopeInterceptor } from './common/learner-scope/learner-scope.interceptor.js';
+import { LearnerScopeModule } from './common/learner-scope/learner-scope.module.js';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware.js';
 import { RlsBootstrapMiddleware } from './common/middleware/rls-bootstrap.middleware.js';
 import { CompletionPushModule } from './completion-push/completion-push.module.js';
@@ -128,12 +130,19 @@ import { WithdrawalPushModule } from './withdrawal-push/withdrawal-push.module.j
     PlatformGdprModule,
     PlatformRetentionModule,
     HealthModule,
+    LearnerScopeModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
     { provide: APP_GUARD, useClass: CustomThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
+    /**
+     * Client decision D3. Registered after TenantContextInterceptor so the
+     * tenant GUCs are already in the ALS when this runs, and last among the
+     * global interceptors so a refusal happens before any handler executes.
+     */
+    { provide: APP_INTERCEPTOR, useClass: LearnerScopeInterceptor },
     ...(getEnv().OIDC_ENABLED ? [OidcSessionMiddleware] : []),
   ],
 })

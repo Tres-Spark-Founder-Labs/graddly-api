@@ -57,6 +57,7 @@ import { InvitationResponseDto } from './dto/invitation-response.dto.js';
 import { InvitationsService } from './invitations.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('Invitations')
 @ApiExtraModels(
@@ -75,6 +76,7 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
 export class InvitationsController {
   constructor(private readonly invitationsService: InvitationsService) {}
 
+  @LearnerAccessible()
   @Post('accept')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 0 }, auth: { ttl: 60_000, limit: 5 } })

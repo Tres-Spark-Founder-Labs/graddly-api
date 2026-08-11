@@ -15,6 +15,7 @@ import { OtjLogEntry } from './entities/otj-log-entry.entity.js';
 import { OtjLogEntriesController } from './otj-log-entries.controller.js';
 import { OtjLogEntriesService } from './otj-log-entries.service.js';
 import { OtjPaceService } from './otj-pace.service.js';
+import { OtjSummaryService } from './otj-summary.service.js';
 
 @Module({
   imports: [
@@ -33,7 +34,13 @@ import { OtjPaceService } from './otj-pace.service.js';
     ]),
   ],
   controllers: [OtjLogEntriesController],
-  providers: [OtjLogEntriesService, OtjPaceService],
-  exports: [TypeOrmModule, OtjLogEntriesService, OtjPaceService],
+  providers: [OtjLogEntriesService, OtjPaceService, OtjSummaryService],
+  exports: [
+    TypeOrmModule,
+    OtjLogEntriesService,
+    OtjPaceService,
+    // P0-A — the single home for OTJ minute sums and pace arithmetic.
+    OtjSummaryService,
+  ],
 })
 export class OtjModule {}

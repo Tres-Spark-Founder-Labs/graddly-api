@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { OtjPaceAlertLevel } from '../../otj/enums/otj-pace-alert-level.enum.js';
+import { EpaCountdownBand } from '../enums/epa-countdown-band.enum.js';
 import { GatewayCriterionStatus } from '../enums/gateway-criterion-status.enum.js';
 import { JourneyMilestoneStatus } from '../enums/journey-milestone-status.enum.js';
 
@@ -94,11 +95,21 @@ export class EnrolmentJourneyResponseDto {
   })
   daysToEpa!: number | null;
 
+  /**
+   * F3.2.3 AC2 and client decision Q4. `daysToEpa` stays truthful and goes
+   * negative once the date has passed; the band is what the client switches
+   * on. `overdue` exists so a passed EPA date with no completion recorded is
+   * not rendered as a countdown running backwards.
+   */
   @ApiProperty({
-    description: 'EPA countdown colour band: green / amber / red / unset',
-    example: 'amber',
+    enum: EpaCountdownBand,
+    description:
+      'EPA countdown colour band. green ≥90 days, amber 30–89, red ≤29 ' +
+      '(including the day itself), overdue once the date has passed with no ' +
+      'completion recorded, unset when the provider has not confirmed a date.',
+    example: EpaCountdownBand.AMBER,
   })
-  epaCountdownBand!: 'green' | 'amber' | 'red' | 'unset';
+  epaCountdownBand!: EpaCountdownBand;
 
   @ApiProperty({ type: [JourneyMilestoneDto] })
   milestones!: JourneyMilestoneDto[];
@@ -111,6 +122,20 @@ export class EnrolmentJourneyResponseDto {
 
   @ApiProperty()
   gatewayReady!: boolean;
+
+  /**
+   * Client decision Q3 — the recorded moment readiness was reached, so "when
+   * did this apprentice become ready" can be answered later. Null whenever
+   * `gatewayReady` is false, including after a lapse: this describes the
+   * current readiness, not the high-water mark.
+   */
+  @ApiPropertyOptional({
+    nullable: true,
+    format: 'date-time',
+    description:
+      'When gateway readiness was reached; null when not currently ready',
+  })
+  gatewayReadyAt!: Date | null;
 
   @ApiProperty({ type: EnrolmentJourneyPaceDto })
   pace!: EnrolmentJourneyPaceDto;

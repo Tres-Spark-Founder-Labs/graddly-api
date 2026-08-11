@@ -35,6 +35,7 @@ import { UpsertKsbCoverageDto } from './dto/upsert-ksb-coverage.dto.js';
 import { PortfolioHeatmapService } from './portfolio-heatmap.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('Portfolio')
 @ApiExtraModels(KsbHeatmapResponseDto, KsbCoverageResponseDto)
@@ -57,6 +58,7 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
 export class PortfolioController {
   constructor(private readonly heatmapService: PortfolioHeatmapService) {}
 
+  @LearnerAccessible()
   @Get('ksb-heatmap')
   @ResponseMessage('KSB heatmap retrieved successfully')
   @ApiOperation({ summary: 'Get KSB coverage heatmap for an enrolment' })

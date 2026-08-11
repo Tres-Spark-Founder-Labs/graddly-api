@@ -23180,7 +23180,9 @@
             "enum": [
               "complete",
               "current",
-              "upcoming"
+              "upcoming",
+              "overdue",
+              "cancelled"
             ],
             "type": "string"
           }
@@ -23293,8 +23295,15 @@
             "description": "Days remaining until EPA; null when EPA date unset"
           },
           "epaCountdownBand": {
-            "type": "object",
-            "description": "EPA countdown colour band: green / amber / red / unset",
+            "description": "EPA countdown colour band. green ≥90 days, amber 30–89, red ≤29 (including the day itself), overdue once the date has passed with no completion recorded, unset when the provider has not confirmed a date.",
+            "enum": [
+              "green",
+              "amber",
+              "red",
+              "overdue",
+              "unset"
+            ],
+            "type": "string",
             "example": "amber"
           },
           "milestones": {
@@ -23315,6 +23324,12 @@
           },
           "gatewayReady": {
             "type": "boolean"
+          },
+          "gatewayReadyAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true,
+            "description": "When gateway readiness was reached; null when not currently ready"
           },
           "pace": {
             "$ref": "#/components/schemas/EnrolmentJourneyPaceDto"
@@ -28412,12 +28427,31 @@
           },
           "approvedMinutes": {
             "type": "number",
+            "description": "Approved only. The authoritative figure (client decision D2) and the one the 15%/30% risk thresholds are evaluated against.",
             "example": 1200
+          },
+          "loggedMinutes": {
+            "type": "number",
+            "example": 1890,
+            "description": "Every non-deleted entry at any status, drafts included. Draft minutes are therefore derivable as loggedMinutes minus the other three."
+          },
+          "pendingMinutes": {
+            "type": "number",
+            "example": 600,
+            "description": "Submitted and awaiting a decision. Never merged into approvedMinutes and never hidden (D2): a learner who logs hours and sees nothing change concludes the app is broken and stops logging."
+          },
+          "rejectedMinutes": {
+            "type": "number",
+            "example": 90,
+            "description": "Sent back by the provider. Counted in loggedMinutes, excluded from pendingMinutes and approvedMinutes."
           }
         },
         "required": [
           "otjPercent",
-          "approvedMinutes"
+          "approvedMinutes",
+          "loggedMinutes",
+          "pendingMinutes",
+          "rejectedMinutes"
         ]
       },
       "LearnerMeSummaryResponseDto": {

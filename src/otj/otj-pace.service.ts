@@ -24,10 +24,10 @@ import { OtjLogEntry } from './entities/otj-log-entry.entity.js';
 import { OtjLogStatus } from './enums/otj-log-status.enum.js';
 import { OtjPaceAlertLevel } from './enums/otj-pace-alert-level.enum.js';
 import {
-  computeOtjPaceSnapshot,
   OTJ_AT_RISK_THRESHOLD_PERCENT,
   OTJ_OVERDUE_THRESHOLD_PERCENT,
 } from './otj-pace-calculator.js';
+import { OtjSummaryService } from './otj-summary.service.js';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -47,6 +47,7 @@ export class OtjPaceService {
     private readonly notificationsService: NotificationsService,
     private readonly emailDispatchService: EmailDispatchService,
     private readonly config: ConfigService,
+    private readonly otjSummary: OtjSummaryService,
   ) {}
 
   async flagPaceForAllActiveEnrolments(): Promise<number> {
@@ -129,17 +130,19 @@ export class OtjPaceService {
     setCurrentUserId(actorUserId || undefined);
     setLastKnownUserIdForGuc(actorUserId);
 
-    const approvedMinutes = await this.sumApprovedMinutes(
-      enrolment.id,
-      enrolment.organisationId,
-    );
-    const snapshot = computeOtjPaceSnapshot({
-      plannedDurationMonths: enrolment.plannedDurationMonths,
-      plannedStartDate: enrolment.plannedStartDate,
-      plannedEndDate: enrolment.plannedEndDate,
-      activatedAt: enrolment.activatedAt,
-      epaDate: enrolment.epaDate,
-      approvedMinutes,
+    /**
+     * P0-A — the approved-minutes sum used to live here as a private
+     * `sumApprovedMinutes`, alongside a second copy in
+     * `OtjProgressMetricsService`. Both are gone; `OtjSummaryService` owns it.
+     *
+     * The organisation filter went with it, deliberately. It was redundant
+     * (an enrolment belongs to one organisation, so filtering the entries by
+     * organisation as well narrows nothing) and actively wrong for any caller
+     * whose active organisation is not the one that stamped the rows — the
+     * exact defect that produced 0% averages on the employer's provider
+     * comparison.
+     */
+    const snapshot = await this.otjSummary.paceForEnrolment(enrolment, {
       asOf: options.asOf,
     });
 
@@ -267,21 +270,6 @@ export class OtjPaceService {
         await this.otjRepo.save(entry);
       }
     }
-  }
-
-  private async sumApprovedMinutes(
-    enrolmentId: string,
-    organisationId: string,
-  ): Promise<number> {
-    const row = await this.otjRepo
-      .createQueryBuilder('entry')
-      .select('COALESCE(SUM(entry.minutes), 0)', 'total')
-      .where('entry.enrolmentId = :enrolmentId', { enrolmentId })
-      .andWhere('entry.organisationId = :organisationId', { organisationId })
-      .andWhere('entry.status = :status', { status: OtjLogStatus.APPROVED })
-      .andWhere('entry.isDeleted = false')
-      .getRawOne<{ total: string }>();
-    return Number(row?.total ?? 0);
   }
 
   /**

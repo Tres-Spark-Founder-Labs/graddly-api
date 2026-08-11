@@ -22,6 +22,7 @@ import { ReviewStatus } from './enums/review-status.enum.js';
 import { REVIEW_BULK_SCHEDULE_MAX } from './reviews.constants.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
+import { LearnerScopeService } from '../common/learner-scope/learner-scope.service.js';
 
 @Injectable()
 export class ReviewsService {
@@ -31,6 +32,7 @@ export class ReviewsService {
     @InjectRepository(Enrolment)
     private readonly enrolmentRepo: Repository<Enrolment>,
     private readonly eifScoreCache: EifScoreCacheService,
+    private readonly learnerScope: LearnerScopeService,
   ) {}
 
   async create(
@@ -199,6 +201,15 @@ export class ReviewsService {
       .andWhere('e.isDeleted = false')
       .andWhere('review.isDeleted = false');
 
+    // D3 — a learner sees only reviews on their own enrolments. `null` is
+    // staff, whose org-and-linked-party view above is left untouched.
+    const learnerEnrolmentIds = await this.learnerScope.ownEnrolmentIds(user);
+    if (learnerEnrolmentIds !== null) {
+      qb.andWhere('review.enrolmentId IN (:...learnerEnrolmentIds)', {
+        learnerEnrolmentIds,
+      });
+    }
+
     if (query.status)
       qb.andWhere('review.status = :status', { status: query.status });
     if (query.apprenticeId)
@@ -243,7 +254,7 @@ export class ReviewsService {
     id: string,
   ): Promise<ReviewResponseDto> {
     const orgId = user.organisationId!;
-    const row = await this.repo
+    const qb = this.repo
       .createQueryBuilder('review')
       .innerJoin('enrolments', 'e', 'e.id = review.enrolmentId')
       .where('review.id = :id', { id })
@@ -252,8 +263,16 @@ export class ReviewsService {
       .andWhere(
         '(review.organisationId = :orgId OR e."employerOrganisationId" = :orgId OR e."providerOrganisationId" = :orgId)',
         { orgId },
-      )
-      .getOne();
+      );
+
+    const learnerEnrolmentIds = await this.learnerScope.ownEnrolmentIds(user);
+    if (learnerEnrolmentIds !== null) {
+      qb.andWhere('review.enrolmentId IN (:...learnerEnrolmentIds)', {
+        learnerEnrolmentIds,
+      });
+    }
+
+    const row = await qb.getOne();
 
     if (!row) throw new NotFoundException('Review not found');
     return this.toResponse(row);
@@ -305,9 +324,18 @@ export class ReviewsService {
     return this.toResponse(saved);
   }
 
+  /** Guards every review write path, so the learner narrowing belongs here too. */
   async findEntity(user: AuthenticatedUser, id: string): Promise<Review> {
+    const learnerEnrolmentIds = await this.learnerScope.ownEnrolmentIds(user);
     const row = await this.repo.findOne({
-      where: { id, organisationId: user.organisationId!, isDeleted: false },
+      where: {
+        id,
+        organisationId: user.organisationId!,
+        isDeleted: false,
+        ...(learnerEnrolmentIds === null
+          ? {}
+          : { enrolmentId: In(learnerEnrolmentIds) }),
+      },
     });
     if (!row) throw new NotFoundException('Review not found');
     return row;

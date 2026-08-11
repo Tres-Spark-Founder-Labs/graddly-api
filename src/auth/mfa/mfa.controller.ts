@@ -41,6 +41,7 @@ import { MfaVerifyDto } from './dto/mfa-verify.dto.js';
 import { MfaService } from './mfa.service.js';
 
 import type { AuthenticatedUser } from '../interfaces/authenticated-user.interface.js';
+import { LearnerAccessible } from '../../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('Auth')
 // Every DTO reachable through getSchemaPath() must be registered here, or the
@@ -60,6 +61,7 @@ export class MfaController {
     private readonly authService: AuthService,
   ) {}
 
+  @LearnerAccessible()
   @Post('enroll')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -89,6 +91,7 @@ export class MfaController {
     return this.mfaService.generateEnrollment(user);
   }
 
+  @LearnerAccessible()
   @Post('confirm')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -125,6 +128,7 @@ export class MfaController {
     return this.mfaService.confirmEnrollment(user.id, dto.code);
   }
 
+  @LearnerAccessible()
   @Post('disable')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

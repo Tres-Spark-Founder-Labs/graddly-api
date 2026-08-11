@@ -16,6 +16,7 @@ import {
   setRlsBootstrap,
 } from '../common/context/correlation-id-context.js';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
+import { LearnerScopeService } from '../common/learner-scope/learner-scope.service.js';
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { CompletionPushService } from '../completion-push/completion-push.service.js';
@@ -90,6 +91,7 @@ export class EnrolmentsService {
     private readonly provisioningService: EnrolmentProvisioningService,
     @Inject(forwardRef(() => MessageThreadsService))
     private readonly messageThreadsService: MessageThreadsService,
+    private readonly learnerScope: LearnerScopeService,
   ) {}
 
   async create(
@@ -157,8 +159,12 @@ export class EnrolmentsService {
     const resolvedPortal = await this.resolvePortalType(user, portalType);
     const page = query.page ?? 1;
     const perPage = query.perPage ?? 20;
+
+    const ownIds = await this.learnerEnrolmentIds(user);
+    const where = buildEnrolmentListWhere(user, resolvedPortal);
+
     const [items, total] = await this.enrolmentRepo.findAndCount({
-      where: buildEnrolmentListWhere(user, resolvedPortal),
+      where: ownIds === null ? where : { ...where, id: In(ownIds) },
       order: { createdAt: 'DESC' },
       skip: (page - 1) * perPage,
       take: perPage,
@@ -234,11 +240,35 @@ export class EnrolmentsService {
     }));
   }
 
+  /**
+   * D3. `buildEnrolmentListWhere` narrows to `apprenticeUserId` only for
+   * `PortalType.APPRENTICE`, and the portal type comes from the client-supplied
+   * `X-Portal-Type` header where "explicit header wins"
+   * (`enrolment-portal-scope.util.ts:14`). A learner therefore chose their own
+   * scope simply by omitting the header — and `findOne` below tries PROVIDER
+   * first regardless, so any enrolment in the organisation matched.
+   *
+   * Resolved from the principal instead. Returns `null` for staff, whose reads
+   * must not be narrowed.
+   */
+  private async learnerEnrolmentIds(
+    user: AuthenticatedUser,
+  ): Promise<string[] | null> {
+    return this.learnerScope.ownEnrolmentIds(user);
+  }
+
   async findOne(
     user: AuthenticatedUser,
     id: string,
     portalType?: PortalType,
   ): Promise<EnrolmentWithDisplayLabels> {
+    const ownIds = await this.learnerEnrolmentIds(user);
+    if (ownIds !== null && !ownIds.includes(id)) {
+      // Same exception the genuine miss below raises, so "not yours" and "does
+      // not exist" are one response.
+      throw new NotFoundException('Enrolment not found');
+    }
+
     if (portalType) {
       return this.enrichEnrolmentForDisplay(
         await this.findOneScoped(user, id, portalType),

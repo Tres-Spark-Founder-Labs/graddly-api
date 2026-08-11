@@ -13,6 +13,7 @@ import { NotificationsModule } from '../notifications/notifications.module.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
+import { OtjModule } from '../otj/otj.module.js';
 import { PdfGenerationJob } from '../pdf/entities/pdf-generation-job.entity.js';
 import { PdfModule } from '../pdf/pdf.module.js';
 import { KsEvidenceItem } from '../portfolio/entities/ks-evidence-item.entity.js';
@@ -39,6 +40,10 @@ import { TutorCaseloadService } from './tutor-caseload.service.js';
     AuthModule,
     StorageModule,
     forwardRef(() => ReportingModule),
+    // P0-A — `OtjSummaryService` is the single home for OTJ minute sums and
+    // pace arithmetic; the learner summary consumes it rather than deriving
+    // its own figures.
+    OtjModule,
     EnrolmentsModule,
     MessagingModule,
     // F2.2.5 AC3 — the caseload alert notifies programme managers.

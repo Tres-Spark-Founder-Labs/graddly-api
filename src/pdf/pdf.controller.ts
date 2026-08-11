@@ -40,6 +40,7 @@ import { PdfJobsService } from './pdf-jobs.service.js';
 import { PdfService } from './pdf.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
 @ApiTags('PDF')
 @ApiExtraModels(PdfJobResponseDto, CreatePdfJobDto)
@@ -100,6 +101,7 @@ export class PdfController {
    * The client also backs off and gives up after three minutes, so this
    * ceiling is a safety net rather than the mechanism.
    */
+  @LearnerAccessible()
   @Get('jobs/:id')
   @Throttle({ default: { ttl: 60_000, limit: 600 } })
   @ResponseMessage('PDF job retrieved successfully')

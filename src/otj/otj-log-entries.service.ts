@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
+import { LearnerScopeService } from '../common/learner-scope/learner-scope.service.js';
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
@@ -50,6 +51,7 @@ export class OtjLogEntriesService {
     private readonly config: ConfigService,
     private readonly eifScoreCache: EifScoreCacheService,
     private readonly keyBuilder: StorageKeyBuilder,
+    private readonly learnerScope: LearnerScopeService,
   ) {}
 
   async create(
@@ -57,11 +59,7 @@ export class OtjLogEntriesService {
     dto: CreateOtjLogEntryDto,
   ): Promise<OtjLogEntryResponseDto> {
     const organisationId = user.organisationId!;
-    await this.assertEnrolmentMatch(
-      organisationId,
-      dto.enrolmentId,
-      dto.apprenticeId,
-    );
+    await this.assertEnrolmentMatch(user, dto.enrolmentId, dto.apprenticeId);
     this.assertEvidence(organisationId, dto.apprenticeId, dto.evidence);
 
     const entity = this.repo.create({
@@ -113,6 +111,24 @@ export class OtjLogEntriesService {
       });
     }
 
+    /**
+     * Survey finding 4. The organisation filter above is the ONLY owner
+     * constraint this query used to have, and `query.apprenticeId` below is
+     * optional — so an apprentice, who is a plain member of the provider's
+     * organisation, could omit it and receive every learner's sessions. Not
+     * theoretical: proven in `otj-learner-scope.e2e-spec.ts`.
+     *
+     * `null` means "the caller is not a learner", which is staff and must not
+     * be narrowed. The distinction matters: an empty array here would silently
+     * blank the provider's approval queue.
+     */
+    const learnerEnrolmentIds = await this.learnerScope.ownEnrolmentIds(user);
+    if (learnerEnrolmentIds !== null) {
+      qb.andWhere('otj.enrolmentId IN (:...learnerEnrolmentIds)', {
+        learnerEnrolmentIds,
+      });
+    }
+
     if (query.status)
       qb.andWhere('otj.status = :status', { status: query.status });
     if (query.apprenticeId)
@@ -160,11 +176,7 @@ export class OtjLogEntriesService {
     const enrolmentId = dto.enrolmentId ?? row.enrolmentId;
     const apprenticeId = dto.apprenticeId ?? row.apprenticeId;
     if (dto.enrolmentId !== undefined || dto.apprenticeId !== undefined) {
-      await this.assertEnrolmentMatch(
-        organisationId,
-        enrolmentId,
-        apprenticeId,
-      );
+      await this.assertEnrolmentMatch(user, enrolmentId, apprenticeId);
     }
     if (dto.evidence !== undefined) {
       this.assertEvidence(organisationId, apprenticeId, dto.evidence);
@@ -406,10 +418,29 @@ export class OtjLogEntriesService {
     }
   }
 
+  /**
+   * The single resolution point behind `findOne`, `update`, `remove` and the
+   * bulk transitions — which is why the learner check belongs here rather than
+   * in five callers. Returning `null` (never throwing) keeps not-found and
+   * not-yours indistinguishable at every one of them, as D3 requires.
+   */
   private async findAccessibleEntry(
     user: AuthenticatedUser,
     id: string,
   ): Promise<OtjLogEntry | null> {
+    const learnerEnrolmentIds = await this.learnerScope.ownEnrolmentIds(user);
+    if (learnerEnrolmentIds !== null) {
+      return this.repo.findOne({
+        where: {
+          id,
+          organisationId: user.organisationId!,
+          enrolmentId: In(learnerEnrolmentIds),
+          isDeleted: false,
+        },
+        relations: ['enrolment'],
+      });
+    }
+
     const employerEnrolmentIds = await this.loadEmployerEnrolmentIds(
       user.organisationId!,
     );
@@ -458,11 +489,22 @@ export class OtjLogEntriesService {
     );
   }
 
+  /**
+   * The shared validator behind both `create` and `update`, which is why the
+   * learner check belongs here.
+   *
+   * It previously proved only that the enrolment lived in the organisation and
+   * that the apprentice matched it — both true of *every other learner's*
+   * enrolment. So a learner could log hours against a peer's programme, or
+   * move one of their own entries onto it. Neither is a read, so the read-side
+   * narrowing does not cover them.
+   */
   private async assertEnrolmentMatch(
-    organisationId: string,
+    user: AuthenticatedUser,
     enrolmentId: string,
     apprenticeId: string,
   ): Promise<void> {
+    const organisationId = user.organisationId!;
     const enrolment = await this.enrolmentRepo.findOne({
       where: { id: enrolmentId, organisationId, isDeleted: false },
     });
@@ -471,6 +513,13 @@ export class OtjLogEntriesService {
     }
     if (enrolment.apprenticeId !== apprenticeId) {
       throw new BadRequestException('Apprentice does not match enrolment');
+    }
+
+    const ownEnrolmentIds = await this.learnerScope.ownEnrolmentIds(user);
+    if (ownEnrolmentIds !== null && !ownEnrolmentIds.includes(enrolmentId)) {
+      // Same message as the miss above: a learner probing enrolment ids learns
+      // nothing about which of them exist.
+      throw new BadRequestException('Enrolment not found in organisation');
     }
   }
 

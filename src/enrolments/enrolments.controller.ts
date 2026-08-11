@@ -42,6 +42,7 @@ import {
 import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
+import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 import { parsePortalType } from '../common/utils/parse-portal-type.util.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
@@ -239,6 +240,7 @@ export class EnrolmentsController {
     return this.enrolmentsService.create(user, dto);
   }
 
+  @LearnerAccessible()
   @Get()
   @ResponseMessage('Enrolments retrieved successfully')
   @ApiOperation({
@@ -376,6 +378,7 @@ export class EnrolmentsController {
     return this.enrolmentsService.listEmployerManagerOptions(user);
   }
 
+  @LearnerAccessible()
   @Get(':id/journey')
   @ResponseMessage('Enrolment journey retrieved successfully')
   @ApiOperation({
@@ -469,6 +472,7 @@ export class EnrolmentsController {
     return this.enrolmentsService.getParticipantOptions(user, id);
   }
 
+  @LearnerAccessible()
   @Get(':id')
   @ResponseMessage('Enrolment retrieved successfully')
   @ApiOperation({ summary: 'Get enrolment by id' })

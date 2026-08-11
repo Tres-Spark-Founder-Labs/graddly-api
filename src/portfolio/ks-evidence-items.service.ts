@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
@@ -33,6 +33,7 @@ import { PortfolioHeatmapCacheService } from './portfolio-heatmap-cache.service.
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 import type { PresignedUploadResponseDto } from '../storage/dto/create-presigned-upload.dto.js';
+import { LearnerScopeService } from '../common/learner-scope/learner-scope.service.js';
 
 @Injectable()
 export class KsEvidenceItemsService {
@@ -50,6 +51,7 @@ export class KsEvidenceItemsService {
     private readonly notificationsService: NotificationsService,
     private readonly heatmapCache: PortfolioHeatmapCacheService,
     private readonly eifScoreCache: EifScoreCacheService,
+    private readonly learnerScope: LearnerScopeService,
   ) {}
 
   async createUploadUrl(
@@ -75,6 +77,18 @@ export class KsEvidenceItemsService {
       dto.enrolmentId,
       dto.apprenticeId,
     );
+
+    /**
+     * D3, write side. `requireEnrolment` proves the enrolment is in the
+     * organisation and that the apprentice matches it — both true of every
+     * *other* learner's enrolment too. `canAccessEnrolment` is the predicate
+     * this module already owns for exactly this question (apprentice, tutor,
+     * employer manager or org admin); it was simply not consulted on create.
+     */
+    if (!this.enrolmentContext.canAccessEnrolment(user, enrolment)) {
+      throw new NotFoundException('Enrolment not found');
+    }
+
     this.validateTypePayload(dto.type, dto);
 
     if (dto.type === KsEvidenceType.FILE && dto.storageKey) {
@@ -131,6 +145,14 @@ export class KsEvidenceItemsService {
       .createQueryBuilder('item')
       .where('item.organisationId = :organisationId', { organisationId })
       .andWhere('item.isDeleted = false');
+
+    // D3 — a learner sees only their own portfolio evidence.
+    const learnerEnrolmentIds = await this.learnerScope.ownEnrolmentIds(user);
+    if (learnerEnrolmentIds !== null) {
+      qb.andWhere('item.enrolmentId IN (:...learnerEnrolmentIds)', {
+        learnerEnrolmentIds,
+      });
+    }
 
     if (query.status) {
       qb.andWhere('item.status = :status', { status: query.status });
@@ -389,12 +411,25 @@ export class KsEvidenceItemsService {
     }
   }
 
+  /**
+   * Every read and every write on a single evidence item funnels through here
+   * (eight call sites), which is why the learner narrowing sits here rather
+   * than at each of them.
+   */
   async findEntity(
     user: AuthenticatedUser,
     id: string,
   ): Promise<KsEvidenceItem> {
+    const learnerEnrolmentIds = await this.learnerScope.ownEnrolmentIds(user);
     const row = await this.itemRepo.findOne({
-      where: { id, organisationId: user.organisationId!, isDeleted: false },
+      where: {
+        id,
+        organisationId: user.organisationId!,
+        isDeleted: false,
+        ...(learnerEnrolmentIds === null
+          ? {}
+          : { enrolmentId: In(learnerEnrolmentIds) }),
+      },
     });
     if (!row) throw new NotFoundException('KSB evidence item not found');
     return row;

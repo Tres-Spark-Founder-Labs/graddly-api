@@ -23,13 +23,12 @@ import { EnrolmentsService } from './enrolments.service.js';
 import { Enrolment } from './entities/enrolment.entity.js';
 import { GatewayCriterionStatus } from './enums/gateway-criterion-status.enum.js';
 import { JourneyMilestoneStatus } from './enums/journey-milestone-status.enum.js';
+import { computeDaysToEpa, computeEpaCountdownBand } from './epa-countdown.js';
 
 import type { EnrolmentJourneyResponseDto } from './dto/enrolment-journey-response.dto.js';
 import type { UpdateEnrolmentJourneyDto } from './dto/update-enrolment-journey.dto.js';
 import type { GatewayCriterionDefinition } from './types/gateway-criteria.types.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class EnrolmentJourneyService {
@@ -58,7 +57,13 @@ export class EnrolmentJourneyService {
   ): Promise<EnrolmentJourneyResponseDto> {
     const enrolment = await this.enrolmentsService.findOne(user, enrolmentId);
     const journey = await this.buildJourney(enrolment);
-    await this.maybeNotifyGatewayReady(enrolment, journey.gatewayReady);
+    await this.reconcileGatewayReadiness(enrolment, journey.gatewayReady);
+    /**
+     * Re-read after reconciling: the call above may have just stamped the
+     * readiness moment, and a response that omitted it would show a "Gateway
+     * Ready" badge with no date on the very read that created it.
+     */
+    journey.gatewayReadyAt = enrolment.gatewayReadyAt;
     return journey;
   }
 
@@ -102,6 +107,14 @@ export class EnrolmentJourneyService {
     enrolment: Enrolment,
   ): Promise<EnrolmentJourneyResponseDto> {
     const organisationId = enrolment.organisationId;
+    /**
+     * One instant for the whole response. Taken once so the countdown, the
+     * overdue reviews and the gateway milestone cannot disagree about what
+     * "today" is — a request spanning midnight would otherwise be able to
+     * report a review as overdue while the countdown still counted the day it
+     * was due.
+     */
+    const now = new Date();
     const [standard, approvedMinutes, commitmentSigned, reviewsCurrent] =
       await Promise.all([
         this.standardRepo.findOne({
@@ -149,6 +162,7 @@ export class EnrolmentJourneyService {
       enrolment,
       organisationId,
       gatewayReady,
+      now,
     );
 
     return {
@@ -157,12 +171,17 @@ export class EnrolmentJourneyService {
       // F2.2.4 AC1 — echoed back so a save can be seen to have landed.
       epaOrganisationName: enrolment.epaOrganisationName,
       epaOrganisationUkprn: enrolment.epaOrganisationUkprn,
-      daysToEpa: this.computeDaysToEpa(enrolment.epaDate),
-      epaCountdownBand: this.computeEpaCountdownBand(enrolment.epaDate),
+      daysToEpa: computeDaysToEpa(enrolment.epaDate, now),
+      epaCountdownBand: computeEpaCountdownBand({
+        epaDate: enrolment.epaDate,
+        completedAt: enrolment.completedAt,
+        now,
+      }),
       milestones,
       gatewayChecklist,
       gatewayCompletionPercent,
       gatewayReady,
+      gatewayReadyAt: enrolment.gatewayReadyAt,
       pace: {
         alertLevel: paceSnapshot.alertLevel,
         behindPercent: paceSnapshot.behindPercent,
@@ -221,7 +240,15 @@ export class EnrolmentJourneyService {
     enrolment: Enrolment,
     organisationId: string,
     gatewayReady: boolean,
+    now: Date,
   ) {
+    /**
+     * Client decision Q2 — the timeline shows the reviews that actually exist
+     * for this enrolment, not a schedule derived from the start date. Late,
+     * rescheduled and missed reviews therefore appear as they really are. The
+     * timeline is untidier for it, and that untidiness is the point: it is the
+     * signal that something has slipped.
+     */
     const reviews = await this.reviewRepo.find({
       where: { enrolmentId: enrolment.id, organisationId, isDeleted: false },
       order: { scheduledAt: 'ASC' },
@@ -254,11 +281,7 @@ export class EnrolmentJourneyService {
           review.title ?? '12-weekly review',
           review.reviewType,
           review.scheduledAt.toISOString().slice(0, 10),
-          review.status === ReviewStatus.COMPLETED
-            ? JourneyMilestoneStatus.COMPLETE
-            : review.status === ReviewStatus.CANCELLED
-              ? JourneyMilestoneStatus.UPCOMING
-              : JourneyMilestoneStatus.CURRENT,
+          this.reviewMilestoneStatus(review, now),
         ),
       ),
       this.milestone(
@@ -304,6 +327,32 @@ export class EnrolmentJourneyService {
     return milestones;
   }
 
+  /**
+   * Client decision Q2 — a review's milestone status reflects what happened to
+   * it, and its follow-up: a review whose date has passed without being held
+   * is marked overdue rather than silently left as an unticked box.
+   *
+   * The previous mapping had two faults this replaces. Every review that was
+   * neither completed nor cancelled was reported as `current`, so an
+   * apprentice with six scheduled reviews saw six simultaneous "current"
+   * stages; and a *cancelled* review was reported as `upcoming`, which told
+   * the apprentice a review was still to come when it had been called off.
+   */
+  private reviewMilestoneStatus(
+    review: Review,
+    now: Date,
+  ): JourneyMilestoneStatus {
+    if (review.status === ReviewStatus.COMPLETED) {
+      return JourneyMilestoneStatus.COMPLETE;
+    }
+    if (review.status === ReviewStatus.CANCELLED) {
+      return JourneyMilestoneStatus.CANCELLED;
+    }
+    return review.scheduledAt.getTime() < now.getTime()
+      ? JourneyMilestoneStatus.OVERDUE
+      : JourneyMilestoneStatus.UPCOMING;
+  }
+
   private milestone(
     code: string,
     title: string,
@@ -312,32 +361,6 @@ export class EnrolmentJourneyService {
     status: JourneyMilestoneStatus,
   ) {
     return { code, title, description, date, status };
-  }
-
-  private computeDaysToEpa(epaDate: string | null): number | null {
-    if (!epaDate) {
-      return null;
-    }
-    const end = new Date(`${epaDate}T00:00:00.000Z`);
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    return Math.ceil((end.getTime() - today.getTime()) / MS_PER_DAY);
-  }
-
-  private computeEpaCountdownBand(
-    epaDate: string | null,
-  ): 'green' | 'amber' | 'red' | 'unset' {
-    const days = this.computeDaysToEpa(epaDate);
-    if (days === null) {
-      return 'unset';
-    }
-    if (days > 90) {
-      return 'green';
-    }
-    if (days >= 30) {
-      return 'amber';
-    }
-    return 'red';
   }
 
   private async sumApprovedMinutes(
@@ -389,19 +412,67 @@ export class EnrolmentJourneyService {
     return overdue === 0;
   }
 
-  private async maybeNotifyGatewayReady(
+  /**
+   * F3.2.2 AC5, client decision Q3 — gateway readiness is a moment that gets
+   * recorded, not a value recomputed and forgotten on each render.
+   *
+   * ── WHY TWO COLUMNS ──────────────────────────────────────────────────────
+   *
+   * `gatewayReadyAt` is when readiness was reached. `gatewayReadyNotifiedAt`
+   * is whether the provider has been told. Collapsing them loses the ability
+   * to retry a notification that failed: if the only marker were "notified",
+   * a dispatch that threw would leave no record that readiness had happened,
+   * and the next read would re-notify from scratch — or, worse, the marker
+   * would be set first and the notification lost silently.
+   *
+   * ── DECISION Q3a — READINESS CAN LAPSE ───────────────────────────────────
+   *
+   * If a criterion is later withdrawn or invalidated, both columns clear, the
+   * badge disappears, and the apprentice's screen reflects the current
+   * position rather than a high-water mark. The client accepted that an
+   * apprentice may see a badge appear and later disappear.
+   *
+   * ── DECISION Q3b — A SECOND READINESS RE-NOTIFIES ────────────────────────
+   *
+   * Because the lapse clears `gatewayReadyNotifiedAt` too, regaining
+   * readiness sends a fresh notification. That is deliberate: if the first
+   * notification led to no action because readiness lapsed, only a second one
+   * reopens it.
+   *
+   * ── KNOWN LIMITATION, RECORDED RATHER THAN HIDDEN ────────────────────────
+   *
+   * This runs on read. Nothing observes readiness until someone opens the
+   * journey, so `gatewayReadyAt` is "when readiness was first seen", not
+   * "when the last criterion was met" — for an apprentice whose screen goes
+   * unopened for a week, those differ by a week. Closing that gap needs a
+   * sweep like `otj-pace-cron.service.ts`, which is scoped in
+   * OPEN_QUESTIONS.md rather than smuggled in here.
+   */
+  private async reconcileGatewayReadiness(
     enrolment: Enrolment,
     gatewayReady: boolean,
   ): Promise<void> {
-    if (!gatewayReady || enrolment.gatewayReadyNotifiedAt) {
+    if (gatewayReady) {
+      if (!enrolment.gatewayReadyAt) {
+        enrolment.gatewayReadyAt = new Date();
+        await this.enrolmentRepo.save(enrolment);
+      }
+
+      if (!enrolment.gatewayReadyNotifiedAt) {
+        const providerOrgId =
+          enrolment.providerOrganisationId ?? enrolment.organisationId;
+        await this.notifyOrganisationAdmins(providerOrgId, enrolment.id);
+        enrolment.gatewayReadyNotifiedAt = new Date();
+        await this.enrolmentRepo.save(enrolment);
+      }
       return;
     }
 
-    const providerOrgId =
-      enrolment.providerOrganisationId ?? enrolment.organisationId;
-    await this.notifyOrganisationAdmins(providerOrgId, enrolment.id);
-    enrolment.gatewayReadyNotifiedAt = new Date();
-    await this.enrolmentRepo.save(enrolment);
+    if (enrolment.gatewayReadyAt || enrolment.gatewayReadyNotifiedAt) {
+      enrolment.gatewayReadyAt = null;
+      enrolment.gatewayReadyNotifiedAt = null;
+      await this.enrolmentRepo.save(enrolment);
+    }
   }
 
   private async notifyOrganisationAdmins(

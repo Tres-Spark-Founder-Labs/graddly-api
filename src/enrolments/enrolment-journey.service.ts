@@ -13,7 +13,14 @@ import { OrganisationRole } from '../organisations/organisation-role.enum.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { OtjLogStatus } from '../otj/enums/otj-log-status.enum.js';
 import { OtjPaceAlertLevel } from '../otj/enums/otj-pace-alert-level.enum.js';
-import { computeOtjPaceSnapshot } from '../otj/otj-pace-calculator.js';
+import {
+  computeOtjPaceSnapshot,
+  computeOtjPercentOfTarget,
+} from '../otj/otj-pace-calculator.js';
+import {
+  computeOtjProgressBand,
+  computeProjectedCompletionDate,
+} from '../otj/otj-progress.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
 import { Review } from '../reviews/entities/review.entity.js';
 import { ReviewStatus } from '../reviews/enums/review-status.enum.js';
@@ -134,6 +141,16 @@ export class EnrolmentJourneyService {
       approvedMinutes,
     });
 
+    /**
+     * F3.1.2 AC1 — reuses the existing percent-of-target helper rather than
+     * dividing here. That function is the single home for the calculation and
+     * is approved-only per client decision D2.
+     */
+    const percentOfTarget = computeOtjPercentOfTarget(
+      enrolment.plannedDurationMonths,
+      approvedMinutes,
+    );
+
     const criteriaDefs = this.resolveGatewayCriteria(standard);
     const criterionCompletion = new Map<string, boolean>([
       [
@@ -202,6 +219,14 @@ export class EnrolmentJourneyService {
         approvedMinutes: paceSnapshot.approvedMinutes,
         expectedMinutesByToday: paceSnapshot.expectedMinutesByToday,
         totalTargetMinutes: paceSnapshot.totalTargetMinutes,
+        percentOfTarget,
+        progressBand: computeOtjProgressBand(percentOfTarget),
+        projectedCompletionDate: computeProjectedCompletionDate({
+          approvedMinutes: paceSnapshot.approvedMinutes,
+          totalTargetMinutes: paceSnapshot.totalTargetMinutes,
+          startDate: enrolment.activatedAt ?? enrolment.plannedStartDate,
+          now,
+        }),
       },
     };
   }

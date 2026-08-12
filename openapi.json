@@ -23259,12 +23259,36 @@
           },
           "totalTargetMinutes": {
             "type": "number"
+          },
+          "percentOfTarget": {
+            "type": "number",
+            "nullable": true,
+            "description": "F3.1.2 AC1 — approved minutes as a percentage of the total target. Null\nwhen no target could be computed, which is not the same as zero.",
+            "example": 62.5
+          },
+          "progressBand": {
+            "description": "Progress ring band. green ≥70% of target, amber 50–69%, red <50%, unknown when no target could be computed.",
+            "enum": [
+              "green",
+              "amber",
+              "red",
+              "unknown"
+            ],
+            "type": "string",
+            "example": "amber"
+          },
+          "projectedCompletionDate": {
+            "type": "string",
+            "nullable": true,
+            "description": "Projected date the OTJ target is met at current pace; null when it cannot be projected",
+            "format": "date"
           }
         },
         "required": [
           "approvedMinutes",
           "expectedMinutesByToday",
-          "totalTargetMinutes"
+          "totalTargetMinutes",
+          "progressBand"
         ]
       },
       "EnrolmentJourneyResponseDto": {

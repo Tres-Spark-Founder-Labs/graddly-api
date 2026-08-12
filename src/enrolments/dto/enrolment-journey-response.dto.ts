@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { OtjPaceAlertLevel } from '../../otj/enums/otj-pace-alert-level.enum.js';
+import { OtjProgressBand } from '../../otj/enums/otj-progress-band.enum.js';
 import { EpaCountdownBand } from '../enums/epa-countdown-band.enum.js';
 import { GatewayCriterionStatus } from '../enums/gateway-criterion-status.enum.js';
 import { JourneyMilestoneStatus } from '../enums/journey-milestone-status.enum.js';
@@ -60,6 +61,43 @@ export class EnrolmentJourneyPaceDto {
 
   @ApiProperty()
   totalTargetMinutes!: number;
+
+  /**
+   * F3.1.2 AC1 — approved minutes as a percentage of the total target. Null
+   * when no target could be computed, which is not the same as zero.
+   */
+  @ApiPropertyOptional({ nullable: true, example: 62.5 })
+  percentOfTarget!: number | null;
+
+  /**
+   * F3.1.2 AC2 — the progress ring's colour band, evaluated server-side.
+   *
+   * Published as a band rather than left to the client so the 70/50 thresholds
+   * exist in one place. The EPA countdown carried the same rule in two places
+   * once, and day 90 landed in the wrong band for months.
+   */
+  @ApiProperty({
+    enum: OtjProgressBand,
+    description:
+      'Progress ring band. green ≥70% of target, amber 50–69%, red <50%, ' +
+      'unknown when no target could be computed.',
+    example: OtjProgressBand.AMBER,
+  })
+  progressBand!: OtjProgressBand;
+
+  /**
+   * F3.1.2 AC5 — projected completion date at the learner's *observed* logging
+   * pace. Null when it cannot be projected honestly: nothing approved yet, the
+   * programme not started, or the target already met.
+   */
+  @ApiPropertyOptional({
+    nullable: true,
+    format: 'date',
+    description:
+      'Projected date the OTJ target is met at current pace; null when it ' +
+      'cannot be projected',
+  })
+  projectedCompletionDate!: string | null;
 }
 
 export class EnrolmentJourneyResponseDto {

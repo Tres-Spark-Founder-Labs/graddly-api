@@ -12,6 +12,7 @@ import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EpaOutcomeRecord } from '../enrolments/entities/epa-outcome.entity.js';
 import { IlrLearnerRecord } from '../ilr/entities/ilr-learner-record.entity.js';
 import { LearnersModule } from '../learners/learners.module.js';
+import { LevyRecipientProfile } from '../levy-exchange/entities/levy-recipient-profile.entity.js';
 import { LevyTransfer } from '../levy-exchange/entities/levy-transfer.entity.js';
 import { LevyExchangeModule } from '../levy-exchange/levy-exchange.module.js';
 import { OfstedModule } from '../ofsted/ofsted.module.js';
@@ -25,6 +26,8 @@ import { Review } from '../reviews/entities/review.entity.js';
 import { User } from '../users/entities/user.entity.js';
 
 import { CommitmentPipelineService } from './commitment-pipeline.service.js';
+import { DonorAnalyticsController } from './donor-analytics.controller.js';
+import { DonorAnalyticsService } from './donor-analytics.service.js';
 import { EmployerDashboardController } from './employer-dashboard.controller.js';
 import { EmployerDashboardService } from './employer-dashboard.service.js';
 import { EmployerDirectoryController } from './employer-directory.controller.js';
@@ -67,6 +70,7 @@ import { SmeOverviewService } from './sme-overview.service.js';
       Organisation,
       OrganisationMembership,
       LevyTransfer,
+      LevyRecipientProfile,
       OtjLogEntry,
       Review,
       CommitmentStatementGroup,
@@ -80,6 +84,7 @@ import { SmeOverviewService } from './sme-overview.service.js';
     ]),
   ],
   controllers: [
+    DonorAnalyticsController,
     LevyRoiReportController,
     LevyUtilisationController,
     EmployerDirectoryController,
@@ -88,6 +93,7 @@ import { SmeOverviewService } from './sme-overview.service.js';
     ProviderDashboardController,
   ],
   providers: [
+    DonorAnalyticsService,
     ReportingPortalService,
     OtjProgressMetricsService,
     LevyRoiYearOnYearService,

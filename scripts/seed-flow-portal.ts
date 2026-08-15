@@ -82,6 +82,13 @@ const FLOW_ORGS = [
     city: 'London',
     postcode: 'EC3V 3ND',
     role: 'donor' as const,
+    /**
+     * EMPLOYER, not FLOW. The donor-side levy UI — transfers, matching, the SME
+     * directory and the analytics dashboard — lives entirely in the employer
+     * portal (13 components there, zero in flow). A donor seeded as `flow`
+     * can drive the API but cannot see any of its own screens.
+     */
+    portalType: PortalType.EMPLOYER,
     contact: {
       first: 'Eleanor',
       last: 'Whitfield',
@@ -96,6 +103,8 @@ const FLOW_ORGS = [
     city: 'Sheffield',
     postcode: 'S9 1TN',
     role: 'recipient' as const,
+    // The SME stays on FlowPortal, which is where it manages its apprentices.
+    portalType: PortalType.FLOW,
     contact: {
       first: 'Owen',
       last: 'Bradshaw',
@@ -170,8 +179,8 @@ async function upsertOrganisation(
   if (existing) {
     // Repair the one field that makes the portal reachable, in case the row
     // predates this script or was created with the wrong type.
-    if (existing.portalType !== PortalType.FLOW) {
-      existing.portalType = PortalType.FLOW;
+    if (existing.portalType !== spec.portalType) {
+      existing.portalType = spec.portalType;
       await m.save(existing);
     }
     return { org: existing, created: false };
@@ -181,7 +190,7 @@ async function upsertOrganisation(
     m.create(Organisation, {
       name: spec.name,
       slug: spec.slug,
-      portalType: PortalType.FLOW,
+      portalType: spec.portalType,
       type: spec.role === 'donor' ? 'levy_donor' : 'levy_recipient',
       city: spec.city,
       postcode: spec.postcode,

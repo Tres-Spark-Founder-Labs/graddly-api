@@ -24,10 +24,20 @@ import { OtjActivityCategory } from './enums/otj-activity-category.enum.js';
  * read would be worse than no test.
  */
 describe('OTJ category contract (F3.1.1 AC2)', () => {
+  /**
+   * Where the apprentice app lives.
+   *
+   * `GRADLLY_FRONTEND_DIR` exists because CI cannot use the sibling default:
+   * `actions/checkout` refuses to write outside `$GITHUB_WORKSPACE`, so the
+   * frontend is checked out *inside* the API workspace and this points at it.
+   * Locally the sibling layout is the normal one and needs no configuration.
+   */
+  const frontendDir =
+    process.env.GRADLLY_FRONTEND_DIR?.trim() ||
+    join(process.cwd(), '..', 'gradlly-frontend');
+
   const constantsPath = join(
-    process.cwd(),
-    '..',
-    'gradlly-frontend',
+    frontendDir,
     'apps',
     'apprentice',
     'features',
@@ -43,16 +53,45 @@ describe('OTJ category contract (F3.1.1 AC2)', () => {
     source = null;
   }
 
-  it('reports whether the frontend constant could be read', () => {
-    if (!source) {
-      // Deliberately not a failure: the API repo must build on its own. But it
-      // must be visible that the contract went unchecked, not silently green.
+  /**
+   * `OTJ_CONTRACT_REQUIRED=true` turns a skip into a failure.
+   *
+   * Without it this suite reports PASS when the apprentice app is absent — which
+   * is right for a developer working in the API alone, and was silently wrong in
+   * CI for months: the frontend was never checked out there, so the gate that
+   * exists to catch category drift never once ran and every build reported
+   * green. A contract that cannot fail is not a contract.
+   *
+   * CI sets it. If the checkout is misconfigured or its token expires, this
+   * fails loudly instead of quietly reverting to unprotected.
+   */
+  const required = process.env.OTJ_CONTRACT_REQUIRED === 'true';
+
+  it('can read the apprentice app constant', () => {
+    /**
+     * Resolved to a value first, then asserted once. Branching around `expect`
+     * trips `jest/no-conditional-expect`, and that rule is right to complain:
+     * a conditional assertion is one that can silently not run, which is the
+     * exact failure this whole file exists to prevent.
+     */
+    const failure =
+      source || !required
+        ? null
+        : `OTJ category contract could not run: apprentice constants not found ` +
+          `at ${constantsPath}. OTJ_CONTRACT_REQUIRED=true, so this is a ` +
+          `failure rather than a skip — check the frontend checkout step and ` +
+          `GRADLLY_FRONTEND_DIR.`;
+
+    if (!source && !required) {
+      // Not a failure locally: the API repo must build on its own. But it must
+      // be visible that the contract went unchecked, not silently green.
       // eslint-disable-next-line no-console -- the visibility is the point
       console.warn(
         `OTJ category contract UNCHECKED — apprentice app not found at ${constantsPath}`,
       );
     }
-    expect(true).toBe(true);
+
+    expect(failure).toBeNull();
   });
 
   /**

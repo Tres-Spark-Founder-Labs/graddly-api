@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Ip,
   Param,
@@ -41,13 +42,36 @@ import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
 import { CreateTransferFromMatchDto } from '../dto/create-transfer-from-match.dto.js';
 import { LevyTransferDocumentResponseDto } from '../dto/levy-transfer-document-response.dto.js';
 import { LevyTransferResponseDto } from '../dto/levy-transfer-response.dto.js';
+import { LinkTransferEnrolmentDto } from '../dto/link-transfer-enrolment.dto.js';
 import { ListTransfersQueryDto } from '../dto/list-transfers-query.dto.js';
 import { SignTransferResponseDto } from '../dto/sign-transfer-response.dto.js';
 import { SignTransferDto } from '../dto/sign-transfer.dto.js';
+import { TransferEnrolmentResponseDto } from '../dto/transfer-enrolment-response.dto.js';
+import { LevyTransferEnrolment } from '../entities/levy-transfer-enrolment.entity.js';
+import { LevyTransferFundingService } from '../services/levy-transfer-funding.service.js';
 import { LevyTransferService } from '../services/levy-transfer.service.js';
 
 import type { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface.js';
 import type { Request } from 'express';
+
+/**
+ * The entity carries `createdAt` as a `Date`; the response contract says
+ * ISO-8601 string. Mapped explicitly rather than cast — a cast would have
+ * silently shipped a `Date` wherever the serialiser happened not to convert
+ * it, and the generated client typings would have been wrong about it.
+ */
+function toTransferEnrolmentDto(
+  link: LevyTransferEnrolment,
+): TransferEnrolmentResponseDto {
+  return {
+    id: link.id,
+    transferId: link.transferId,
+    enrolmentId: link.enrolmentId,
+    donorOrganisationId: link.donorOrganisationId,
+    attributedAmount: link.attributedAmount,
+    createdAt: link.createdAt.toISOString(),
+  };
+}
 
 @ApiTags('Levy Exchange')
 @ApiExtraModels(
@@ -76,7 +100,10 @@ import type { Request } from 'express';
   type: ErrorResponseDto,
 })
 export class TransfersController {
-  constructor(private readonly transferService: LevyTransferService) {}
+  constructor(
+    private readonly transferService: LevyTransferService,
+    private readonly fundingService: LevyTransferFundingService,
+  ) {}
 
   @Post()
   @ResponseMessage('Levy transfer created successfully')
@@ -266,5 +293,113 @@ export class TransfersController {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
     return this.transferService.getDocument(user, id);
+  }
+
+  /**
+   * F4.1.4 AC1 — which learners a transfer funded.
+   *
+   * Lives on the transfer rather than on the enrolment because the transfer is
+   * what all three interested parties have in common: the donor who paid, the
+   * SME whose learner it is, and the provider delivering the training. Who can
+   * see which rows is decided by the row-level security policy on
+   * `levy_transfer_enrolments`, not here.
+   */
+  @Post(':id/enrolments')
+  @ResponseMessage('Enrolment linked to transfer successfully')
+  @ApiOperation({
+    summary: 'Record that this transfer funded an enrolment',
+    description:
+      'Called by the provider delivering the training. The transfer must be ' +
+      'confirmed or active, and the enrolment must belong to the employer ' +
+      'that received the transfer. Idempotent — linking the same pair twice ' +
+      'returns the existing link rather than double-counting the learner.',
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Transfer is not yet funding, or the enrolment belongs to another employer',
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Transfer or enrolment not found',
+    type: ErrorResponseDto,
+  })
+  @ApiCreatedResponse({
+    description: 'Enrolment linked',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(TransferEnrolmentResponseDto) },
+      },
+    },
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'Validation failed',
+    type: ValidationErrorResponseDto,
+  })
+  async linkEnrolment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: LinkTransferEnrolmentDto,
+  ): Promise<TransferEnrolmentResponseDto> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    const link = await this.fundingService.link({
+      transferId: id,
+      enrolmentId: dto.enrolmentId,
+      attributedAmount:
+        dto.attributedAmount !== undefined
+          ? String(dto.attributedAmount)
+          : null,
+    });
+    return toTransferEnrolmentDto(link);
+  }
+
+  @Get(':id/enrolments')
+  @ResponseMessage('Transfer enrolments retrieved successfully')
+  @ApiOperation({
+    summary: 'List the enrolments this transfer funded',
+  })
+  @ApiOkResponse({
+    description: 'Funded enrolments',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(TransferEnrolmentResponseDto) },
+        },
+      },
+    },
+  })
+  async listEnrolments(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<TransferEnrolmentResponseDto[]> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    const links = await this.fundingService.listForTransfer(id);
+    return links.map(toTransferEnrolmentDto);
+  }
+
+  @Delete(':id/enrolments/:enrolmentId')
+  @ResponseMessage('Enrolment unlinked from transfer successfully')
+  @ApiOperation({
+    summary: 'Remove a funding link recorded in error',
+    description:
+      'Soft-deletes the link. The enrolment and the transfer are untouched — ' +
+      'only the claim that this transfer paid for that learner is withdrawn.',
+  })
+  @ApiNotFoundResponse({
+    description: 'No such link',
+    type: ErrorResponseDto,
+  })
+  async unlinkEnrolment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('enrolmentId', ParseUUIDPipe) enrolmentId: string,
+  ): Promise<void> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    await this.fundingService.unlink(id, enrolmentId);
   }
 }

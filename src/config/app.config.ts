@@ -10,9 +10,20 @@ export default registerAs('app', () => {
   return {
     port: e.PORT,
     nodeEnv: e.NODE_ENV,
+    /**
+     * No fallback password. There used to be a literal here, which meant the
+     * "secret" was readable by anyone with repository access and was the live
+     * credential in every environment that had not set `SWAGGER_PASSWORD` —
+     * rotating the environment variable did nothing for those.
+     *
+     * Empty when unset, and `main.ts` refuses to mount `/docs` rather than
+     * mounting it behind a known password. A missing docs page is a visible,
+     * fixable problem; a docs page behind a password that is in the source is
+     * an invisible one.
+     */
     swagger: {
       username: 'graddly',
-      password: e.SWAGGER_PASSWORD || 'Gr4ddly!Sw4g@2026#Sec',
+      password: e.SWAGGER_PASSWORD ?? '',
     },
     jwt: {
       secret: e.JWT_SECRET,

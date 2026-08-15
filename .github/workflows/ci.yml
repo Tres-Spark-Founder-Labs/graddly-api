@@ -54,6 +54,31 @@ jobs:
         with:
           node-version: 22
 
+      # F3.1.1 AC2 — the apprentice app's OTJ category list must not drift from
+      # the API enum. `otj-categories-contract.spec.ts` reads that list from the
+      # frontend repository, which was never checked out here: the spec skipped
+      # on every run and reported green, so the gate had never once executed.
+      #
+      # Checked out *inside* the workspace because `actions/checkout` refuses to
+      # write outside it; `GRADLLY_FRONTEND_DIR` points the spec at it.
+      #
+      # Needs a token that can read the frontend repository — `GITHUB_TOKEN` is
+      # scoped to this one. `continue-on-error` keeps a token problem from
+      # blocking unrelated work, and the spec still fails loudly because
+      # `OTJ_CONTRACT_REQUIRED=true` turns a missing checkout into a failure
+      # rather than a silent skip.
+      - name: Check out apprentice frontend (for the OTJ category contract)
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          repository: Tres-Spark-Founder-Labs/gradlly-frontend
+          token: ${{ secrets.FRONTEND_REPO_TOKEN }}
+          path: .frontend
+          ref: main
+          sparse-checkout: |
+            apps/apprentice/features/otj/constants
+          sparse-checkout-cone-mode: false
+
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
@@ -61,6 +86,9 @@ jobs:
         run: yarn build
 
       - name: Run unit tests
+        env:
+          GRADLLY_FRONTEND_DIR: ${{ github.workspace }}/.frontend
+          OTJ_CONTRACT_REQUIRED: 'true'
         run: yarn test --coverage
 
 

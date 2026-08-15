@@ -13955,6 +13955,136 @@
         ]
       }
     },
+    "/reporting/donor-analytics": {
+      "get": {
+        "description": "Total transferred, SMEs funded, learners funded, completion rate and EPA pass rate — the last two computed over the enrolments this donor funded, not the recipients’ whole cohorts. `esgImpact` (AC3) is always null pending an agreed methodology.",
+        "operationId": "DonorAnalyticsController_getSummary",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Donor analytics summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/DonorAnalyticsSummaryDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Donor analytics summary (F4.1.4 AC1)",
+        "tags": [
+          "Reporting"
+        ]
+      }
+    },
+    "/reporting/donor-analytics/breakdown": {
+      "get": {
+        "description": "Sector and region come from each recipient’s profile and are read live, so a recipient editing its profile changes historical groupings. Transfers with no usable programme detail are grouped as \"Unspecified\" rather than dropped, so the parts sum to the whole.",
+        "operationId": "DonorAnalyticsController_getBreakdown",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Breakdowns",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/DonorAnalyticsBreakdownDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Transferred amount by sector, region and programme (F4.1.4 AC2)",
+        "tags": [
+          "Reporting"
+        ]
+      }
+    },
     "/reporting/levy-roi": {
       "get": {
         "description": "PRD F1.4.1 / F1.1.5 — aggregates DAS balance, forecast, surplus, enrolment counts, EPA pass rate (from recorded assessment outcomes) and the year-on-year comparison. Employer portal only. `totalLevySpendToDate` remains a proxy: latest DAS balance plus confirmed outbound transfers, pending true contribution history.",
@@ -28896,6 +29026,123 @@
         },
         "required": [
           "enrolmentIds"
+        ]
+      },
+      "DonorEsgImpactDto": {
+        "type": "object",
+        "properties": {
+          "productivityUplift": {
+            "type": "number",
+            "nullable": true,
+            "description": "Estimated productivity uplift. Awaiting an agreed formula."
+          },
+          "socialMobilityScore": {
+            "type": "number",
+            "nullable": true,
+            "description": "Social mobility score. Awaiting a defined methodology — see client decision 19."
+          }
+        }
+      },
+      "DonorAnalyticsSummaryDto": {
+        "type": "object",
+        "properties": {
+          "totalTransferred": {
+            "type": "number",
+            "example": 48000,
+            "description": "Total transferred to date across confirmed and active transfers."
+          },
+          "smesFunded": {
+            "type": "number",
+            "example": 3,
+            "description": "Distinct SMEs that received a confirmed or active transfer."
+          },
+          "learnersFunded": {
+            "type": "number",
+            "example": 7,
+            "description": "Distinct learners funded. A learner funded by two of this donor’s transfers counts once."
+          },
+          "completedCount": {
+            "type": "number",
+            "example": 2
+          },
+          "completionRate": {
+            "type": "number",
+            "nullable": true,
+            "example": 28.57,
+            "description": "Percentage of funded enrolments completed; null when none are funded yet — which is not the same as 0%."
+          },
+          "epaPassRate": {
+            "type": "number",
+            "nullable": true,
+            "example": 100,
+            "description": "EPA pass rate over funded enrolments; null when none assessed yet. Merit and distinction count as passes."
+          },
+          "epaAssessedCount": {
+            "type": "number",
+            "example": 2
+          },
+          "esgImpact": {
+            "nullable": true,
+            "description": "AC3 — null until a methodology is agreed (decision 19).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DonorEsgImpactDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "totalTransferred",
+          "smesFunded",
+          "learnersFunded",
+          "completedCount",
+          "epaAssessedCount"
+        ]
+      },
+      "DonorAnalyticsBreakdownRowDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "example": "Engineering & Manufacturing"
+          },
+          "amount": {
+            "type": "number",
+            "example": 21000
+          }
+        },
+        "required": [
+          "label",
+          "amount"
+        ]
+      },
+      "DonorAnalyticsBreakdownDto": {
+        "type": "object",
+        "properties": {
+          "bySector": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DonorAnalyticsBreakdownRowDto"
+            }
+          },
+          "byRegion": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DonorAnalyticsBreakdownRowDto"
+            }
+          },
+          "byProgrammeType": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DonorAnalyticsBreakdownRowDto"
+            }
+          }
+        },
+        "required": [
+          "bySector",
+          "byRegion",
+          "byProgrammeType"
         ]
       },
       "LevyRoiForecastSliceDto": {

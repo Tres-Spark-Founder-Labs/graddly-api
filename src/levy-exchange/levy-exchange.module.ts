@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module.js';
 import { DasModule } from '../das/das.module.js';
 import { EmailModule } from '../email/email.module.js';
+import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EsignatureModule } from '../esignature/esignature.module.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
@@ -30,6 +31,7 @@ import { LevyMatchApplication } from './entities/levy-match-application.entity.j
 import { LevyRecipientProfile } from './entities/levy-recipient-profile.entity.js';
 import { LevySurplusSnapshot } from './entities/levy-surplus-snapshot.entity.js';
 import { LevyTransferDocument } from './entities/levy-transfer-document.entity.js';
+import { LevyTransferEnrolment } from './entities/levy-transfer-enrolment.entity.js';
 import { LevyTransferPreference } from './entities/levy-transfer-preference.entity.js';
 import { LevyTransferSignature } from './entities/levy-transfer-signature.entity.js';
 import { LevyTransfer } from './entities/levy-transfer.entity.js';
@@ -44,6 +46,7 @@ import { LevyMatchApplicationService } from './services/levy-match-application.s
 import { LevyMatchingService } from './services/levy-matching.service.js';
 import { LevyRecipientProfileService } from './services/levy-recipient-profile.service.js';
 import { LevySurplusService } from './services/levy-surplus.service.js';
+import { LevyTransferFundingService } from './services/levy-transfer-funding.service.js';
 import { LevyTransferPreferenceService } from './services/levy-transfer-preference.service.js';
 import { LevyTransferService } from './services/levy-transfer.service.js';
 import { TokenEncryptionService } from './services/token-encryption.service.js';
@@ -68,6 +71,8 @@ import { TokenEncryptionService } from './services/token-encryption.service.js';
       LevyMatchApplication,
       LevyWaitingPoolEntry,
       LevyTransfer,
+      LevyTransferEnrolment,
+      Enrolment,
       LevyTransferDocument,
       LevyTransferSignature,
       Organisation,
@@ -101,6 +106,7 @@ import { TokenEncryptionService } from './services/token-encryption.service.js';
     LevyMatchApplicationService,
     BilateralCoSignOrchestrator,
     LevyTransferService,
+    LevyTransferFundingService,
   ],
   exports: [
     TypeOrmModule,
@@ -111,6 +117,7 @@ import { TokenEncryptionService } from './services/token-encryption.service.js';
     LevySurplusService,
     LevyExpiryAlertService,
     LevyTransferService,
+    LevyTransferFundingService,
   ],
 })
 export class LevyExchangeModule {}

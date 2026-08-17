@@ -29,9 +29,7 @@ import { ensureRlsHelperFunctions } from './helpers/ensure-rls-helper-functions.
  * enrolment may create the link. A donor must not be able to attribute
  * arbitrary learners to their own transfer, because that number is published.
  */
-export class CreateLevyTransferEnrolments1781100000050
-  implements MigrationInterface
-{
+export class CreateLevyTransferEnrolments1781100000050 implements MigrationInterface {
   name = 'CreateLevyTransferEnrolments1781100000050';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

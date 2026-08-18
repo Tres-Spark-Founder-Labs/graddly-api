@@ -27,12 +27,18 @@ export class Notification extends BaseEntity {
   @JoinColumn({ name: 'userId' })
   user!: User;
 
-  @Column({ type: 'uuid', nullable: true })
-  organisationId!: string | null;
+  /**
+   * Required since migration 1781100000051 — `notifications_insert` is keyed on
+   * it, so a NULL would make the row unwritable. Every one of the 18 call sites
+   * already supplied it; the column was nullable only because nothing depended
+   * on it.
+   */
+  @Column({ type: 'uuid' })
+  organisationId!: string;
 
-  @ManyToOne(() => Organisation, { onDelete: 'CASCADE', nullable: true })
+  @ManyToOne(() => Organisation, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'organisationId' })
-  organisation!: Organisation | null;
+  organisation!: Organisation;
 
   @Column({
     type: 'enum',

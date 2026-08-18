@@ -372,6 +372,31 @@ export class OtjLogEntriesService {
 
     const approved = target === OtjLogStatus.APPROVED;
 
+    /**
+     * The two channels are written independently, and neither can suppress the
+     * other.
+     *
+     * They were previously one try/catch with the email inside it, after an
+     * early `return` on the pre-membership case. That made the email
+     * conditional on the in-app write succeeding, which is wrong twice over:
+     *
+     *   - **F3.4.3 AC3** gives the apprentice a per-type *email* preference
+     *     (on / off). A toggle for a channel that only fires as a side effect
+     *     of another channel is not implementable, so the PRD is modelling two
+     *     channels, not one.
+     *   - **F1.2.5 AC3** sends the account invitation itself *by email*. Email
+     *     is therefore the channel that demonstrably reaches an apprentice with
+     *     no membership — it is the only one that does. An earlier comment here
+     *     claimed a decision notice pre-membership "has nowhere to land"; that
+     *     is true of the in-app tray and precisely backwards for email.
+     *
+     * The same principle is explicit elsewhere: F1.2.4 AC4 (at-risk email to
+     * the line manager within 24 hours) and F3.2.4 AC5 (review reminder 48
+     * hours ahead) are both stated as email obligations, unconditioned on any
+     * in-app write.
+     */
+    let notificationQueued = false;
+
     try {
       const notification = await this.notificationsService.createForUser({
         userId: apprenticeUserId,
@@ -392,22 +417,57 @@ export class OtjLogEntriesService {
 
       /**
        * `null` means the apprentice has an account but has not yet accepted
-       * their invitation, so they hold no membership in this organisation.
-       *
-       * PRD F1.2.5 AC5 tracks *invited* and *account created* as states in
-       * their own right, both before membership, so this is a normal point in
-       * the journey rather than a fault. Handled exactly as the missing-portal-
-       * login case a few lines above: return `false`, quietly. Nothing is
-       * logged, because there is nothing wrong.
-       *
-       * The email is skipped with it, for the same reason that case skips it —
-       * an apprentice mid-invitation is being asked to finish signing up, and a
-       * decision notice before then has nowhere to land.
+       * their invitation, so holds no membership in this organisation. PRD
+       * F1.2.5 AC5 tracks *invited* and *account created* as states in their
+       * own right, both before membership, so this is a normal point in the
+       * journey rather than a fault — nothing is logged, because nothing is
+       * wrong. Only the in-app tray is skipped; the email below still goes.
        */
-      if (!notification) {
-        return false;
-      }
+      // `null` is the documented "recipient is not yet a member" signal. Any
+      // object means the row was written. Nothing else should read as queued.
+      notificationQueued = Boolean(notification);
+    } catch (error) {
+      /**
+       * Logged, not swallowed silently, and deliberately not re-thrown.
+       *
+       * This used to be a bare `catch { return false; }`. That hid a
+       * row-level-security violation (42501) on the notification insert for
+       * months: the approval committed, the apprentice was never told, and the
+       * failed INSERT left the transaction aborted so the *next* query raised
+       * 25P02 and the caller got an untraceable 500. Nothing reached the logs
+       * at all, which is why 18 broken call sites stayed green.
+       *
+       * NOT re-thrown, because the approval is already committed by the time we
+       * get here (see the `repo.save` above). Throwing would report a
+       * successful, funding-relevant state change as a failure and invite the
+       * user to retry an action that already happened. The caller records the
+       * outcome instead: the per-row `notificationQueued: false` in the bulk
+       * response is the honest signal that the decision landed but the in-app
+       * tray was not written.
+       *
+       * `error` rather than `warn`: an authorisation failure writing to a table
+       * this service is supposed to be able to write to is a defect, not a
+       * transient condition, and should not sit at the same level as a bounced
+       * email.
+       */
+      const sqlState =
+        (error as { code?: string; driverError?: { code?: string } }).code ??
+        (error as { driverError?: { code?: string } }).driverError?.code;
 
+      this.logger.error(
+        `Failed to write in-app notification of OTJ decision for entry ${row.id}` +
+          (sqlState ? ` (SQLSTATE ${sqlState})` : '') +
+          `: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+
+    /**
+     * Its own try/catch, so a bounced email cannot take the in-app notification
+     * down with it either. The independence has to hold in both directions or
+     * it is not independence.
+     */
+    try {
       const apprenticeUser = await this.userRepo.findOne({
         where: { id: apprenticeUserId, isDeleted: false },
       });
@@ -432,44 +492,20 @@ export class OtjLogEntriesService {
           ),
         );
       }
-
-      return true;
     } catch (error) {
       /**
-       * Logged, not swallowed silently, and deliberately not re-thrown.
-       *
-       * This used to be a bare `catch { return false; }`. That hid a
-       * row-level-security violation (42501) on the notification insert for
-       * months: the approval committed, the apprentice was never told, and the
-       * failed INSERT left the transaction aborted so the *next* query raised
-       * 25P02 and the caller got an untraceable 500. Nothing reached the logs
-       * at all, which is why 18 broken call sites stayed green.
-       *
-       * NOT re-thrown, because the approval is already committed by the time we
-       * get here (see the `repo.save` above). Throwing would report a
-       * successful, funding-relevant state change as a failure and invite the
-       * user to retry an action that already happened — which is exactly the
-       * behaviour being fixed. The caller records the outcome instead: the
-       * per-row `notificationQueued: false` in the bulk response is the honest
-       * signal that the decision landed but the learner was not notified.
-       *
-       * `error` rather than `warn`: an authorisation failure writing to a table
-       * this service is supposed to be able to write to is a defect, not a
-       * transient condition, and should not sit at the same level as a bounced
-       * email.
+       * `warn`, not `error`: a queue rejection is a transient delivery problem,
+       * not the authorisation defect the notification catch above guards
+       * against. Deliberately does not affect `notificationQueued`, which
+       * reports on the in-app channel only.
        */
-      const sqlState =
-        (error as { code?: string; driverError?: { code?: string } }).code ??
-        (error as { driverError?: { code?: string } }).driverError?.code;
-
-      this.logger.error(
-        `Failed to notify apprentice of OTJ decision for entry ${row.id}` +
-          (sqlState ? ` (SQLSTATE ${sqlState})` : '') +
-          `: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+      this.logger.warn(
+        `Failed to queue OTJ decision email for entry ${row.id}: ` +
+          `${error instanceof Error ? error.message : String(error)}`,
       );
-      return false;
     }
+
+    return notificationQueued;
   }
 
   /**

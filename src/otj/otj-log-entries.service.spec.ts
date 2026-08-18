@@ -248,7 +248,9 @@ describe('OtjLogEntriesService', () => {
       status: OtjLogStatus.SUBMITTED,
     });
     repo.save.mockImplementation((v: unknown) => Promise.resolve(v));
-    notificationsService.createForUser.mockResolvedValue(undefined);
+    notificationsService.createForUser.mockResolvedValue({
+      id: 'notification-1',
+    });
     emailDispatchService.enqueue.mockResolvedValue(undefined);
 
     const out = await service.bulkReject(user, ['id-1'], 'Incomplete evidence');
@@ -263,7 +265,9 @@ describe('OtjLogEntriesService', () => {
       status: OtjLogStatus.SUBMITTED,
     });
     repo.save.mockImplementation((v: unknown) => Promise.resolve(v));
-    notificationsService.createForUser.mockResolvedValue(undefined);
+    notificationsService.createForUser.mockResolvedValue({
+      id: 'notification-1',
+    });
     emailDispatchService.enqueue.mockResolvedValue(undefined);
     const out = await service.bulkApprove(user, ['id-1']);
     expect(out.succeeded).toBe(1);
@@ -338,7 +342,9 @@ describe('OtjLogEntriesService', () => {
     beforeEach(() => {
       repo.findOne.mockResolvedValue({ ...submittedEntry });
       repo.save.mockImplementation((v: unknown) => Promise.resolve(v));
-      notificationsService.createForUser.mockResolvedValue(undefined);
+      notificationsService.createForUser.mockResolvedValue({
+        id: 'notification-1',
+      });
       emailDispatchService.enqueue.mockResolvedValue(undefined);
       userRepo.findOne.mockResolvedValue({
         id: 'apprentice-user-1',
@@ -419,6 +425,60 @@ describe('OtjLogEntriesService', () => {
 
       expect(out.succeeded).toBe(1);
       expect(out.results[0].notificationQueued).toBe(false);
+    });
+
+    /**
+     * The two channels are independent, and these are the cases that prove it.
+     *
+     * They were coupled: the email sat inside the notification's try/catch and
+     * after an early return on the pre-membership case, so a skipped or failed
+     * in-app write silently suppressed the email too.
+     *
+     * F3.4.3 AC3 gives the apprentice a per-type *email* preference, which is
+     * only implementable if email is its own channel. F1.2.5 AC3 sends the
+     * account invitation itself by email — so email is the one channel that
+     * reaches an apprentice who holds no membership yet, which is exactly the
+     * case the coupling suppressed.
+     */
+    it('still emails when the in-app notification is skipped pre-membership', async () => {
+      // `null` is what createForUser returns when the apprentice has an account
+      // but has not yet accepted their invitation (PRD F1.2.5 AC5: *invited*
+      // and *account created* both precede membership).
+      notificationsService.createForUser.mockResolvedValue(null);
+
+      const out = await service.bulkApprove(user, ['id-1']);
+
+      expect(out.succeeded).toBe(1);
+      expect(out.results[0].notificationQueued).toBe(false);
+
+      // The in-app tray has nowhere to put this. The email does — it is how the
+      // invitation reached them in the first place.
+      const [payload] = emailDispatchService.enqueue.mock.calls[0] as [
+        { to: string },
+      ];
+      expect(payload.to).toBe('alex@example.com');
+    });
+
+    it('still emails when the notification write genuinely fails', async () => {
+      notificationsService.createForUser.mockRejectedValue(
+        new Error('notification backend down'),
+      );
+
+      await service.bulkApprove(user, ['id-1']);
+
+      expect(emailDispatchService.enqueue).toHaveBeenCalledTimes(1);
+    });
+
+    it('still writes the in-app notification when the email queue fails', async () => {
+      // The independence has to hold in both directions or it is not
+      // independence.
+      emailDispatchService.enqueue.mockRejectedValue(new Error('queue down'));
+
+      const out = await service.bulkApprove(user, ['id-1']);
+
+      expect(out.succeeded).toBe(1);
+      expect(out.results[0].notificationQueued).toBe(true);
+      expect(notificationsService.createForUser).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -249,11 +249,36 @@ describe('Notifications written to a third party (F3.4.3 AC1)', () => {
     const owner = await createVerifiedUser(app, {
       email: `cosign-owner-${suffix}@example.com`,
     });
-    const recipients = await Promise.all([
-      createVerifiedUser(app, { email: `cosign-a-${suffix}@example.com` }),
-      createVerifiedUser(app, { email: `cosign-t-${suffix}@example.com` }),
-      createVerifiedUser(app, { email: `cosign-m-${suffix}@example.com` }),
-    ]);
+    /**
+     * Created one at a time, and that is load-bearing rather than stylistic.
+     *
+     * `createE2eApp` calls `app.init()` and never `app.listen()`, so the HTTP
+     * server has no address of its own. supertest binds one lazily, per request
+     * (`supertest/lib/test.js:61`):
+     *
+     *     const addr = app.address();
+     *     if (!addr) this._server = app.listen(0);
+     *
+     * Run concurrently, several requests each observe a null address and race
+     * to bind the same server; the losers then talk to a socket that is still
+     * coming up. That surfaces as `connect ECONNRESET` with no assertion
+     * failure, because nothing was ever asserted — the transport died first.
+     * `createVerifiedUser` is two HTTP round trips, so three in parallel was six
+     * requests into that race.
+     *
+     * It is timing-dependent, which is why it passed locally and failed 419
+     * seconds into a loaded shared runner. This was the only suite in the
+     * repository using `Promise.all`; the other 79 are sequential, which is why
+     * this was the only one that reset.
+     */
+    const recipients: Awaited<ReturnType<typeof createVerifiedUser>>[] = [];
+    for (const tag of ['a', 't', 'm']) {
+      recipients.push(
+        await createVerifiedUser(app, {
+          email: `cosign-${tag}-${suffix}@example.com`,
+        }),
+      );
+    }
 
     const orgRes = await request(app.getHttpServer())
       .post('/api/v1/organisations')
@@ -266,9 +291,21 @@ describe('Notifications written to a third party (F3.4.3 AC1)', () => {
       await grantMembership(r.userId, orgId);
     }
 
-    const before = await Promise.all(
-      recipients.map((r) => countNotificationsFor(r.userId)),
-    );
+    /**
+     * Sequential for a second, independent reason: `countNotificationsFor`
+     * runs on the shared `appDb` client, and a `pg.Client` — unlike a `Pool` —
+     * serves one query at a time. Overlapping calls on it are deprecated
+     * outright ("Calling client.query() when the client is already executing a
+     * query"), and worse, each call brackets its read between
+     * `app.rls_bootstrap` 1 and 0. Interleaved, one call clears the flag while
+     * another is still reading, so the reader is refused its own rows by RLS
+     * and reports 0. The count would have been quietly wrong rather than
+     * loudly broken.
+     */
+    const before: number[] = [];
+    for (const r of recipients) {
+      before.push(await countNotificationsFor(r.userId));
+    }
 
     const notifications = app.get(NotificationsService);
     for (const r of recipients) {
@@ -283,9 +320,10 @@ describe('Notifications written to a third party (F3.4.3 AC1)', () => {
       expect(written).not.toBeNull();
     }
 
-    const after = await Promise.all(
-      recipients.map((r) => countNotificationsFor(r.userId)),
-    );
+    const after: number[] = [];
+    for (const r of recipients) {
+      after.push(await countNotificationsFor(r.userId));
+    }
     recipients.forEach((_, i) => {
       expect(after[i]).toBe(before[i] + 1);
     });

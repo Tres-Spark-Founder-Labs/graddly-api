@@ -154,6 +154,44 @@ export default defineConfig(
       '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
+  /**
+   * e2e specs run sequentially, and that is a correctness requirement rather
+   * than a style preference.
+   *
+   * `createE2eApp` binds its HTTP server through supertest, which listens
+   * lazily per request whenever the server has no address of its own.
+   * Concurrent requests race to bind the same server, and the losers get
+   * `connect ECONNRESET` — a dead socket, with no failed expectation pointing
+   * at the cause. It is timing-dependent, so it passes locally and fails on a
+   * loaded CI runner, which is precisely how it cost a session to diagnose.
+   *
+   * The shared `pg.Client` used by e2e probes has the same property from the
+   * other direction: it serves one query at a time, and any helper that
+   * brackets a read between `app.rls_bootstrap` 1 and 0 will silently return
+   * zero rows when interleaved rather than erroring. See OQ-18.
+   *
+   * A narrower rule — ban `Promise.all` only when it wraps an HTTP request —
+   * is not expressible as an ESLint selector, which matches a node rather than
+   * searching its descendants for one. Writing a custom rule would mean
+   * shipping and maintaining a plugin for a construct that has no legitimate
+   * use in these specs today. So the ban is blanket: if a real need for
+   * concurrency appears, disable it on the line with a comment explaining why
+   * neither hazard above applies.
+   */
+  {
+    files: ['test/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.object.name='Promise'][callee.property.name=/^(all|allSettled|race|any)$/]",
+          message:
+            'e2e specs must run sequentially. Concurrent supertest requests race to bind the lazily-listened server (connect ECONNRESET), and concurrent queries on the shared pg.Client corrupt the app.rls_bootstrap bracket, silently returning zero rows. Await them one at a time.',
+        },
+      ],
+    },
+  },
   {
     settings: {
       'import/resolver': {

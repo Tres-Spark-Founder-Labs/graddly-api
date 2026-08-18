@@ -7,6 +7,7 @@ import { NotificationType } from '../src/notifications/enums/notification-type.e
 
 import { createE2eApp } from './helpers/e2e-app.js';
 import { createVerifiedUser } from './helpers/e2e-http.js';
+import { buildOrgPayload } from './helpers/e2e-organisation.js';
 import {
   expectPaginatedListEnvelope,
   expectSuccessEnvelope,
@@ -22,8 +23,15 @@ function createMigratorClient(): Client {
   });
 }
 
+/**
+ * `organisationId` became NOT NULL in migration 1781100000051 —
+ * `app_create_notification` and the RLS policies are both keyed on it, so a
+ * notification with no organisation is unreadable by anyone. The seed takes one
+ * explicitly rather than relying on a nullable column that no longer exists.
+ */
 async function seedNotification(
   userId: string,
+  organisationId: string,
   title: string,
 ): Promise<string> {
   const pg = createMigratorClient();
@@ -31,10 +39,16 @@ async function seedNotification(
   try {
     await pg.query(`SELECT set_config('app.rls_bootstrap', 'true', true)`);
     const result = await pg.query<{ id: string }>(
-      `INSERT INTO notifications ("userId", type, title, body)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO notifications ("userId", "organisationId", type, title, body)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING id`,
-      [userId, NotificationType.SYSTEM, title, 'E2E notification body'],
+      [
+        userId,
+        organisationId,
+        NotificationType.SYSTEM,
+        title,
+        'E2E notification body',
+      ],
     );
     return result.rows[0].id;
   } finally {
@@ -59,8 +73,18 @@ describe('NotificationsController (e2e)', () => {
       email: `notif-${suffix}@example.com`,
     });
 
+    // The reader must have an organisation: `listForUser` filters by the
+    // active one, so a notification outside it would be invisible.
+    const orgRes = await request(app.getHttpServer())
+      .post('/api/v1/organisations')
+      .set('Authorization', `Bearer ${user.accessToken}`)
+      .send(buildOrgPayload(`Notif E2E Org ${suffix}`))
+      .expect(201);
+    const orgId = (orgRes.body as { data: { id: string } }).data.id;
+
     const notificationId = await seedNotification(
       user.userId,
+      orgId,
       `E2E notice ${suffix}`,
     );
 

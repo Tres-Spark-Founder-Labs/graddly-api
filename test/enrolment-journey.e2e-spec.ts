@@ -96,7 +96,7 @@ describe('Enrolment journey + OTJ pace (e2e)', () => {
     const apprentice = await createVerifiedUser(app, {
       email: `pace-apprentice-${suffix}@example.com`,
     });
-    const { authHeaders } = await createOrgOwnerContext(
+    const { authHeaders, orgId } = await createOrgOwnerContext(
       app,
       `Pace Org ${suffix}`,
     );
@@ -130,6 +130,32 @@ describe('Enrolment journey + OTJ pace (e2e)', () => {
       .set(authHeaders)
       .send({ apprenticeUserId: apprentice.userId })
       .expect(200);
+
+    /**
+     * The apprentice has accepted their invitation and is a member of the
+     * organisation (`invitations.service.ts:250`, role MEMBER).
+     *
+     * Required since migration 1781100000052: `app_create_notification` will
+     * not file a notification under an organisation the recipient does not
+     * belong to, because `listForUser` filters reads by organisation and such
+     * a row could never be seen. Linking `apprenticeUserId` alone leaves the
+     * learner in the pre-membership window PRD F1.2.5 AC5 models ("invited" /
+     * "account created"), where receiving nothing is correct — so a pace alert
+     * needs the membership to exist.
+     */
+    {
+      const memberPg = createE2ePgClient();
+      await memberPg.connect();
+      try {
+        await memberPg.query(
+          `INSERT INTO organisation_memberships ("organisationId", "userId", role, status)
+           VALUES ($1, $2, 'member', 'active')`,
+          [orgId, apprentice.userId],
+        );
+      } finally {
+        await memberPg.end();
+      }
+    }
 
     await request(app.getHttpServer())
       .patch(`/api/v1/enrolments/${enrolmentId}/journey`)

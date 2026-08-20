@@ -324,19 +324,40 @@ export class OtjPaceService {
         ? `You are ${Math.round(behindPercent)}% behind the OTJ pace required for your EPA date. Log hours now to get back on track.`
         : 'Your OTJ pace is behind the target required for your EPA date. Log hours now to get back on track.';
 
-    await this.notificationsService.createForUser({
-      userId: enrolment.apprenticeUserId,
-      organisationId: enrolment.organisationId,
-      type: NotificationType.OTJ,
-      title,
-      body,
-      metadata: {
-        enrolmentId: enrolment.id,
-        alertLevel: level,
-        behindPercent,
-        action: 'log_otj',
-      },
-    });
+    /**
+     * Guarded, because this runs *before* the line manager alert.
+     *
+     * It used to be unguarded: a failed apprentice notification propagated out
+     * of `notifyPaceAlert`, so `notifyLineManagerOfPace` never ran and the
+     * F1.2.4 AC4 email was never enqueued. One recipient's in-app notification
+     * failing silenced a different recipient's email — and in the cron sweep it
+     * aborted the enrolment mid-evaluation.
+     *
+     * The flag itself is persisted by the caller either way, so returning
+     * `false` here reports "not delivered" without pretending nothing happened.
+     */
+    try {
+      await this.notificationsService.createForUser({
+        userId: enrolment.apprenticeUserId,
+        organisationId: enrolment.organisationId,
+        type: NotificationType.OTJ,
+        title,
+        body,
+        metadata: {
+          enrolmentId: enrolment.id,
+          alertLevel: level,
+          behindPercent,
+          action: 'log_otj',
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `OTJ pace apprentice notification failed for enrolment ${enrolment.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return false;
+    }
     return true;
   }
 
@@ -375,6 +396,16 @@ export class OtjPaceService {
         ? `${Math.round(behindPercent)}%`
         : 'significantly';
 
+    /**
+     * Two channels, two try blocks, deliberately.
+     *
+     * These used to share one: the in-app notification, the manager lookup and
+     * the email were all inside a single `try`, so a failed notification write
+     * jumped straight to the catch and the email was never enqueued. F1.2.4 AC4
+     * requires the email, and says nothing about the in-app notification —
+     * F3.4.3 Notification Centre is a separate feature. One channel failing
+     * must not silence the other.
+     */
     try {
       await this.notificationsService.createForUser({
         userId: managerUserId,
@@ -393,7 +424,16 @@ export class OtjPaceService {
           action: 'review_otj',
         },
       });
+    } catch (error) {
+      this.logger.warn(
+        `OTJ pace manager notification failed for enrolment ${enrolment.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
 
+    let emailQueued = false;
+    try {
       const manager = await this.userRepo.findOne({
         where: { id: managerUserId, isDeleted: false },
       });
@@ -416,6 +456,7 @@ export class OtjPaceService {
             },
           ),
         );
+        emailQueued = true;
       }
     } catch (error) {
       // The flag itself is already persisted. A failed alert must not roll
@@ -427,9 +468,16 @@ export class OtjPaceService {
         }`,
       );
     }
-    // Delivery attempted. A send failure is caught and logged above, and
-    // reported as delivered=false so the caller does not stamp success.
-    return true;
+
+    /**
+     * Reports what actually happened. This used to `return true` unconditionally
+     * under a comment claiming it "reported as delivered=false so the caller
+     * does not stamp success" — the comment described the behaviour the caller
+     * needed and the code did the opposite, so a manager with no email address,
+     * or a mail outage, still stamped `otjPaceAlertedAt` as though the alert
+     * had landed.
+     */
+    return emailQueued;
   }
 
   private async apprenticeNameFor(enrolment: Enrolment): Promise<string> {

@@ -257,6 +257,26 @@ describe('OtjPaceService', () => {
       expect(enrolment.otjPaceAlertLevel).toBe(OtjPaceAlertLevel.OFF_TRACK);
     });
 
+    /**
+     * F1.2.4 AC4 — "Email notification sent to line manager within 24 hours of
+     * flag being set." The criterion says nothing about the in-app
+     * notification, and F3.4.3 Notification Centre is a separate feature.
+     * Email and in-app are two channels; one failing must not silence the
+     * other.
+     */
+    it('AC4: emails the line manager even when the in-app notification fails', async () => {
+      notifications.createForUser.mockRejectedValueOnce(
+        new Error('notification write failed'),
+      );
+      const enrolment = behindEnrolment();
+
+      await expect(
+        service.evaluateEnrolmentPace(enrolment),
+      ).resolves.not.toThrow();
+
+      expect(emailDispatchService.enqueue).toHaveBeenCalled();
+    });
+
     it('skips quietly when no line manager is assigned', async () => {
       const enrolment = behindEnrolment();
       enrolment.employerManagerUserId = null;

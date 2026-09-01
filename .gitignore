@@ -31,3 +31,7 @@ yarn-error.log*
 # Yarn
 .yarnrc.yml
 .yarn/
+# Temporary .env backups (e.g. the local API port move). Never commit these:
+# they hold the same secrets as .env, which is ignored above. GitHub push
+# protection caught one of these in commit 8569428.
+.env.bak-*

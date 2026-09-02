@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  ConflictException,
+  Controller,
+  Get,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -23,6 +31,7 @@ import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { DasApiActivityService } from './das-api-activity.service.js';
+import { isDasManualMode } from './das-client.factory.js';
 import { DasFundingSyncService } from './das-funding-sync.service.js';
 import { DasLevyForecastService } from './das-levy-forecast.service.js';
 import { DasLevySyncService } from './das-levy-sync.service.js';
@@ -74,6 +83,7 @@ export class DasController {
     private readonly fundingSyncService: DasFundingSyncService,
     private readonly syncStatusService: DasSyncStatusService,
     private readonly activityService: DasApiActivityService,
+    private readonly config: ConfigService,
   ) {}
 
   /**
@@ -165,6 +175,27 @@ export class DasController {
   async queueSync(
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<DasSyncResponseDto> {
+    /**
+     * Refused outright when the platform is running on manually-entered data.
+     *
+     * Without this the sync runs, reads the manual row back through
+     * `DasManualClient`, and `das-levy-sync.service.ts` stamps
+     * `lastSyncStatus = SUCCESS` and `lastSyncedAt = now` over it. The card
+     * then reads "Synced · 2 minutes ago" above a figure somebody typed weeks
+     * ago — the sync did happen, but not with the apprenticeship service, and
+     * that is the distinction the card exists to show.
+     *
+     * 409 rather than 404 or 501: the endpoint exists and the request is
+     * well-formed, but it conflicts with the current state of the integration.
+     * The message names the route that does work.
+     */
+    if (isDasManualMode(this.config)) {
+      throw new ConflictException(
+        'DAS is running in manual mode, so there is nothing to sync. ' +
+          'Update the figures under Settings → Levy data instead.',
+      );
+    }
+
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
     const queued = await this.dispatch.enqueueSync({

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -9,7 +10,7 @@ import { Repository } from 'typeorm';
 
 import { buildPaginationMeta } from '../../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../../common/pagination/paginated-result.js';
-import { DasHttpClient } from '../../das/das-http.client.js';
+import { DAS_CLIENT } from '../../das/das-client.constants.js';
 import { Organisation } from '../../organisations/entities/organisation.entity.js';
 import { PdfGenerationJob } from '../../pdf/entities/pdf-generation-job.entity.js';
 import { PdfJobStatus } from '../../pdf/enums/pdf-job-status.enum.js';
@@ -46,6 +47,7 @@ import { BilateralCoSignOrchestrator } from './bilateral-co-sign.orchestrator.js
 import { DasDonorOAuthService } from './das-donor-oauth.service.js';
 
 import type { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface.js';
+import type { IDasClient } from '../../das/interfaces/das.client.interface.js';
 
 @Injectable()
 export class LevyTransferService {
@@ -68,7 +70,8 @@ export class LevyTransferService {
     private readonly pdfJobRepo: Repository<PdfGenerationJob>,
     private readonly pdfDispatch: PdfDispatchService,
     private readonly coSignOrchestrator: BilateralCoSignOrchestrator,
-    private readonly dasHttpClient: DasHttpClient,
+    @Inject(DAS_CLIENT)
+    private readonly dasHttpClient: IDasClient,
     private readonly donorOAuth: DasDonorOAuthService,
     private readonly storage: StorageService,
     private readonly keyBuilder: StorageKeyBuilder,

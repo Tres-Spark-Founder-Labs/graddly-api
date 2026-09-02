@@ -6,7 +6,7 @@ import {
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
-import { DasHttpClient } from '../das/das-http.client.js';
+import { DAS_CLIENT } from '../das/das-client.constants.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { PdfGenerationJob } from '../pdf/entities/pdf-generation-job.entity.js';
 import { PdfDispatchService } from '../pdf/pdf-dispatch.service.js';
@@ -139,7 +139,7 @@ describe('LevyTransferService', () => {
           useValue: { executeSign },
         },
         {
-          provide: DasHttpClient,
+          provide: DAS_CLIENT,
           useValue: { createLevyTransferConsent, fetchTransferStatus },
         },
         {

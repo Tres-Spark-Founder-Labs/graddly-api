@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
@@ -7,7 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-import { DasHttpClient } from '../../das/das-http.client.js';
+import { DAS_CLIENT } from '../../das/das-client.constants.js';
 import { CreateDonorLinkDto } from '../dto/create-donor-link.dto.js';
 import { DonorLinkResponseDto } from '../dto/donor-link-response.dto.js';
 import { DasDonorLink } from '../entities/das-donor-link.entity.js';
@@ -17,10 +18,13 @@ import { DasDonorLinkStatus } from '../enums/das-donor-link-status.enum.js';
 import { DasDonorOAuthService } from './das-donor-oauth.service.js';
 import { DasDonorSyncService } from './das-donor-sync.service.js';
 
+import type { IDasClient } from '../../das/interfaces/das.client.interface.js';
+
 @Injectable()
 export class DasDonorLinkService {
   constructor(
-    private readonly dasHttpClient: DasHttpClient,
+    @Inject(DAS_CLIENT)
+    private readonly dasHttpClient: IDasClient,
     private readonly donorOAuth: DasDonorOAuthService,
     private readonly donorSync: DasDonorSyncService,
     @InjectRepository(DasDonorLink)

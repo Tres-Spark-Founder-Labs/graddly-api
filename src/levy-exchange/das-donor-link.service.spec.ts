@@ -6,7 +6,7 @@ import {
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
-import { DasHttpClient } from '../das/das-http.client.js';
+import { DAS_CLIENT } from '../das/das-client.constants.js';
 
 import { DasDonorLink } from './entities/das-donor-link.entity.js';
 import { DasDonorOAuthToken } from './entities/das-donor-oauth-token.entity.js';
@@ -43,7 +43,7 @@ describe('DasDonorLinkService', () => {
       providers: [
         DasDonorLinkService,
         {
-          provide: DasHttpClient,
+          provide: DAS_CLIENT,
           useValue: { fetchLevyBalance },
         },
         {

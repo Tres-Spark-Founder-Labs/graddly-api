@@ -4,7 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Job } from 'bullmq';
 
 import { QUEUE_COMPLETION_PUSH_DLQ } from '../bullmq/bullmq.constants.js';
-import { DasHttpClient } from '../das/das-http.client.js';
+import { DAS_CLIENT } from '../das/das-client.constants.js';
 
 import { COMPLETION_PUSH_JOB_SEND } from './completion-push.constants.js';
 import { CompletionPushProcessor } from './completion-push.processor.js';
@@ -37,7 +37,7 @@ describe('CompletionPushProcessor', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         CompletionPushProcessor,
-        { provide: DasHttpClient, useValue: dasClient },
+        { provide: DAS_CLIENT, useValue: dasClient },
         {
           provide: getRepositoryToken(EnrolmentCompletionPush),
           useValue: repo,

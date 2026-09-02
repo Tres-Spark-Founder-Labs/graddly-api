@@ -1,5 +1,5 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Job, Queue } from 'bullmq';
 import { Repository } from 'typeorm';
@@ -12,7 +12,7 @@ import {
   setCurrentOrganisationId,
   setCurrentUserId,
 } from '../common/context/correlation-id-context.js';
-import { DasHttpClient } from '../das/das-http.client.js';
+import { DAS_CLIENT } from '../das/das-client.constants.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import {
@@ -24,12 +24,14 @@ import { CompletionPushStatus } from './enums/completion-push-status.enum.js';
 
 import type { ICompletionPushJobPayload } from './completion-push.payload.js';
 import type { IDasCompletionNotificationRequest } from '../das/das.types.js';
+import type { IDasClient } from '../das/interfaces/das.client.interface.js';
 
 @Injectable()
 @Processor(QUEUE_COMPLETION_PUSH)
 export class CompletionPushProcessor extends WorkerHost {
   constructor(
-    private readonly dasClient: DasHttpClient,
+    @Inject(DAS_CLIENT)
+    private readonly dasClient: IDasClient,
     @InjectRepository(EnrolmentCompletionPush)
     private readonly repo: Repository<EnrolmentCompletionPush>,
     @InjectQueue(QUEUE_COMPLETION_PUSH_DLQ)

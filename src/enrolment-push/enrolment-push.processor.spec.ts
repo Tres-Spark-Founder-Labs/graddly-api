@@ -4,7 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Job } from 'bullmq';
 
 import { QUEUE_ENROLMENT_PUSH_DLQ } from '../bullmq/bullmq.constants.js';
-import { DasHttpClient } from '../das/das-http.client.js';
+import { DAS_CLIENT } from '../das/das-client.constants.js';
 import { EnrolmentPipelineService } from '../enrolments/enrolment-pipeline.service.js';
 import { EnrolmentPipelineState } from '../enrolments/enums/enrolment-pipeline-state.enum.js';
 
@@ -45,7 +45,7 @@ describe('EnrolmentPushProcessor', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         EnrolmentPushProcessor,
-        { provide: DasHttpClient, useValue: dasClient },
+        { provide: DAS_CLIENT, useValue: dasClient },
         { provide: EnrolmentPipelineService, useValue: pipelineService },
         {
           provide: getRepositoryToken(EnrolmentSubmissionPush),

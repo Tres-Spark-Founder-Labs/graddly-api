@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -12,8 +13,10 @@ import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 
-import { DasHttpClient } from './das-http.client.js';
+import { DAS_CLIENT } from './das-client.constants.js';
 import { DasFundingPayment } from './entities/das-funding-payment.entity.js';
+
+import type { IDasClient } from './interfaces/das.client.interface.js';
 
 export interface IDasFundingSummary {
   totalReceived: number;
@@ -25,7 +28,8 @@ export interface IDasFundingSummary {
 @Injectable()
 export class DasFundingSyncService {
   constructor(
-    private readonly client: DasHttpClient,
+    @Inject(DAS_CLIENT)
+    private readonly client: IDasClient,
     @InjectRepository(DasFundingPayment)
     private readonly paymentRepo: Repository<DasFundingPayment>,
     @InjectRepository(Organisation)

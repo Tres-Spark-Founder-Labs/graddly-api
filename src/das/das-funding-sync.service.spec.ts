@@ -5,8 +5,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 
+import { DAS_CLIENT } from './das-client.constants.js';
 import { DasFundingSyncService } from './das-funding-sync.service.js';
-import { DasHttpClient } from './das-http.client.js';
 import { DasFundingPayment } from './entities/das-funding-payment.entity.js';
 
 describe('DasFundingSyncService', () => {
@@ -31,7 +31,7 @@ describe('DasFundingSyncService', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         DasFundingSyncService,
-        { provide: DasHttpClient, useValue: { fetchFundingPayments } },
+        { provide: DAS_CLIENT, useValue: { fetchFundingPayments } },
         {
           provide: getRepositoryToken(DasFundingPayment),
           useValue: {

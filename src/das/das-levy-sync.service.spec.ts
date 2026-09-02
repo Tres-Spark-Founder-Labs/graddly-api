@@ -4,7 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 
-import { DasHttpClient } from './das-http.client.js';
+import { DAS_CLIENT } from './das-client.constants.js';
 import { DasLevyMonthlyService } from './das-levy-monthly.service.js';
 import { DasLevySyncService } from './das-levy-sync.service.js';
 import { DasLevyBalance } from './entities/das-levy-balance.entity.js';
@@ -25,7 +25,7 @@ describe('DasLevySyncService', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         DasLevySyncService,
-        { provide: DasHttpClient, useValue: { fetchLevyBalance } },
+        { provide: DAS_CLIENT, useValue: { fetchLevyBalance } },
         {
           provide: DasLevyMonthlyService,
           useValue: {

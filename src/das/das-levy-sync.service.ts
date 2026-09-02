@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -8,16 +9,19 @@ import { Repository } from 'typeorm';
 
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 
-import { DasHttpClient } from './das-http.client.js';
+import { DAS_CLIENT } from './das-client.constants.js';
 import { DasLevyMonthlyService } from './das-levy-monthly.service.js';
 import { DasLevyBalanceResponseDto } from './dto/das-levy-balance-response.dto.js';
 import { DasLevyBalance } from './entities/das-levy-balance.entity.js';
 import { DasSyncStatus } from './enums/das-sync-status.enum.js';
 
+import type { IDasClient } from './interfaces/das.client.interface.js';
+
 @Injectable()
 export class DasLevySyncService {
   constructor(
-    private readonly client: DasHttpClient,
+    @Inject(DAS_CLIENT)
+    private readonly client: IDasClient,
     private readonly monthlyService: DasLevyMonthlyService,
     @InjectRepository(DasLevyBalance)
     private readonly levyRepo: Repository<DasLevyBalance>,

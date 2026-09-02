@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AuthModule } from '../auth/auth.module.js';
@@ -7,11 +8,14 @@ import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
 
 import { DasApiActivityService } from './das-api-activity.service.js';
+import { DAS_CLIENT } from './das-client.constants.js';
+import { resolveDasClient } from './das-client.factory.js';
 import { DasFundingSyncService } from './das-funding-sync.service.js';
 import { DasHttpClient } from './das-http.client.js';
 import { DasLevyForecastService } from './das-levy-forecast.service.js';
 import { DasLevyMonthlyService } from './das-levy-monthly.service.js';
 import { DasLevySyncService } from './das-levy-sync.service.js';
+import { DasManualClient } from './das-manual.client.js';
 import { DasOAuthService } from './das-oauth.service.js';
 import { DasSyncDispatchService } from './das-sync-dispatch.service.js';
 import { DasSyncStatusService } from './das-sync-status.service.js';
@@ -39,6 +43,24 @@ import { DasLevyMonthlyEntry } from './entities/das-levy-monthly-entry.entity.js
   providers: [
     DasOAuthService,
     DasHttpClient,
+    DasManualClient,
+    /**
+     * Which DAS client the platform runs on.
+     *
+     * Same shape as `COMPANIES_HOUSE_CLIENT` in
+     * `flowportal-registration.module.ts`: an interface token, two
+     * implementations, and a factory that picks one from config.
+     *
+     * With no `DAS_BASE_URL` there is nothing to call, so the manual client
+     * serves figures an administrator entered instead. That is the difference
+     * between a deployment that works while ESFA access is being arranged and
+     * one that does not.
+     */
+    {
+      provide: DAS_CLIENT,
+      useFactory: resolveDasClient,
+      inject: [ConfigService, DasHttpClient, DasManualClient],
+    },
     DasLevyForecastService,
     DasLevyMonthlyService,
     DasLevySyncService,
@@ -50,7 +72,9 @@ import { DasLevyMonthlyEntry } from './entities/das-levy-monthly-entry.entity.js
   exports: [
     TypeOrmModule,
     DasOAuthService,
+    DAS_CLIENT,
     DasHttpClient,
+    DasManualClient,
     DasLevyForecastService,
     DasLevyMonthlyService,
     DasLevySyncService,

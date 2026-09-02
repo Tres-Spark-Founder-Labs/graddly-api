@@ -18,11 +18,41 @@
  *
  * ── SAFETY ──────────────────────────────────────────────────────────────────
  *
- * This script issues `DELETE FROM users` and eight other tables. Against
- * production it would destroy every real account, so it refuses to run unless
+ * This script wipes and rebuilds every table it owns. Against production it
+ * would destroy every real account, so it refuses to run unless
  * `SEED_ALLOW=yes`, the database **host** is local, and the database **name**
  * is one of the known dev names. See the guards in `main()` for why `NODE_ENV`
  * is not trusted here.
+ *
+ * ── WHAT IT SEEDS ───────────────────────────────────────────────────────────
+ *
+ * Core:
+ *   organisations, organisation_memberships, users, standards, programmes,
+ *   ksb_definitions, apprentices, enrolments, enrolment_ksb_coverage,
+ *   reviews, otj_log_entries
+ *
+ * Phase 1 demo data — enough to show every Must Have with no ESFA connection:
+ *   das_levy_balances          F1.1.1  entered manually, never synced
+ *   das_levy_monthly_entries   F1.1.3  twelve months for the chart
+ *   das_donor_links            F4.1.1  status `manual`; tranches hang off it
+ *   das_levy_tranches          F1.1.2  one expiring in 21 days, one in 61,
+ *                                      so the red and amber banners both fire
+ *   das_funding_payments       F1.1.5  six per employer, including a clawback
+ *   commitment_statements      F1.3.1  every board column, plus one awaiting
+ *   commitment_signatures      F1.3.2  each party's signature in turn
+ *   ks_evidence_items          F3.3.1  all four statuses
+ *   ks_evidence_ksb_mappings   F3.3.2  accepted counts of 0, 1 and 2+ so every
+ *                                      heatmap cell state is reachable
+ *   message_threads, messages  F3.4.2  tutor and line-manager threads, some
+ *   message_thread_reads               left unread
+ *   notifications              F3.4.3  one of every type, half unread
+ *   eif_score_snapshots        F2.1.1  12 months; first provider below 75% so
+ *                                      the sub-threshold banner is reachable
+ *   qip_actions                F2.1.2  including one overdue
+ *
+ * Nothing here is fetched from the ESFA. The levy figures are seed data marked
+ * `lastSyncStatus = manual`, which is what the sync card renders as "Manually
+ * entered" rather than claiming a sync that never happened.
  *
  * Build first — `tsx` cannot run it, because TypeORM entities need decorator
  * metadata that only `tsc` emits:
@@ -34,9 +64,31 @@ import * as bcrypt from 'bcrypt';
 
 import { Apprentice } from '../src/apprentices/entities/apprentice.entity.js';
 import { ApprenticeStatus } from '../src/apprentices/enums/apprentice-status.enum.js';
+import { CommitmentSignature } from '../src/commitments/entities/commitment-signature.entity.js';
+import { CommitmentStatementGroup } from '../src/commitments/entities/commitment-statement-group.entity.js';
+import { CommitmentStatement } from '../src/commitments/entities/commitment-statement.entity.js';
+import { CommitmentSignatureStatus } from '../src/commitments/enums/commitment-signature-status.enum.js';
+import { CommitmentStatementStatus } from '../src/commitments/enums/commitment-statement-status.enum.js';
 import AppDataSource from '../src/config/data-source.js';
+import { DasFundingPayment } from '../src/das/entities/das-funding-payment.entity.js';
+import { DasLevyBalance } from '../src/das/entities/das-levy-balance.entity.js';
+import { DasLevyMonthlyEntry } from '../src/das/entities/das-levy-monthly-entry.entity.js';
+import { DasSyncStatus } from '../src/das/enums/das-sync-status.enum.js';
 import { Enrolment } from '../src/enrolments/entities/enrolment.entity.js';
 import { EnrolmentStatus } from '../src/enrolments/enums/enrolment-status.enum.js';
+import { DasDonorLink } from '../src/levy-exchange/entities/das-donor-link.entity.js';
+import { DasLevyTranche } from '../src/levy-exchange/entities/das-levy-tranche.entity.js';
+import { DasDonorLinkStatus } from '../src/levy-exchange/enums/das-donor-link-status.enum.js';
+import { MessageThreadRead } from '../src/messaging/entities/message-thread-read.entity.js';
+import { MessageThread } from '../src/messaging/entities/message-thread.entity.js';
+import { Message } from '../src/messaging/entities/message.entity.js';
+import { MessageThreadParty } from '../src/messaging/enums/message-thread-party.enum.js';
+import { Notification } from '../src/notifications/entities/notification.entity.js';
+import { NotificationType } from '../src/notifications/enums/notification-type.enum.js';
+import { EifScoreSnapshot } from '../src/ofsted/entities/eif-score-snapshot.entity.js';
+import { QipAction } from '../src/ofsted/entities/qip-action.entity.js';
+import { EifRag } from '../src/ofsted/enums/eif-rag.enum.js';
+import { QipActionStatus } from '../src/ofsted/enums/qip-action-status.enum.js';
 import { OrganisationMembership } from '../src/organisations/entities/organisation-membership.entity.js';
 import { Organisation } from '../src/organisations/entities/organisation.entity.js';
 import { OrganisationRole } from '../src/organisations/organisation-role.enum.js';
@@ -44,12 +96,17 @@ import { PortalType } from '../src/organisations/portal-type.enum.js';
 import { OtjLogEntry } from '../src/otj/entities/otj-log-entry.entity.js';
 import { OtjActivityCategory } from '../src/otj/enums/otj-activity-category.enum.js';
 import { OtjLogStatus } from '../src/otj/enums/otj-log-status.enum.js';
+import { KsEvidenceItem } from '../src/portfolio/entities/ks-evidence-item.entity.js';
+import { KsEvidenceKsbMapping } from '../src/portfolio/entities/ks-evidence-ksb-mapping.entity.js';
 import { KsbDefinition } from '../src/portfolio/entities/ksb-definition.entity.js';
+import { KsEvidenceStatus } from '../src/portfolio/enums/ks-evidence-status.enum.js';
+import { KsEvidenceType } from '../src/portfolio/enums/ks-evidence-type.enum.js';
 import { KsbKind } from '../src/portfolio/enums/ksb-kind.enum.js';
 import { Programme } from '../src/programmes/entities/programme.entity.js';
 import { Standard } from '../src/programmes/entities/standard.entity.js';
 import { Review } from '../src/reviews/entities/review.entity.js';
 import { ReviewStatus } from '../src/reviews/enums/review-status.enum.js';
+import { TripartiteParty } from '../src/signing/tripartite-party.enum.js';
 import { User } from '../src/users/entities/user.entity.js';
 
 import type { EntityManager } from 'typeorm';
@@ -657,6 +714,25 @@ async function main() {
     // Wipe only what this script owns, children first.
     for (const table of [
       'audit_log_entries',
+      // Added with the Phase 1 demo data. Foreign-key triggers are suspended
+      // for this block, so order is not load-bearing — children are still
+      // listed first so the list reads correctly if that ever changes.
+      'message_thread_reads',
+      'messages',
+      'message_threads',
+      'notifications',
+      'ks_evidence_ksb_mappings',
+      'ks_evidence_items',
+      'commitment_signatures',
+      'commitment_statement_groups',
+      'commitment_statements',
+      'qip_actions',
+      'eif_score_snapshots',
+      'das_levy_tranches',
+      'das_donor_links',
+      'das_levy_monthly_entries',
+      'das_funding_payments',
+      'das_levy_balances',
       'otj_log_entries',
       'reviews',
       'enrolment_ksb_coverage',
@@ -778,6 +854,27 @@ async function main() {
     // Apprentices, enrolments, OTJ history, reviews.
     let otjCount = 0;
     let reviewCount = 0;
+
+    /**
+     * Everything the later sections need per learner.
+     *
+     * Commitment statements, evidence, messages and notifications all hang off
+     * an enrolment and its three parties, and all of them are seeded after this
+     * loop rather than inside it — keeping each concern in one readable block
+     * instead of a single loop that does nine things.
+     */
+    const learners: {
+      spec: (typeof APPRENTICES)[number];
+      user: User;
+      apprentice: Apprentice;
+      enrolment: Enrolment;
+      providerOrg: Organisation;
+      employerOrg: Organisation;
+      standard: Standard;
+      tutorUser: User;
+      managerUser: User;
+      startDate: Date;
+    }[] = [];
 
     for (const [index, a] of APPRENTICES.entries()) {
       const providerOrg = orgBySlug.get(a.provider)!;
@@ -952,7 +1049,770 @@ async function main() {
       }
       await m.save(reviews);
       reviewCount += reviews.length;
+
+      learners.push({
+        spec: a,
+        user,
+        apprentice,
+        enrolment,
+        providerOrg,
+        employerOrg,
+        standard,
+        tutorUser: userByEmail.get(
+          PROVIDERS.find((pr) => pr.slug === a.provider)!.contact.email,
+        )!,
+        managerUser: userByEmail.get(
+          EMPLOYERS.find((e) => e.slug === a.employer)!.contact.email,
+        )!,
+        startDate,
+      });
     }
+
+    /**
+     * ── DAS LEVY DATA (F1.1.1, F1.1.2, F1.1.3, F1.1.5) ──────────────────────
+     *
+     * Seeded as **manually entered**, not synced. There is no ESFA connection
+     * on a developer machine, and `lastSyncStatus = MANUAL` is what the sync
+     * card renders as "Manually entered" rather than a green "Synced" over
+     * figures this script invented.
+     *
+     * The tranche expiry dates are the point of this block. F1.1.2 has two
+     * banners — amber inside 90 days, red inside 30 — and neither is reachable
+     * without a tranche actually falling in each window, so the offsets below
+     * are chosen rather than random.
+     */
+    const now = new Date();
+    let levyBalanceCount = 0;
+    let trancheCount = 0;
+    let paymentCount = 0;
+
+    for (const [employerIndex, employerSpec] of EMPLOYERS.entries()) {
+      const employerOrg = orgBySlug.get(employerSpec.slug)!;
+      const rand = makeRandom(500 + employerIndex);
+
+      // A round-ish figure per employer, deterministic but not identical.
+      const balance = 40_000 + Math.floor(rand() * 60_000);
+
+      await m.save(
+        m.create(DasLevyBalance, {
+          organisationId: employerOrg.id,
+          ukprn: null,
+          accountId: `MANUAL-ACC-${employerIndex + 1}`,
+          balance: balance.toFixed(2),
+          currency: 'GBP',
+          lastSyncStatus: DasSyncStatus.MANUAL,
+          lastErrorMessage: null,
+          lastSyncedAt: now,
+          rawPayload: { source: 'seed', enteredBy: 'seed-test-data' },
+          utilisationSegments: null,
+        }),
+      );
+      levyBalanceCount += 1;
+
+      // F1.1.3 — twelve months of contributions and spend for the chart.
+      const monthly: DasLevyMonthlyEntry[] = [];
+      for (let i = 11; i >= 0; i--) {
+        const month = new Date(
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1),
+        );
+        const contributions = 3_000 + Math.floor(rand() * 2_000);
+        monthly.push(
+          m.create(DasLevyMonthlyEntry, {
+            organisationId: employerOrg.id,
+            month: iso(month).slice(0, 7) + '-01',
+            contributions: contributions.toFixed(2),
+            spend: Math.floor(contributions * (0.4 + rand() * 0.5)).toFixed(2),
+            currency: 'GBP',
+          }),
+        );
+      }
+      await m.save(monthly);
+
+      /**
+       * A donor link per employer, recorded as MANUAL rather than LINKED: no
+       * OAuth consent ever happened, and nothing should treat this as a live
+       * connection it can sync against. Tranches require one — `das_levy_tranches`
+       * is keyed on `donorLinkId` — so this row exists to hang them from as
+       * much as to demonstrate F4.1.1.
+       */
+      const donorLink = await m.save(
+        m.create(DasDonorLink, {
+          organisationId: employerOrg.id,
+          label: `${employerSpec.name} levy account`,
+          dasAccountId: `MANUAL-ACC-${employerIndex + 1}`,
+          ukprn: null,
+          status: DasDonorLinkStatus.MANUAL,
+          lastErrorMessage: null,
+          consentedAt: null,
+          lastSyncedAt: now,
+          lastBalance: balance.toFixed(2),
+          lastRawPayload: { source: 'seed' },
+        }),
+      );
+
+      /**
+       * Expiry offsets chosen so both F1.1.2 banners have something to fire on:
+       *
+       *   21 days  → inside the 30-day window, red
+       *   61 days  → inside the 90-day window, amber
+       *   240 days → outside both, so the "not at risk" case is represented too
+       *
+       * Funds expire 24 months after the month they were paid in, so a real
+       * account holds several tranches at different distances. Three is enough
+       * to render every state the banner can show.
+       */
+      const tranches: DasLevyTranche[] = [];
+      for (const [offsetDays, amount] of [
+        [21, 4_200],
+        [61, 7_800],
+        [240, 15_500],
+      ] as const) {
+        tranches.push(
+          m.create(DasLevyTranche, {
+            organisationId: employerOrg.id,
+            donorLinkId: donorLink.id,
+            amount: amount.toFixed(2),
+            expiresOn: iso(addDays(now, offsetDays)),
+            rawPayload: { source: 'seed' },
+          }),
+        );
+      }
+      await m.save(tranches);
+      trancheCount += tranches.length;
+
+      /**
+       * Funding payments, including one clawback. A clawback is a negative
+       * adjustment the ESFA makes when a learner withdraws early, and it reads
+       * very differently from an ordinary payment — the reporting screens have
+       * a branch for it that nothing would exercise without a row here.
+       */
+      const payments: DasFundingPayment[] = [];
+      for (let i = 0; i < 6; i++) {
+        const when = new Date(
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 15),
+        );
+        const isClawback = i === 2;
+        payments.push(
+          m.create(DasFundingPayment, {
+            organisationId: employerOrg.id,
+            enrolmentId: null,
+            paymentDate: iso(when),
+            amount: isClawback
+              ? (-1 * (600 + Math.floor(rand() * 400))).toFixed(2)
+              : (900 + Math.floor(rand() * 700)).toFixed(2),
+            currency: 'GBP',
+            fundingPeriod: `${when.getUTCFullYear()}-${String(
+              when.getUTCFullYear() + 1,
+            ).slice(2)}`,
+            clawbackNotice: isClawback
+              ? 'Learner withdrew before the qualifying period; monthly payment recovered.'
+              : null,
+            externalReference: `MANUAL-PAY-${employerIndex + 1}-${i + 1}`,
+            rawPayload: { source: 'seed' },
+            lastSyncedAt: now,
+          }),
+        );
+      }
+      await m.save(payments);
+      paymentCount += payments.length;
+    }
+
+    console.log(
+      `levy: ${levyBalanceCount} balances, ${trancheCount} tranches, ${paymentCount} payments`,
+    );
+
+    /**
+     * ── COMMITMENT STATEMENTS (F1.3.1, F1.3.2, F1.3.3, F3.4.1) ──────────────
+     *
+     * The F1.3.1 board groups statements by status, so every column needs a
+     * row or the board demonstrates nothing. Signing order is
+     * COMMITMENT_SIGNING_ORDER — tutor, then employer manager, then apprentice
+     * — and the partially-signed rows stop at a different point each time so
+     * that "awaiting X" exists for each of the three parties.
+     */
+    const COMMITMENT_PLAN: {
+      status: CommitmentStatementStatus;
+      signedUpTo: number; // how many parties in signing order have signed
+      note: string;
+    }[] = [
+      { status: CommitmentStatementStatus.DRAFT, signedUpTo: 0, note: 'draft' },
+      {
+        status: CommitmentStatementStatus.SUBMITTED,
+        signedUpTo: 0,
+        note: 'submitted',
+      },
+      {
+        status: CommitmentStatementStatus.AWAITING_SIGNATURES,
+        signedUpTo: 0,
+        note: 'awaiting tutor',
+      },
+      {
+        status: CommitmentStatementStatus.AWAITING_SIGNATURES,
+        signedUpTo: 1,
+        note: 'awaiting employer',
+      },
+      {
+        status: CommitmentStatementStatus.AWAITING_SIGNATURES,
+        signedUpTo: 2,
+        note: 'awaiting apprentice',
+      },
+      {
+        status: CommitmentStatementStatus.SIGNED,
+        signedUpTo: 3,
+        note: 'fully signed',
+      },
+      {
+        status: CommitmentStatementStatus.CANCELLED,
+        signedUpTo: 1,
+        note: 'cancelled',
+      },
+    ];
+
+    let commitmentCount = 0;
+    let signatureCount = 0;
+
+    for (const [i, plan] of COMMITMENT_PLAN.entries()) {
+      const learner = learners[i % learners.length];
+
+      const group = await m.save(
+        m.create(CommitmentStatementGroup, {
+          organisationId: learner.providerOrg.id,
+          enrolmentId: learner.enrolment.id,
+          apprenticeId: learner.apprentice.id,
+          currentVersionId: null,
+        }),
+      );
+
+      const statement = await m.save(
+        m.create(CommitmentStatement, {
+          organisationId: learner.providerOrg.id,
+          groupId: group.id,
+          version: 1,
+          status: plan.status,
+          /**
+           * Structured, not prose — the API stores this as JSON and each portal
+           * renders it. The apprentice screen composes its plain-English
+           * summary from these named fields (F3.4.1 AC1), so they carry real
+           * sentences rather than lorem text.
+           */
+          content: {
+            trainingPlanSummary: `${learner.spec.first} is training towards ${learner.standard.title} over ${STANDARDS.find((s) => s.code === learner.spec.standard)!.months} months.`,
+            apprenticeCommitments:
+              'Attend all scheduled training. Log off-the-job hours weekly. Bring evidence to each review.',
+            employerCommitments:
+              'Provide at least 6 hours a week for off-the-job training, a workplace mentor, and release for reviews.',
+            providerCommitments:
+              'Deliver the training plan, assess evidence within 10 working days, and hold a progress review every 12 weeks.',
+            weeklyHours: 6,
+            additionalTerms:
+              'Travel to the training centre is reimbursed monthly.',
+          },
+          apprenticeUserId: learner.user.id,
+          tutorUserId: learner.tutorUser.id,
+          employerManagerUserId: learner.managerUser.id,
+          snapshotPdfJobId: null,
+          finalSignedPdfKey:
+            plan.status === CommitmentStatementStatus.SIGNED
+              ? `orgs/${learner.providerOrg.id}/commitments/seed-signed-${i + 1}.pdf`
+              : null,
+          publishedAt:
+            plan.status === CommitmentStatementStatus.DRAFT
+              ? null
+              : addDays(learner.startDate, 7),
+          publishedByUserId:
+            plan.status === CommitmentStatementStatus.DRAFT
+              ? null
+              : learner.tutorUser.id,
+          supersededAt: null,
+        }),
+      );
+
+      group.currentVersionId = statement.id;
+      await m.save(group);
+      commitmentCount += 1;
+
+      // Signing order: tutor -> employer manager -> apprentice.
+      const parties: [TripartiteParty, string][] = [
+        [TripartiteParty.TUTOR, learner.tutorUser.id],
+        [TripartiteParty.EMPLOYER_MANAGER, learner.managerUser.id],
+        [TripartiteParty.APPRENTICE, learner.user.id],
+      ];
+
+      const signatures = parties.map(([party, signerUserId], order) =>
+        m.create(CommitmentSignature, {
+          organisationId: learner.providerOrg.id,
+          statementId: statement.id,
+          party,
+          signOrder: order + 1,
+          signerUserId,
+          status:
+            order < plan.signedUpTo
+              ? CommitmentSignatureStatus.SIGNED
+              : CommitmentSignatureStatus.PENDING,
+          signatureRecordId: null,
+        }),
+      );
+      await m.save(signatures);
+      signatureCount += signatures.length;
+    }
+
+    console.log(
+      `commitments: ${commitmentCount} statements, ${signatureCount} signatures`,
+    );
+
+    /**
+     * ── KSB EVIDENCE (F3.3.1, F3.3.2) ───────────────────────────────────────
+     *
+     * The heatmap counts **accepted** evidence per KSB and buckets it: 0 is
+     * `none`, 1 is `low`, 2 or more is `adequate`
+     * (`portfolio-heatmap.service.ts:160`, `HEATMAP_STRENGTH_ADEQUATE_MIN = 2`).
+     * The cell colour then combines that strength with the tutor's coverage
+     * assessment, which the existing `enrolment_ksb_coverage` seeding supplies.
+     *
+     * Rather than guess which combination produces which colour, this seeds
+     * every combination: accepted counts of 0, 1 and 2+ across KSBs that are
+     * assessed sufficient, needs-more and not assessed at all. Whatever the
+     * five colours map to, all five are reachable.
+     *
+     * Items in draft, submitted and reviewed states are seeded too — they do
+     * not count towards the heatmap, which is the point: they exercise the
+     * evidence list and the tutor's review queue without moving a cell.
+     */
+    let evidenceCount = 0;
+    let mappingCount = 0;
+
+    for (const [learnerIndex, learner] of learners.entries()) {
+      if (learner.spec.status === 'cancelled') continue;
+
+      const ksbs = await m.find(KsbDefinition, {
+        where: { standardId: learner.standard.id },
+        order: { sortOrder: 'ASC' },
+      });
+      if (ksbs.length === 0) continue;
+
+      const rand = makeRandom(900 + learnerIndex);
+      const items: { item: KsEvidenceItem; ksbIndexes: number[] }[] = [];
+
+      const push = (
+        status: KsEvidenceStatus,
+        title: string,
+        ksbIndexes: number[],
+      ) => {
+        const when = addDays(learner.startDate, 30 + items.length * 11);
+        const submitted = status !== KsEvidenceStatus.DRAFT;
+        const reviewed =
+          status === KsEvidenceStatus.REVIEWED ||
+          status === KsEvidenceStatus.ACCEPTED;
+        const accepted = status === KsEvidenceStatus.ACCEPTED;
+
+        items.push({
+          item: m.create(KsEvidenceItem, {
+            organisationId: learner.providerOrg.id,
+            enrolmentId: learner.enrolment.id,
+            apprenticeId: learner.apprentice.id,
+            type: KsEvidenceType.TEXT,
+            title,
+            body: `${title}. Written up by ${learner.spec.first} against the standard.`,
+            storageKey: null,
+            externalUrl: null,
+            status,
+            submittedAt: submitted ? when : null,
+            submittedByUserId: submitted ? learner.user.id : null,
+            reviewedAt: reviewed ? addDays(when, 3) : null,
+            reviewedByUserId: reviewed ? learner.tutorUser.id : null,
+            acceptedAt: accepted ? addDays(when, 4) : null,
+            acceptedByUserId: accepted ? learner.tutorUser.id : null,
+            returnedAt: null,
+            returnedByUserId: null,
+            returnReason: null,
+          }),
+          ksbIndexes,
+        });
+      };
+
+      /**
+       * KSB 0 gets two accepted items  -> strength `adequate`
+       * KSB 1 gets one accepted item   -> strength `low`
+       * KSB 2 gets none                -> strength `none`
+       * and the three non-accepted statuses land on KSB 3, which therefore
+       * stays `none` despite having evidence attached — the case that catches
+       * a heatmap counting submissions instead of acceptances.
+       */
+      push(KsEvidenceStatus.ACCEPTED, 'Sprint retrospective write-up', [0]);
+      push(KsEvidenceStatus.ACCEPTED, 'Incident postmortem contribution', [0]);
+      push(KsEvidenceStatus.ACCEPTED, 'Automated test suite walkthrough', [1]);
+      push(KsEvidenceStatus.REVIEWED, 'Code review notes', [3]);
+      push(KsEvidenceStatus.SUBMITTED, 'Deployment runbook draft', [3]);
+      push(KsEvidenceStatus.DRAFT, 'Notes towards a design document', [3]);
+
+      // A couple more accepted items spread across the rest, so a real portfolio
+      // is not four KSBs wide.
+      for (let k = 4; k < Math.min(ksbs.length, 12); k += 2) {
+        push(KsEvidenceStatus.ACCEPTED, `Evidence against ${ksbs[k].code}`, [
+          k,
+        ]);
+        if (rand() > 0.5) {
+          push(
+            KsEvidenceStatus.ACCEPTED,
+            `Second evidence against ${ksbs[k].code}`,
+            [k],
+          );
+        }
+      }
+
+      const savedItems = await m.save(items.map((row) => row.item));
+      evidenceCount += savedItems.length;
+
+      const mappings: KsEvidenceKsbMapping[] = [];
+      savedItems.forEach((saved, idx) => {
+        for (const ksbIndex of items[idx].ksbIndexes) {
+          const ksb = ksbs[ksbIndex];
+          if (!ksb) continue;
+          mappings.push(
+            m.create(KsEvidenceKsbMapping, {
+              organisationId: learner.providerOrg.id,
+              evidenceItemId: saved.id,
+              ksbDefinitionId: ksb.id,
+            }),
+          );
+        }
+      });
+      await m.save(mappings);
+      mappingCount += mappings.length;
+    }
+
+    console.log(
+      `evidence: ${evidenceCount} items, ${mappingCount} KSB mappings`,
+    );
+
+    /**
+     * ── MESSAGING (F3.4.2) ──────────────────────────────────────────────────
+     *
+     * Two threads per learner, because a thread is keyed on the counterparty
+     * and the apprentice talks to both a tutor and a line manager. Unread is
+     * expressed by the *absence or staleness* of a `message_thread_reads` row
+     * rather than a flag, so some threads deliberately have no read marker for
+     * the apprentice — that is what makes the unread badge non-zero.
+     */
+    let threadCount = 0;
+    let messageCount = 0;
+
+    for (const [learnerIndex, learner] of learners.entries()) {
+      if (learner.spec.status === 'cancelled') continue;
+
+      for (const [party, counterparty] of [
+        [MessageThreadParty.TUTOR, learner.tutorUser],
+        [MessageThreadParty.EMPLOYER_MANAGER, learner.managerUser],
+      ] as const) {
+        const thread = await m.save(
+          m.create(MessageThread, {
+            organisationId: learner.providerOrg.id,
+            enrolmentId: learner.enrolment.id,
+            apprenticeId: learner.apprentice.id,
+            counterpartyParty: party,
+            apprenticeUserId: learner.user.id,
+            counterpartyUserId: counterparty.id,
+            archivedAt: null,
+          }),
+        );
+        threadCount += 1;
+
+        const base = addDays(now, -14 + learnerIndex);
+        const script: [string, string][] =
+          party === MessageThreadParty.TUTOR
+            ? [
+                [
+                  counterparty.id,
+                  'How are you getting on with the off-the-job log this month?',
+                ],
+                [
+                  learner.user.id,
+                  'Behind by a couple of hours. Catching up on Friday.',
+                ],
+                [
+                  counterparty.id,
+                  'No problem. Bring the evidence to the next review.',
+                ],
+              ]
+            : [
+                [
+                  counterparty.id,
+                  'Reminder that your review is scheduled for next week.',
+                ],
+                [learner.user.id, 'Thanks, it is in my calendar.'],
+              ];
+
+        const messages = script.map(([senderUserId, body], i) =>
+          m.create(Message, {
+            organisationId: learner.providerOrg.id,
+            threadId: thread.id,
+            senderUserId,
+            body,
+          }),
+        );
+        const savedMessages = await m.save(messages);
+        messageCount += savedMessages.length;
+
+        /**
+         * Every other tutor thread is left with no read marker for the
+         * apprentice, so the unread count is genuinely non-zero rather than a
+         * number that is always the same.
+         */
+        const leaveUnread =
+          party === MessageThreadParty.TUTOR && learnerIndex % 2 === 0;
+        if (!leaveUnread) {
+          await m.save(
+            m.create(MessageThreadRead, {
+              organisationId: learner.providerOrg.id,
+              threadId: thread.id,
+              userId: learner.user.id,
+              lastReadAt: addDays(base, 1),
+            }),
+          );
+        }
+        // The counterparty has always read their own thread.
+        await m.save(
+          m.create(MessageThreadRead, {
+            organisationId: learner.providerOrg.id,
+            threadId: thread.id,
+            userId: counterparty.id,
+            lastReadAt: addDays(base, 1),
+          }),
+        );
+      }
+    }
+
+    console.log(`messaging: ${threadCount} threads, ${messageCount} messages`);
+
+    /**
+     * ── NOTIFICATIONS (F3.4.3) ──────────────────────────────────────────────
+     *
+     * One of every `NotificationType`, so the centre's filters and type icons
+     * all have something to show, with roughly half left unread.
+     *
+     * Filed against the recipient's **own** organisation. `listForUser` filters
+     * by the reader's active organisation, so a notification written under the
+     * wrong tenant is invisible forever — the defect that made
+     * `app_create_notification` necessary.
+     */
+    const NOTIFICATION_COPY: Record<NotificationType, [string, string]> = {
+      [NotificationType.SYSTEM]: [
+        'Scheduled maintenance',
+        'Gradlly will be briefly unavailable on Sunday at 02:00.',
+      ],
+      [NotificationType.GENERIC]: [
+        'Welcome to Gradlly',
+        'Your account is ready. Take a look around.',
+      ],
+      [NotificationType.INVITATION]: [
+        'You have been invited',
+        'Your training provider has invited you to a programme.',
+      ],
+      [NotificationType.OTJ]: [
+        'Off-the-job log approved',
+        'Your entry for last week was approved.',
+      ],
+      [NotificationType.REVIEW]: [
+        'Review scheduled',
+        'Your next 12-weekly review is booked for next Tuesday.',
+      ],
+      [NotificationType.COMMITMENT]: [
+        'Commitment statement ready to sign',
+        'Your employer has signed. It is your turn.',
+      ],
+      [NotificationType.PORTFOLIO]: [
+        'Evidence accepted',
+        'Your tutor accepted "Sprint retrospective write-up".',
+      ],
+      [NotificationType.ILR_SUBMISSION_SUCCEEDED]: [
+        'ILR submitted',
+        'The ILR return was accepted by the ESFA.',
+      ],
+      [NotificationType.ILR_SUBMISSION_FAILED]: [
+        'ILR submission failed',
+        'The ESFA rejected the return. Check the validation errors.',
+      ],
+      [NotificationType.LEVY_EXPIRY_90]: [
+        'Levy funds expiring in 90 days',
+        '£7,800 of your levy expires within 90 days.',
+      ],
+      [NotificationType.LEVY_EXPIRY_30]: [
+        'Levy funds expiring in 30 days',
+        '£4,200 of your levy expires within 30 days.',
+      ],
+      [NotificationType.MESSAGE]: [
+        'New message',
+        'Your tutor sent you a message.',
+      ],
+      [NotificationType.CASELOAD_AT_RISK]: [
+        'Caseload above threshold',
+        'Four of your learners are flagged at risk.',
+      ],
+    };
+
+    const notifications: Notification[] = [];
+    const notificationTypes = Object.values(NotificationType);
+
+    notificationTypes.forEach((type, i) => {
+      const learner = learners[i % learners.length];
+      // Levy and ILR notifications belong to the people who act on them.
+      const toEmployer =
+        type === NotificationType.LEVY_EXPIRY_30 ||
+        type === NotificationType.LEVY_EXPIRY_90;
+      const toTutor =
+        type === NotificationType.ILR_SUBMISSION_SUCCEEDED ||
+        type === NotificationType.ILR_SUBMISSION_FAILED ||
+        type === NotificationType.CASELOAD_AT_RISK;
+
+      const recipient = toEmployer
+        ? learner.managerUser
+        : toTutor
+          ? learner.tutorUser
+          : learner.user;
+      const organisationId = toEmployer
+        ? learner.employerOrg.id
+        : learner.providerOrg.id;
+
+      const [title, body] = NOTIFICATION_COPY[type];
+      notifications.push(
+        m.create(Notification, {
+          userId: recipient.id,
+          organisationId,
+          type,
+          title,
+          body,
+          readAt: i % 2 === 0 ? null : addDays(now, -2),
+          metadata: { source: 'seed' },
+        }),
+      );
+    });
+    await m.save(notifications);
+    console.log(
+      `notifications: ${notifications.length} (one per type, half unread)`,
+    );
+
+    /**
+     * ── OFSTED / EIF (F2.1.1, F2.1.2) ───────────────────────────────────────
+     *
+     * The overall percentage is deliberately below 75 for the first provider.
+     * F2.1.1 shows a warning banner under that threshold, and a seed where
+     * every provider is comfortably green leaves that banner unreachable.
+     *
+     * Twelve monthly snapshots per provider give the trend chart something to
+     * plot; the criteria breakdown carries a red, an amber and a green so the
+     * per-criterion RAG rendering is exercised in one screen.
+     */
+    const EIF_CRITERIA: { slug: string; label: string }[] = [
+      { slug: 'quality-of-education', label: 'Quality of education' },
+      { slug: 'behaviour-and-attitudes', label: 'Behaviour and attitudes' },
+      { slug: 'personal-development', label: 'Personal development' },
+      { slug: 'leadership-and-management', label: 'Leadership and management' },
+    ];
+
+    const ragFor = (percent: number): EifRag =>
+      percent >= 75 ? EifRag.GREEN : percent >= 60 ? EifRag.AMBER : EifRag.RED;
+
+    let snapshotCount = 0;
+    let qipCount = 0;
+
+    for (const [providerIndex, providerSpec] of PROVIDERS.entries()) {
+      const providerOrg = orgBySlug.get(providerSpec.slug)!;
+      const rand = makeRandom(700 + providerIndex);
+      const tutor = userByEmail.get(providerSpec.contact.email)!;
+
+      // First provider sits under 75 so the sub-threshold banner is reachable.
+      const target = providerIndex === 0 ? 68 : 81;
+
+      const snapshots: EifScoreSnapshot[] = [];
+      for (let i = 11; i >= 0; i--) {
+        const capturedOn = new Date(
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1),
+        );
+        // Drift towards the target so the trend line moves rather than sits flat.
+        const overall = Math.round(target - i * 0.8 + rand() * 4 - 2);
+        snapshots.push(
+          m.create(EifScoreSnapshot, {
+            organisationId: providerOrg.id,
+            capturedOn: iso(capturedOn),
+            overallPercent: overall,
+            overallRag: ragFor(overall),
+            criteria: EIF_CRITERIA.map((c, idx) => {
+              const percent = Math.max(
+                35,
+                Math.min(
+                  96,
+                  overall + (idx - 1) * 9 + Math.round(rand() * 6 - 3),
+                ),
+              );
+              return {
+                slug: c.slug,
+                label: c.label,
+                percent,
+                rag: ragFor(percent),
+              };
+            }),
+          }),
+        );
+      }
+      await m.save(snapshots);
+      snapshotCount += snapshots.length;
+
+      /**
+       * QIP actions, one of them overdue.
+       *
+       * "Overdue" here is a target date in the past on an action that is not
+       * completed — the Ofsted hub highlights those, and without one the
+       * overdue branch never renders.
+       */
+      const qips: QipAction[] = [];
+      const qipPlan: [string, number, QipActionStatus][] = [
+        [
+          'Improve initial assessment consistency',
+          -21,
+          QipActionStatus.IN_PROGRESS,
+        ],
+        [
+          'Refresh safeguarding training for all tutors',
+          30,
+          QipActionStatus.NOT_STARTED,
+        ],
+        [
+          'Standardise feedback turnaround to 10 working days',
+          62,
+          QipActionStatus.IN_PROGRESS,
+        ],
+        [
+          'Publish revised curriculum intent statement',
+          -60,
+          QipActionStatus.COMPLETED,
+        ],
+      ];
+
+      qipPlan.forEach(([title, offsetDays, status], idx) => {
+        qips.push(
+          m.create(QipAction, {
+            organisationId: providerOrg.id,
+            title,
+            description: `Raised from the ${EIF_CRITERIA[idx % EIF_CRITERIA.length].label} review.`,
+            assignedOwnerUserId: tutor.id,
+            targetCompletionDate: iso(addDays(now, offsetDays)),
+            eifCriterionSlug: EIF_CRITERIA[idx % EIF_CRITERIA.length].slug,
+            evidenceNotes:
+              status === QipActionStatus.COMPLETED
+                ? 'Signed off at the September quality board.'
+                : null,
+            evidenceAttachmentKeys: null,
+            status,
+          }),
+        );
+      });
+      await m.save(qips);
+      qipCount += qips.length;
+    }
+
+    console.log(
+      `ofsted: ${snapshotCount} EIF snapshots, ${qipCount} QIP actions`,
+    );
 
     console.log(`apprentices: ${APPRENTICES.length}`);
     console.log(`otj entries: ${otjCount}`);
@@ -960,6 +1820,47 @@ async function main() {
   });
 
   await ds.destroy();
+
+  /**
+   * Logins, printed because a seeded database nobody can sign into is not much
+   * use. These are development credentials for a database the guards above have
+   * already established is local.
+   */
+  console.log('\n─── logins ' + '─'.repeat(56));
+  console.log('\nEmployer portal (localhost:3002)');
+  for (const e of EMPLOYERS) {
+    console.log(
+      `  ${e.contact.email.padEnd(38)} ${e.contact.password.padEnd(22)} ${e.name}`,
+    );
+  }
+  console.log('\nProvider portal (localhost:3004)');
+  for (const pr of PROVIDERS) {
+    console.log(
+      `  ${pr.contact.email.padEnd(38)} ${pr.contact.password.padEnd(22)} ${pr.name}`,
+    );
+  }
+  console.log('\nApprentice portal (localhost:3001)');
+  for (const a of APPRENTICES) {
+    console.log(
+      `  ${a.email.padEnd(38)} ${a.password.padEnd(22)} ${a.first} ${a.last} — ${a.note ?? a.status}`,
+    );
+  }
+
+  console.log('\n─── what to look at ' + '─'.repeat(48));
+  console.log(
+    [
+      '  F1.1.2  employer / — amber and red levy expiry banners (21 and 61 days)',
+      '  F1.1.3  employer /analytics — twelve months of contributions and spend',
+      '  F1.1.5  employer /reports — funding payments including a clawback',
+      '  F1.3.1  employer /commitments — every column, one awaiting each party',
+      '  F3.3.2  apprentice /portfolio — heatmap cells in every state',
+      '  F3.4.2  apprentice /messages — unread threads',
+      '  F3.4.3  apprentice /settings — one notification of every type',
+      '  F2.1.1  provider /ofsted-hub — first provider sits below 75%',
+      '  F2.1.2  provider /ofsted-hub — one overdue QIP action',
+    ].join('\n'),
+  );
+
   console.log('\nseed complete');
 }
 

@@ -18,7 +18,9 @@ const compat = new FlatCompat({
 
 export default defineConfig(
   {
-    ignores: ['eslint.config.mjs', 'dist/**'],
+    // Config files sit outside the tsconfig project, so the type-aware rules
+    // cannot parse them. Same reason eslint.config.mjs was already here.
+    ignores: ['eslint.config.mjs', 'lint-staged.config.js', 'dist/**'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,

@@ -1,9 +1,12 @@
 import { Apprentice } from '../apprentices/entities/apprentice.entity.js';
+import { CommitmentChaseDispatch } from '../commitments/entities/commitment-chase-dispatch.entity.js';
 import { CommitmentSignature } from '../commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatementGroup } from '../commitments/entities/commitment-statement-group.entity.js';
 import { CommitmentStatement } from '../commitments/entities/commitment-statement.entity.js';
 import { EnrolmentCompletionPush } from '../completion-push/entities/enrolment-completion-push.entity.js';
+import { DasFundingPayment } from '../das/entities/das-funding-payment.entity.js';
 import { DasLevyBalance } from '../das/entities/das-levy-balance.entity.js';
+import { DasLevyMonthlyEntry } from '../das/entities/das-levy-monthly-entry.entity.js';
 import { EnrolmentSubmissionPush } from '../enrolment-push/entities/enrolment-submission-push.entity.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EpaOutcomeRecord } from '../enrolments/entities/epa-outcome.entity.js';
@@ -121,6 +124,7 @@ export function resolveAuditOrganisationId(
   }
 
   if (
+    entityType === 'programmes' ||
     entityType === 'standards' ||
     entityType === 'apprentices' ||
     entityType === 'enrolments' ||
@@ -178,6 +182,12 @@ export function isAuditedEntity(entity: unknown): boolean {
     ctor === Apprentice ||
     ctor === Enrolment ||
     ctor === DasLevyBalance ||
+    // Both carry manually-entered figures once DAS runs in manual mode, so the
+    // trail has to name who typed them. Their table names were already in the
+    // organisation resolver above; only this predicate was missing them, which
+    // meant the rows were written and never audited.
+    ctor === DasLevyMonthlyEntry ||
+    ctor === DasFundingPayment ||
     ctor === DasDonorLink ||
     ctor === DasDonorOAuthToken ||
     ctor === DasLevyTranche ||
@@ -201,6 +211,7 @@ export function isAuditedEntity(entity: unknown): boolean {
     ctor === CommitmentStatementGroup ||
     ctor === CommitmentStatement ||
     ctor === CommitmentSignature ||
+    ctor === CommitmentChaseDispatch ||
     ctor === KsbDefinition ||
     ctor === KsEvidenceItem ||
     ctor === KsEvidenceKsbMapping ||

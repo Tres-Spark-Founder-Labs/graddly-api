@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -61,7 +62,6 @@ function resolverTables(): string[] {
  * tree for the class declaration and taking its decorator argument.
  */
 function tableForClass(className: string): string | null {
-  const { execSync } = require('node:child_process') as typeof import('node:child_process');
   let out = '';
   try {
     out = execSync(

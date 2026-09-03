@@ -1,11 +1,13 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Job, Queue } from 'bullmq';
 
 import {
   setCurrentOrganisationId,
   setCurrentUserId,
 } from '../../common/context/correlation-id-context.js';
+import { isDasManualMode } from '../../das/das-client.factory.js';
 import { DAS_DLQ_JOB_DEAD_LETTER } from '../../das/das-dlq.constants.js';
 import { DasFundingSyncService } from '../../das/das-funding-sync.service.js';
 import {
@@ -26,6 +28,7 @@ export class DasSyncProcessor extends WorkerHost {
     private readonly dasSyncService: DasLevySyncService,
     private readonly fundingSyncService: DasFundingSyncService,
     @InjectQueue(QUEUE_DAS_SYNC_DLQ) private readonly dlqQueue: Queue,
+    private readonly config: ConfigService,
   ) {
     super();
   }
@@ -37,6 +40,31 @@ export class DasSyncProcessor extends WorkerHost {
     ) {
       this.logger.warn(
         `Unknown job name "${job.name}" on ${QUEUE_DAS_SYNC} queue (job ${job.id})`,
+      );
+      return;
+    }
+
+    /**
+     * Nothing to sync when the platform is running on manually-entered
+     * figures, so the job is skipped rather than attempted.
+     *
+     * The 409 on `POST /das/sync` does not cover this path.
+     * `das-sync-cron.service.ts` and `das-funding-sync-cron.service.ts` both
+     * reach `syncOrganisation` through `DasSyncDispatchService`, which enqueues
+     * straight onto this queue — the controller is never involved. Without a
+     * guard here the cron would run every night against `DasManualClient`, and
+     * `das-levy-sync.service.ts` would stamp `lastSyncStatus = SUCCESS` with a
+     * fresh `lastSyncedAt` over figures a person typed weeks ago.
+     *
+     * Skipped, not thrown. The catch below routes terminal failures to
+     * `QUEUE_DAS_SYNC_DLQ`, so raising here would fill the dead letter queue
+     * with jobs that were refused correctly — turning an expected state into an
+     * operational alert somebody has to clear.
+     */
+    if (isDasManualMode(this.config)) {
+      this.logger.log(
+        `Skipping ${job.name} for organisation ${job.data.organisationId}: ` +
+          'DAS is in manual mode, so there is nothing to sync.',
       );
       return;
     }

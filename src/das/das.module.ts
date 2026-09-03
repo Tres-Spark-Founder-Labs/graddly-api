@@ -4,6 +4,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AuthModule } from '../auth/auth.module.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
+import { IlrSubmission } from '../ilr/entities/ilr-submission.entity.js';
+import { DasDonorLink } from '../levy-exchange/entities/das-donor-link.entity.js';
+import { DasLevyTranche } from '../levy-exchange/entities/das-levy-tranche.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
 
@@ -16,6 +19,8 @@ import { DasLevyForecastService } from './das-levy-forecast.service.js';
 import { DasLevyMonthlyService } from './das-levy-monthly.service.js';
 import { DasLevySyncService } from './das-levy-sync.service.js';
 import { DasManualClient } from './das-manual.client.js';
+import { DasManualController } from './das-manual.controller.js';
+import { DasManualService } from './das-manual.service.js';
 import { DasOAuthService } from './das-oauth.service.js';
 import { DasSyncDispatchService } from './das-sync-dispatch.service.js';
 import { DasSyncStatusService } from './das-sync-status.service.js';
@@ -37,13 +42,19 @@ import { DasLevyMonthlyEntry } from './entities/das-levy-monthly-entry.entity.js
       Organisation,
       Enrolment,
       Standard,
+      // Manual entry writes across module boundaries: tranches and donor links
+      // live in levy-exchange, the ILR receipt in ilr.
+      DasDonorLink,
+      DasLevyTranche,
+      IlrSubmission,
     ]),
   ],
-  controllers: [DasController],
+  controllers: [DasController, DasManualController],
   providers: [
     DasOAuthService,
     DasHttpClient,
     DasManualClient,
+    DasManualService,
     /**
      * Which DAS client the platform runs on.
      *

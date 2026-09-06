@@ -126,7 +126,7 @@ export class DasManualClient implements IDasClient {
     if (filtered.length === 0) {
       throw new DasManualDataMissingException(
         'funding payment',
-        'Enter payments under Settings → Levy data.',
+        'Enter payments under Levy & Finance → Levy data.',
         ukprn,
       );
     }

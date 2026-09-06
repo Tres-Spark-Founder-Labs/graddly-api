@@ -1,9 +1,19 @@
-import { Body, Controller, Get, Post, Put, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  ParseUUIDPipe,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 
@@ -235,5 +245,90 @@ export class DasManualController {
       status: l.status,
       lastBalance: l.lastBalance,
     }));
+  }
+  /*
+   * ── THE READ ENDPOINTS BELOW EXIST TO MAKE A ROUND TRIP SAFE ──────────────
+   *
+   * The forms pre-populate from current values, because a blank form plus a
+   * replace-all write is a trap: an operator correcting one month would wipe
+   * the other eleven.
+   *
+   * Pre-populating from the DISPLAY endpoints is a subtler version of the same
+   * trap. Those DTOs are shaped for charts — they type money as `number` and
+   * `/reporting/levy-utilisation` carries no `currency` field at all. Load a
+   * form from one, save without changing anything, and the stored rows are
+   * overwritten with the lossy view. It looks like a successful no-op. It is
+   * not one.
+   *
+   * So these return the stored rows verbatim, money as the strings Postgres
+   * gives back for `numeric(14,2)`. Duplicating a read is much the cheaper
+   * problem. `GET /das/levy-balance` is NOT duplicated here: it already keeps
+   * `balance` as a string and carries every field the balance form writes, so
+   * its round trip is clean and a second source for the same figure would only
+   * create ambiguity about which is canonical.
+   *
+   * `das-manual.roundtrip.spec.ts` asserts the property directly, per form.
+   */
+
+  @Get('levy-monthly')
+  @ResponseMessage('Monthly levy entries retrieved successfully')
+  @ApiOperation({
+    summary: 'The stored monthly levy rows, verbatim',
+    description:
+      'Populates the monthly form. Separate from /reporting/levy-utilisation, ' +
+      'which types contributions and spend as numbers and omits currency ' +
+      'entirely — saving that view back would silently reset every currency.',
+  })
+  @ApiOkResponse({ description: 'Stored monthly rows, money as strings' })
+  async listMonthly(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<
+    { month: string; contributions: string; spend: string; currency: string }[]
+  > {
+    return this.service.listMonthlyEntries(user.organisationId!);
+  }
+
+  @Get('levy-tranches')
+  @ResponseMessage('Levy tranches retrieved successfully')
+  @ApiOperation({
+    summary: 'The stored tranche rows for one DAS account, verbatim',
+    description:
+      'Populates the tranche form. /levy-exchange/surplus/expiry-calendar is a ' +
+      '24-month projection derived from these rows rather than the rows ' +
+      'themselves, so it carries neither row identity nor donorLinkId.',
+  })
+  @ApiQuery({
+    name: 'donorLinkId',
+    required: true,
+    description: 'The DAS account whose tranches to return.',
+  })
+  @ApiOkResponse({ description: 'Stored tranches, amounts as strings' })
+  async listTranches(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('donorLinkId', ParseUUIDPipe) donorLinkId: string,
+  ): Promise<{ amount: string; expiresOn: string }[]> {
+    return this.service.listTranches(user.organisationId!, donorLinkId);
+  }
+
+  @Get('funding-payments')
+  @ResponseMessage('Funding payments retrieved successfully')
+  @ApiOperation({
+    summary: 'The stored funding payments, verbatim',
+    description:
+      'Populates the payment form when an operator opens an existing payment ' +
+      'to correct it. The display DTO types amount as a number.',
+  })
+  @ApiOkResponse({ description: 'Stored payments, amounts as strings' })
+  async listFundingPayments(@CurrentUser() user: AuthenticatedUser): Promise<
+    {
+      externalReference: string;
+      paymentDate: string;
+      amount: string;
+      currency: string;
+      fundingPeriod: string | null;
+      clawbackNotice: string | null;
+    }[]
+  > {
+    return this.service.listFundingPayments(user.organisationId!);
   }
 }

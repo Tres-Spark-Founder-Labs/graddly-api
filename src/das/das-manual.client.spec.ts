@@ -106,7 +106,7 @@ describe('DasManualClient', () => {
       // This message reaches an administrator through lastErrorMessage on the
       // sync-status card, so it has to say what to do.
       await expect(client.fetchLevyBalance('10001234')).rejects.toThrow(
-        /10001234.*Settings → Levy data/s,
+        /10001234.*Levy & Finance → Levy data/s,
       );
     });
   });

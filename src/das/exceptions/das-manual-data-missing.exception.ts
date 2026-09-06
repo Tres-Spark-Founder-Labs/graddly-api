@@ -25,7 +25,7 @@ export class DasManualDataMissingException extends ServiceUnavailableException {
     /** What was asked for, in the administrator's words — "levy balance". */
     public readonly dataset: string,
     /** How to supply it. Shown verbatim, so keep it actionable. */
-    hint = 'Enter it under Settings → Levy data.',
+    hint = 'Enter it under Levy & Finance → Levy data.',
     /** Optional scope, e.g. a UKPRN, to distinguish which record is missing. */
     public readonly scope?: string,
   ) {

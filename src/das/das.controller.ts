@@ -192,7 +192,7 @@ export class DasController {
     if (isDasManualMode(this.config)) {
       throw new ConflictException(
         'DAS is running in manual mode, so there is nothing to sync. ' +
-          'Update the figures under Settings → Levy data instead.',
+          'Update the figures under Levy & Finance → Levy data instead.',
       );
     }
 

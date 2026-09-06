@@ -269,6 +269,86 @@ export class DasManualService {
     );
   }
 
+  /**
+   * The stored monthly rows, verbatim.
+   *
+   * Exists rather than reusing `/reporting/levy-utilisation` because that DTO
+   * types contributions and spend as `number` and carries no `currency` field
+   * at all. Loading a form from it and saving unchanged would rewrite every
+   * month's currency to the default — a silent overwrite that looks like a
+   * successful no-op, made possible by the write being replace-all.
+   */
+  async listMonthlyEntries(
+    organisationId: string,
+  ): Promise<
+    { month: string; contributions: string; spend: string; currency: string }[]
+  > {
+    const rows = await this.dataSource.getRepository(DasLevyMonthlyEntry).find({
+      where: { organisationId, isDeleted: false },
+      order: { month: 'ASC' },
+    });
+
+    return rows.map((r) => ({
+      // Stored as the first of the month; the form works in YYYY-MM.
+      month: r.month.slice(0, 7),
+      contributions: r.contributions,
+      spend: r.spend,
+      currency: r.currency,
+    }));
+  }
+
+  /**
+   * The stored tranche rows for one donor link, verbatim.
+   *
+   * `/levy-exchange/surplus/expiry-calendar` is a 24-month projection derived
+   * from these rows — it has no row identity and no donorLinkId, so it cannot
+   * populate a form whose write is scoped to a link.
+   */
+  async listTranches(
+    organisationId: string,
+    donorLinkId: string,
+  ): Promise<{ amount: string; expiresOn: string }[]> {
+    const rows = await this.dataSource.getRepository(DasLevyTranche).find({
+      where: { organisationId, donorLinkId, isDeleted: false },
+      order: { expiresOn: 'ASC' },
+    });
+
+    return rows.map((r) => ({ amount: r.amount, expiresOn: r.expiresOn }));
+  }
+
+  /**
+   * The stored funding payments, verbatim.
+   *
+   * The list DTO on the display endpoint types `amount` as `number`. This one
+   * is a single-row edit rather than replace-all, so a lossy read would corrupt
+   * only the payment being edited — but that is still the row the operator came
+   * to correct.
+   */
+  async listFundingPayments(organisationId: string): Promise<
+    {
+      externalReference: string;
+      paymentDate: string;
+      amount: string;
+      currency: string;
+      fundingPeriod: string | null;
+      clawbackNotice: string | null;
+    }[]
+  > {
+    const rows = await this.paymentRepo.find({
+      where: { organisationId, isDeleted: false },
+      order: { paymentDate: 'DESC' },
+    });
+
+    return rows.map((r) => ({
+      externalReference: r.externalReference,
+      paymentDate: r.paymentDate,
+      amount: r.amount,
+      currency: r.currency,
+      fundingPeriod: r.fundingPeriod,
+      clawbackNotice: r.clawbackNotice,
+    }));
+  }
+
   /** The links an operator can attach tranches to. */
   async listDonorLinks(organisationId: string): Promise<DasDonorLink[]> {
     return this.donorLinkRepo.find({

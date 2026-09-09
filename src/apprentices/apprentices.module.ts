@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AuthModule } from '../auth/auth.module.js';
+import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { WithdrawalPushModule } from '../withdrawal-push/withdrawal-push.module.js';
 
 import { ApprenticesController } from './apprentices.controller.js';
@@ -12,7 +13,7 @@ import { Apprentice } from './entities/apprentice.entity.js';
   imports: [
     AuthModule,
     WithdrawalPushModule,
-    TypeOrmModule.forFeature([Apprentice]),
+    TypeOrmModule.forFeature([Apprentice, Organisation]),
   ],
   controllers: [ApprenticesController],
   providers: [ApprenticesService],

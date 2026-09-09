@@ -9,6 +9,8 @@ import { Repository } from 'typeorm';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
+import { Organisation } from '../organisations/entities/organisation.entity.js';
+import { PortalType } from '../organisations/portal-type.enum.js';
 import { WithdrawalPushService } from '../withdrawal-push/withdrawal-push.service.js';
 
 import { CreateApprenticeDto } from './dto/create-apprentice.dto.js';
@@ -23,6 +25,8 @@ export class ApprenticesService {
   constructor(
     @InjectRepository(Apprentice)
     private readonly apprenticeRepo: Repository<Apprentice>,
+    @InjectRepository(Organisation)
+    private readonly organisationRepo: Repository<Organisation>,
     private readonly withdrawalPushService: WithdrawalPushService,
   ) {}
 
@@ -54,18 +58,82 @@ export class ApprenticesService {
     return this.apprenticeRepo.save(apprentice);
   }
 
+  /**
+   * The caller's roster, derived differently for each portal.
+   *
+   * ── WHY AN EMPLOYER SAW NOTHING ─────────────────────────────────────────────
+   *
+   * This filtered on `organisationId` alone. An Apprentice row is stamped with
+   * the organisation that created it, which is the provider, so every
+   * employer's roster was empty — for F1.2.1, a Phase 1 Must Have, on every
+   * account, always.
+   *
+   * ── THE MODEL ───────────────────────────────────────────────────────────────
+   *
+   * The apprentice stays provider-owned and the employer's view is derived
+   * from enrolments. PRD §9.2 gives an apprentice exactly one employer and one
+   * provider at a time, and the Enrolment already carries both — adding a
+   * second owner column to Apprentice would duplicate a relationship that is
+   * modelled correctly one table over, and leave two places to disagree about
+   * who the employer is.
+   *
+   * The database already committed to this: migration 1781100000047 added
+   * `apprentices_select_linked_org`, admitting a row when an enrolment links it
+   * to the current org as either party, precisely because "the other party to
+   * the enrolment is then locked out of the learner's name, which is on every
+   * screen either portal shows". The row policy has permitted this read all
+   * along; this query is what never asked for it.
+   *
+   * ── SCOPED BY PORTAL, NOT ONE WIDE OR ───────────────────────────────────────
+   *
+   * An employer is admitted only where they are the *employer* on the
+   * enrolment, never the provider. That is narrower than the RLS policy, which
+   * accepts either side — the two are meant to agree on what is forbidden, not
+   * to be the same expression, and the tighter of the two belongs here where
+   * the intent is legible.
+   */
   async findAll(
     user: AuthenticatedUser,
     query: PaginationQueryDto,
   ): Promise<PaginatedResult<Apprentice>> {
     const page = query.page ?? 1;
     const perPage = query.perPage ?? 20;
-    const [items, total] = await this.apprenticeRepo.findAndCount({
-      where: { organisationId: user.organisationId! },
-      order: { createdAt: 'DESC' },
-      skip: (page - 1) * perPage,
-      take: perPage,
+    const organisationId = user.organisationId!;
+
+    const organisation = await this.organisationRepo.findOne({
+      where: { id: organisationId, isDeleted: false },
     });
+    if (!organisation) {
+      throw new NotFoundException('Organisation not found');
+    }
+
+    const qb = this.apprenticeRepo
+      .createQueryBuilder('apprentice')
+      .where('apprentice.isDeleted = false');
+
+    if (organisation.portalType === PortalType.EMPLOYER) {
+      qb.andWhere(
+        `EXISTS (
+           SELECT 1 FROM enrolments e
+            WHERE e."apprenticeId" = apprentice.id
+              AND e."isDeleted" = false
+              AND e."employerOrganisationId" = :organisationId
+         )`,
+        { organisationId },
+      );
+    } else {
+      // Providers and every other portal keep the ownership rule exactly as it
+      // was. Only the employer path is new.
+      qb.andWhere('apprentice.organisationId = :organisationId', {
+        organisationId,
+      });
+    }
+
+    const [items, total] = await qb
+      .orderBy('apprentice.createdAt', 'DESC')
+      .skip((page - 1) * perPage)
+      .take(perPage)
+      .getManyAndCount();
 
     return new PaginatedResult(
       items,

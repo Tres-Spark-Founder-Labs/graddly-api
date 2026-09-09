@@ -61,4 +61,67 @@ describe('ReportingPortalService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
   });
+
+  describe('assertPortalTypeIn', () => {
+    it('admits an organisation matching any of the expected types', async () => {
+      const organisation = {
+        id: 'org-1',
+        portalType: PortalType.EMPLOYER,
+        isDeleted: false,
+      };
+      findOne.mockResolvedValue(organisation);
+
+      await expect(
+        service.assertPortalTypeIn('org-1', [
+          PortalType.PROVIDER,
+          PortalType.EMPLOYER,
+        ]),
+      ).resolves.toEqual(organisation);
+    });
+
+    it('refuses an organisation matching none of them', async () => {
+      findOne.mockResolvedValue({
+        id: 'org-1',
+        portalType: PortalType.FLOW,
+        isDeleted: false,
+      });
+
+      await expect(
+        service.assertPortalTypeIn('org-1', [
+          PortalType.PROVIDER,
+          PortalType.EMPLOYER,
+        ]),
+      ).rejects.toThrow(
+        'This endpoint requires an active provider or employer portal organisation',
+      );
+    });
+
+    it('refuses an organisation with no portal type at all', async () => {
+      // A null is not one of the expected types. Reading it as "matches
+      // anything" would hand an unconfigured organisation every portal.
+      findOne.mockResolvedValue({
+        id: 'org-1',
+        portalType: null,
+        isDeleted: false,
+      });
+
+      await expect(
+        service.assertPortalTypeIn('org-1', [PortalType.PROVIDER]),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('keeps the single-type wording that existing clients match on', async () => {
+      findOne.mockResolvedValue({
+        id: 'org-1',
+        portalType: PortalType.PROVIDER,
+        isDeleted: false,
+      });
+
+      await expect(
+        service.assertPortalTypeIn('org-1', [PortalType.EMPLOYER]),
+      ).rejects.toThrow(
+        'This endpoint requires an active employer portal organisation',
+      );
+    });
+  });
 });

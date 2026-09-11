@@ -157,20 +157,58 @@ decision, not an engineering one.
 
 ## Still narrower than the provider's view
 
-The employer now gets the profile, and it is not yet the same profile. Three
-things are missing, all of them row policies, none widened here because the
+The employer now gets the profile, and it is not the provider's profile. Two
+things are missing, both of them row policies, neither widened here because the
 scope of this change was the two parties on the enrolment.
 
 | Table                 | Why                                                                                                             | Effect on the employer                                                                           |
 | --------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | `users`               | `users_select` admits `app_user_in_current_org(id)`, and the tutor is a member of the _provider's_ organisation | `tutor.name` is null — and F1.2.2 AC1 names the tutor as a required personal detail              |
-| `ks_evidence_items`   | `ks_evidence_items_select` is owner-only                                                                        | accepted portfolio evidence is absent from the document library                                  |
 | `pdf_generation_jobs` | `pdf_generation_jobs_select` is owner-only                                                                      | commitment and review documents can list without a `storageKey`, so there is nothing to download |
 
 Message threads are also empty for employer staff, and that one is deliberate:
 `message_threads_select_participant` scopes to the two participants rather than
 to an organisation, which migration 47 explains and `DECISIONS-FOR-CLIENT.md`
 carries as an open privacy question.
+
+### `ks_evidence_items` stays closed, and that is the specification
+
+An earlier revision of this note listed portfolio evidence as a third gap. It
+is not one. Nothing below should be widened on the belief that an acceptance
+criterion asks for it, because none does.
+
+F1.2.2 **AC5** is the employer's document library, in full: _"all signed
+agreements, review records, and correspondence"_. Portfolio evidence is not a
+signed agreement, not a review record and not correspondence — it is the
+apprentice's KSB portfolio (PRD §5.2.3, Portal 3).
+
+The PRD draws the line itself, one feature over. `GET
+/learners/:enrolmentId/profile` serves both learner profiles, and the two
+document-library criteria are worded differently on exactly this point:
+
+| Criterion                                | Document library contains                                     |
+| ---------------------------------------- | ------------------------------------------------------------- |
+| F1.2.2 AC5 — employer                    | all signed agreements, review records, and **correspondence** |
+| F2.2.4 AC4 — tutor and programme manager | all signed agreements, review records, **uploaded evidence**  |
+
+One endpoint, two features, and the difference between them is this table. An
+employer whose library is narrower than the tutor's is the behaviour F1.2.2
+specifies, not a leftover from this change.
+
+So `ks_evidence_items_select` stays owner-only. If an employer is ever to see
+portfolio evidence, that is a new requirement and belongs in
+`DECISIONS-FOR-CLIENT.md` first — not a row policy added quietly to close a
+"gap" that no criterion ever opened.
+
+One warning for whoever reads this next. The distinction is enforced by the row
+policy alone, not by the service. `learner-documents.service.ts:162` reads
+accepted evidence for every caller, and since the scoping fix it asks for it
+under the _provider’s_ `organisationId` — so the only thing keeping portfolio
+evidence out of the employer’s library is `ks_evidence_items_select` failing to
+match. Widen that policy for some unrelated reason and F1.2.2’s document
+library changes behaviour with no edit to the profile code and nothing in this
+suite to fail. Widen it and the employer’s document library must be filtered in
+the service instead.
 
 ## Tests
 

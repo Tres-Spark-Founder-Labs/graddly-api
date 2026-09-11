@@ -6,10 +6,8 @@ import { ApprenticeStatus } from '../apprentices/enums/apprentice-status.enum.js
 import { BreakInLearningService } from '../enrolments/break-in-learning.service.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { MessageThreadsService } from '../messaging/message-threads.service.js';
-import { PortalType } from '../organisations/portal-type.enum.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { OtjProgressMetricsService } from '../reporting/otj-progress-metrics.service.js';
-import { ReportingPortalService } from '../reporting/reporting-portal.service.js';
 import { ReviewSignature } from '../reviews/entities/review-signature.entity.js';
 import { Review } from '../reviews/entities/review.entity.js';
 import { ReviewSignatureStatus } from '../reviews/enums/review-signature-status.enum.js';
@@ -44,7 +42,6 @@ export class LearnerProfileService {
     private readonly otjRepo: Repository<OtjLogEntry>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
-    private readonly portalService: ReportingPortalService,
     private readonly documentsService: LearnerDocumentsService,
     private readonly otjMetricsService: OtjProgressMetricsService,
     private readonly metricsService: LearnerMetricsService,
@@ -53,23 +50,98 @@ export class LearnerProfileService {
     private readonly messageThreadsService: MessageThreadsService,
   ) {}
 
-  async getProfile(
-    user: AuthenticatedUser,
+  /**
+   * The enrolment this caller is entitled to read, or a 404.
+   *
+   * ── WHO IS ADMITTED ─────────────────────────────────────────────────────────
+   *
+   * Two parties, and no others: the provider that owns the enrolment, and the
+   * employer named on it. F1.2.2 Individual Learner Profile is a Phase 1 Must
+   * Have on the employer portal, and its AC1 asks for the apprentice's
+   * personal details, standard, provider, tutor and line manager — the record
+   * of the employer's own employee.
+   *
+   * This replaces `assertPortalType(PROVIDER)`, which was a blanket refusal of
+   * every employer rather than a decision about this enrolment. The predicate
+   * is strictly stronger: being an employer portal was never sufficient, and
+   * the question that matters is whether this caller is a party to *this*
+   * enrolment.
+   *
+   * `providerOrganisationId` is deliberately NOT matched. It is a link
+   * column, and the owning provider is already admitted by the first clause;
+   * adding it would widen the route past the two parties without anything
+   * asking for that.
+   *
+   * ── 404, NEVER 403 ──────────────────────────────────────────────────────────
+   *
+   * An id the caller may not read is answered as though it does not exist. A
+   * 403 would confirm it does, which is a membership oracle: an employer could
+   * enumerate ids and learn which belong to real enrolments at organisations
+   * they have nothing to do with. The RLS policies agree — under
+   * `graddly_app` the row is not visible at all, so the repository returns
+   * null and this throws for the same reason on both layers.
+   */
+  private async findReadableEnrolment(
+    callerOrganisationId: string,
     enrolmentId: string,
-  ): Promise<LearnerProfileResponseDto> {
-    const organisationId = user.organisationId!;
-    await this.portalService.assertPortalType(
-      organisationId,
-      PortalType.PROVIDER,
-    );
-
+  ): Promise<Enrolment> {
+    const relations = ['apprentice', 'standard', 'employerOrganisation'];
     const enrolment = await this.enrolmentRepo.findOne({
-      where: { id: enrolmentId, organisationId, isDeleted: false },
-      relations: ['apprentice', 'standard', 'employerOrganisation'],
+      // An array is an OR in TypeORM. Both arms pin `id`, so neither can
+      // broaden to "any enrolment of mine".
+      where: [
+        {
+          id: enrolmentId,
+          organisationId: callerOrganisationId,
+          isDeleted: false,
+        },
+        {
+          id: enrolmentId,
+          employerOrganisationId: callerOrganisationId,
+          isDeleted: false,
+        },
+      ],
+      relations,
     });
     if (!enrolment) {
       throw new NotFoundException('Enrolment not found');
     }
+    return enrolment;
+  }
+
+  async getProfile(
+    user: AuthenticatedUser,
+    enrolmentId: string,
+  ): Promise<LearnerProfileResponseDto> {
+    const enrolment = await this.findReadableEnrolment(
+      user.organisationId!,
+      enrolmentId,
+    );
+
+    /**
+     * ── SCOPING, WHICH IS NOT THE SAME QUESTION AS AUTHORISATION ────────────
+     *
+     * Who may read this profile was settled above. What this is now is the
+     * separate question of *whose rows* the profile is built from, and the
+     * answer is always the enrolment's owning organisation — the provider —
+     * whoever happens to be asking.
+     *
+     * That distinction is the whole defect. Every read below used to scope by
+     * `user.organisationId`, which is right only while the caller is the
+     * provider. For the employer named on the enrolment it silently returned
+     * nothing: no documents, no reviews, no OTJ entries, no interventions. Not
+     * a 403 the screen could report — an empty, plausible-looking profile.
+     *
+     * The caller's organisation is deliberately never bound in this scope. It
+     * exists only inside findReadableEnrolment, so a read added to this method
+     * later cannot reach for the wrong one. That is the point of resolving it
+     * once here rather than fixing eight call sites.
+     *
+     * The employer's own organisation is still used where it belongs —
+     * employerContacts below reads enrolment.employerOrganisationId, because
+     * that genuinely is a question about the employer's records.
+     */
+    const organisationId = enrolment.organisationId;
 
     const apprentice = enrolment.apprentice;
     const [

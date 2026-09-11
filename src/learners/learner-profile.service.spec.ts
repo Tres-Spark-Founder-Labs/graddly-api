@@ -5,10 +5,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { BreakInLearningService } from '../enrolments/break-in-learning.service.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { MessageThreadsService } from '../messaging/message-threads.service.js';
-import { PortalType } from '../organisations/portal-type.enum.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { OtjProgressMetricsService } from '../reporting/otj-progress-metrics.service.js';
-import { ReportingPortalService } from '../reporting/reporting-portal.service.js';
 import { ReviewSignature } from '../reviews/entities/review-signature.entity.js';
 import { Review } from '../reviews/entities/review.entity.js';
 import { User } from '../users/entities/user.entity.js';
@@ -21,7 +19,6 @@ import { LearnerProfileService } from './learner-profile.service.js';
 describe('LearnerProfileService', () => {
   const enrolmentRepo = { findOne: jest.fn() };
   const otjRepo = { find: jest.fn(), count: jest.fn() };
-  const portalService = { assertPortalType: jest.fn() };
   const documentsService = { listForEnrolment: jest.fn() };
   const otjMetricsService = { percentForEnrolment: jest.fn() };
   const metricsService = { loadEmployerContacts: jest.fn() };
@@ -33,9 +30,6 @@ describe('LearnerProfileService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    portalService.assertPortalType.mockResolvedValue({
-      portalType: PortalType.PROVIDER,
-    });
     otjRepo.find.mockResolvedValue([]);
     otjRepo.count.mockResolvedValue(0);
     documentsService.listForEnrolment.mockResolvedValue([]);
@@ -61,7 +55,6 @@ describe('LearnerProfileService', () => {
           provide: getRepositoryToken(User),
           useValue: { findOne: jest.fn().mockResolvedValue(null) },
         },
-        { provide: ReportingPortalService, useValue: portalService },
         { provide: LearnerDocumentsService, useValue: documentsService },
         { provide: OtjProgressMetricsService, useValue: otjMetricsService },
         { provide: LearnerMetricsService, useValue: metricsService },
@@ -77,8 +70,12 @@ describe('LearnerProfileService', () => {
     service = moduleRef.get(LearnerProfileService);
   });
 
+  /** The provider that owns the enrolment — not, in general, the caller. */
+  const PROVIDER_ORG = 'provider-org-1';
+
   const activeEnrolment = (overrides: Record<string, unknown> = {}) => ({
     id: 'enr-1',
+    organisationId: PROVIDER_ORG,
     tutorUserId: null,
     employerOrganisationId: null,
     plannedStartDate: '2026-01-01',
@@ -278,5 +275,93 @@ describe('LearnerProfileService', () => {
     expect(profile.messageThreads[0].lastMessagePreview).toBe(
       'Can we move Thursday?',
     );
+  });
+
+  describe('authorisation is not scoping', () => {
+    it('admits the owning provider or the employer named on the enrolment, and nobody else', async () => {
+      enrolmentRepo.findOne.mockResolvedValue(activeEnrolment());
+
+      await service.getProfile(
+        { id: 'user-1', organisationId: 'employer-org-1' } as never,
+        'enr-1',
+      );
+
+      const calls = enrolmentRepo.findOne.mock.calls as [
+        { where: Record<string, unknown>[] },
+      ][];
+      const { where } = calls[0][0];
+
+      // An array is an OR. Two arms, both pinning the id.
+      expect(Array.isArray(where)).toBe(true);
+      expect(where).toHaveLength(2);
+      expect(where[0]).toMatchObject({
+        id: 'enr-1',
+        organisationId: 'employer-org-1',
+        isDeleted: false,
+      });
+      expect(where[1]).toMatchObject({
+        id: 'enr-1',
+        employerOrganisationId: 'employer-org-1',
+        isDeleted: false,
+      });
+
+      // providerOrganisationId is a link column and the owner is already
+      // admitted by the first arm. Matching it too would widen the route past
+      // the two parties the PRD names.
+      expect(JSON.stringify(where)).not.toContain('providerOrganisationId');
+    });
+
+    it('scopes every sub-read by the enrolment owner, not by the caller', async () => {
+      enrolmentRepo.findOne.mockResolvedValue(activeEnrolment());
+
+      await service.getProfile(
+        { id: 'user-1', organisationId: 'employer-org-1' } as never,
+        'enr-1',
+      );
+
+      // The defect this guards: each of these used to be handed the caller's
+      // organisation, so an employer got an empty profile rather than a 403.
+      expect(documentsService.listForEnrolment).toHaveBeenCalledWith(
+        PROVIDER_ORG,
+        'enr-1',
+      );
+      expect(
+        interventionActionsService.listRecentForEnrolment,
+      ).toHaveBeenCalledWith(PROVIDER_ORG, 'enr-1');
+      expect(breakInLearningService.findOpen).toHaveBeenCalledWith(
+        PROVIDER_ORG,
+        'enr-1',
+      );
+
+      for (const call of otjRepo.find.mock.calls as { where: unknown }[][]) {
+        expect(call[0].where).toMatchObject({ organisationId: PROVIDER_ORG });
+      }
+      for (const call of otjRepo.count.mock.calls as { where: unknown }[][]) {
+        expect(call[0].where).toMatchObject({ organisationId: PROVIDER_ORG });
+      }
+
+      // Messaging is the exception, and deliberately so: its access rule is
+      // about the two participants, so it is handed the caller.
+      expect(
+        messageThreadsService.listSummariesForEnrolment,
+      ).toHaveBeenCalledWith(
+        { id: 'user-1', organisationId: 'employer-org-1' },
+        'enr-1',
+      );
+    });
+
+    it('still scopes by the owner when the caller is the provider', async () => {
+      enrolmentRepo.findOne.mockResolvedValue(activeEnrolment());
+
+      await service.getProfile(
+        { id: 'user-1', organisationId: PROVIDER_ORG } as never,
+        'enr-1',
+      );
+
+      expect(documentsService.listForEnrolment).toHaveBeenCalledWith(
+        PROVIDER_ORG,
+        'enr-1',
+      );
+    });
   });
 });

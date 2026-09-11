@@ -84,12 +84,22 @@ describe('Employer access to apprentices and learner profiles (e2e)', () => {
       `UPDATE enrolments SET "employerOrganisationId" = $1 WHERE id = $2`,
       [theirs.employerOrgId, sameProviderOtherEmployerEnrolmentId],
     );
-  });
+    /*
+     * Two whole tenants, where every other spec using this fixture builds one.
+     * Cross-tenant isolation cannot be asserted from inside a single tenant, so
+     * the second context is the price of the property under test rather than
+     * waste — and it puts this hook well over the suite's 60s default.
+     * learner-scope-surface already carries 180_000 for one context plus a
+     * stranger org; this is roughly double that work.
+     */
+  }, 300_000);
 
   afterAll(async () => {
-    await mine.sudo.end();
-    await theirs.sudo.end();
-    await app.close();
+    // Optional throughout: when beforeAll fails none of these exist, and an
+    // afterAll that throws replaces the real failure with a TypeError.
+    await mine?.sudo?.end();
+    await theirs?.sudo?.end();
+    await app?.close();
   });
 
   describe('GET /apprentices as an employer', () => {
@@ -128,24 +138,29 @@ describe('Employer access to apprentices and learner profiles (e2e)', () => {
   });
 
   /*
-   * ── BLOCKED ON AN RLS MIGRATION, NOT ON AUTHORISATION ──────────────────────
+   * ── THREE LAYERS HAD TO AGREE ──────────────────────────────────────────────
    *
-   * These are written and correct, and the authorisation half of the fix
-   * passed all of them bar the first. They are skipped because the endpoint
-   * cannot yet serve an employer without widening two row policies, and
-   * shipping a 500 in place of the old 403 would be worse than the bug.
+   * These were skipped while the endpoint could only answer an employer with a
+   * 500, which would have been worse than the 403 it replaced. Three separate
+   * things were wrong, and fixing any one of them alone still failed:
    *
-   * What happens today with the assertion widened: the employer is admitted,
-   * the enrolment is found, and then `enrolment.standard` is null because
-   * `standards` has no linked-party read policy — so the aggregate throws
-   * "Cannot read properties of null (reading 'title')".
+   *   authorisation  assertPortalType(PROVIDER) refused every employer
+   *                  outright, before this enrolment was ever considered
+   *   scoping        eight sub-reads filtered on the CALLER's organisationId,
+   *                  so an admitted employer got an empty profile, not a 403
+   *   row policies   standards and intervention_actions were owner-only, so
+   *                  enrolment.standard came back null under graddly_app and
+   *                  the aggregate threw on .title
    *
-   * Unskip once standards and intervention_actions have
-   * `*_select_linked_org` policies and the aggregate scopes its sub-reads by
-   * the enrolment's owning organisation rather than the caller's.
-   * `docs/employer-learner-access.md` has the migration shape and the order.
+   * The third is invisible on a dev database, which connects as a superuser
+   * for whom RLS is not enforced. These run as graddly_app (DB_USERNAME in
+   * .env.test — NOSUPERUSER, NOBYPASSRLS), so the policies are genuinely
+   * exercised rather than bypassed. Only the fixture writes and the migrations
+   * use postgres.
+   *
+   * See docs/employer-learner-access.md.
    */
-  describe.skip('GET /learners/:enrolmentId/profile as an employer', () => {
+  describe('GET /learners/:enrolmentId/profile as an employer', () => {
     it('returns the profile of their own learner', async () => {
       const res = await request(app.getHttpServer())
         .get(`/api/v1/learners/${mine.learnerA.enrolmentId}/profile`)

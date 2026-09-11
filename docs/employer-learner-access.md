@@ -1,6 +1,8 @@
 # Employer access to apprentices and learner profiles
 
-> F1.2.1 is fixed. F1.2.2 is not, and this note says exactly what is left.
+> F1.2.1 and F1.2.2 are both fixed. What remains is listed under "Still
+> narrower than the provider's view" — read that before assuming the employer
+> profile is complete.
 > Referenced from `test/employer-learner-access.e2e-spec.ts`.
 
 ---
@@ -14,6 +16,9 @@ employer account, on every deployment, since the endpoints were written.
 | ---------------------------------------- | ------------------------------------ | ------------ |
 | F1.2.1 All-Apprentice Overview Dashboard | `GET /apprentices`                   | roster empty |
 | F1.2.2 Individual Learner Profile        | `GET /learners/:enrolmentId/profile` | flat 403     |
+
+Both now work. F1.2.1 needed one query rewritten; F1.2.2 needed three layers
+to agree, and is the more instructive of the two.
 
 Neither is a data problem. Both are the same modelling mistake made twice: the
 code asked "which organisation owns this row?" when the question F1.2.1 AC1
@@ -77,64 +82,104 @@ enabled more. `PATCH /apprentices/:id` as the employer is asserted to return
 
 ---
 
-## What is not fixed — F1.2.2, and why it was not forced
+## What was fixed — F1.2.2
 
-`assertPortalTypeIn` exists on `ReportingPortalService` and is ready. The
-profile endpoint still calls `assertPortalType(organisationId,
-PortalType.PROVIDER)` and still answers 403 to an employer.
+Three separate faults, and repairing any one alone still failed. That is why an
+earlier pass, which widened only the portal assertion, produced a 500 where the
+403 had been and was correctly abandoned.
 
-Widening only the assertion produces a **500 in place of the 403**, which is
-worse than the bug. Three things break, in order:
+### 1. Authorisation
 
-1. **The enrolment lookup** (`learner-profile.service.ts:67`) matches on
-   `organisationId`, which for an employer is their own org, not the
-   enrolment's. Result: 404 — the fix appears to do nothing.
-2. **Ten sub-reads scope by the caller's org** — documents, reviews, OTJ
-   entries and count, intervention actions, break-in-learning, review
-   signatures (`:87`, `:89`, `:103`, `:108`, `:122`, `:127`, `:133`). Each must
-   scope by the _enrolment's owning organisation_ instead, which is the
-   provider's, having first established the caller is a party to that
-   enrolment.
-3. **Two tables have no linked-party read policy.** `standards_select`
-   (migration `1779600000000`) and `intervention_actions_select` (migration
-   `1781100000009`) are both `"organisationId" = app_current_org()` and nothing
-   else. Under `graddly_app`, `enrolment.standard` comes back null and the
-   aggregate throws `Cannot read properties of null (reading 'title')`.
+`assertPortalType(organisationId, PortalType.PROVIDER)` refused every employer
+before this enrolment was ever considered. It is replaced by
+`findReadableEnrolment`, which admits exactly two parties: the provider that
+owns the enrolment (`organisationId`) and the employer named on it
+(`employerOrganisationId`), as a TypeORM `where` array — an OR whose arms both
+pin the id.
 
-Note that (3) does not reproduce on a dev database, which connects as a
-superuser for whom RLS is not enforced — the same trap migration 47 documents.
-A green local run of the profile tests would not mean the endpoint works in
-staging.
+`providerOrganisationId` is deliberately **not** matched. It is a link column,
+and the owning provider is already admitted by the first arm; adding it would
+widen the route past the two parties the PRD names.
 
-### The order to do it in
+The predicate is strictly stronger than the check it replaces: holding an
+employer portal was never sufficient, and the question that matters is whether
+this caller is a party to _this_ enrolment. An id the caller may not read
+answers 404, never 403 — a 403 confirms the id exists, which is a membership
+oracle.
 
-1. Migration: `standards_select_linked_org` and
-   `intervention_actions_select_linked_org`, additive `FOR SELECT` policies in
-   the shape migration 47 uses. Never drop or widen the owner rule.
-2. `learner-profile.service.ts`: swap `assertPortalType` for
-   `assertPortalTypeIn(organisationId, [PortalType.PROVIDER,
-PortalType.EMPLOYER])`, use the returned organisation's `portalType` to pick
-   the enrolment predicate, and re-scope the sub-reads to
-   `enrolment.organisationId`.
-3. Unskip `describe.skip('GET /learners/:enrolmentId/profile as an employer')`
-   in `test/employer-learner-access.e2e-spec.ts`. All six cases are written.
+### 2. Scoping, which is a different question
 
-### 404, never 403
+Eight reads scoped by `user.organisationId`: the enrolment lookup itself, the
+documents list, reviews, the OTJ page and its count, intervention actions, the
+open break, and review signatures. Correct only while the caller is the
+provider. For an admitted employer every one of them returned nothing — not a
+403 the screen could report, but an empty, plausible-looking profile.
 
-An employer asking for an enrolment they cannot read gets 404. A 403 confirms
-the id exists, which is a membership oracle: it lets an employer enumerate ids
-and learn which belong to real enrolments at organisations they have nothing to
-do with. The skipped spec asserts this explicitly.
+The fix is one binding, not eight. `organisationId` is now resolved once, after
+the enrolment is fetched and authorised, from `enrolment.organisationId`. The
+caller's organisation is never bound in that scope at all — it exists only
+inside `findReadableEnrolment` — so a read added to this method later cannot
+reach for the wrong one. Patching eight call sites would have left the ninth
+free to reintroduce the bug.
+
+`enrolment.employerOrganisationId` is still used where it belongs, for the
+employer contact lookup: that genuinely is a question about the employer's own
+records.
+
+### 3. Row policies — migration `1781100000054`
+
+`standards_select` and `intervention_actions_select` were owner-only, so under
+`graddly_app` `enrolment.standard` came back null and the aggregate threw
+`Cannot read properties of null (reading 'title')`. Both now carry an
+`*_select_linked_org` policy in the shape migration 47 uses: additive,
+`FOR SELECT` only, keyed through `enrolments`.
+
+Employer-only, unlike 47's policies, which admit either party — a provider
+already reads both tables through the existing owner rule, so a provider arm
+here would widen nothing and only mislead the reader.
+
+The same migration adds `IDX_enrolments_active_employer_org` on
+`enrolments ("employerOrganisationId") WHERE "isDeleted" = false`.
+`IDX_enrolments_org_employer_org` leads with `organisationId`, so a predicate
+constraining only `employerOrganisationId` cannot seek it — every linked-party
+read has been scanning `enrolments` since migration 47.
+
+**A known property, recorded rather than fixed.** Both predicates filter
+`e."isDeleted" = false` and say nothing about `e.status`. An employer whose
+apprentice withdrew keeps read access for as long as the enrolment row
+survives. That is already true of `apprentices_select_linked_org` and
+`enrolments_select`; diverging here would leave an employer able to read the
+learner's name but not their standard, which is a stranger state than either.
+Whether linked-party reads should expire with the enrolment is a retention
+decision, not an engineering one.
 
 ---
 
+## Still narrower than the provider's view
+
+The employer now gets the profile, and it is not yet the same profile. Three
+things are missing, all of them row policies, none widened here because the
+scope of this change was the two parties on the enrolment.
+
+| Table                 | Why                                                                                                             | Effect on the employer                                                                           |
+| --------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `users`               | `users_select` admits `app_user_in_current_org(id)`, and the tutor is a member of the _provider's_ organisation | `tutor.name` is null — and F1.2.2 AC1 names the tutor as a required personal detail              |
+| `ks_evidence_items`   | `ks_evidence_items_select` is owner-only                                                                        | accepted portfolio evidence is absent from the document library                                  |
+| `pdf_generation_jobs` | `pdf_generation_jobs_select` is owner-only                                                                      | commitment and review documents can list without a `storageKey`, so there is nothing to download |
+
+Message threads are also empty for employer staff, and that one is deliberate:
+`message_threads_select_participant` scopes to the two participants rather than
+to an organisation, which migration 47 explains and `DECISIONS-FOR-CLIENT.md`
+carries as an open privacy question.
+
 ## Tests
 
-| File                                             | Covers                                                                                                                                                                      |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/apprentices/apprentices.service.spec.ts`    | the branch itself — provider keeps ownership scoping and gains no `EXISTS`; employer gets the `EXISTS`, on `employerOrganisationId` only, with ownership _not_ ORed back in |
-| `src/reporting/reporting-portal.service.spec.ts` | `assertPortalTypeIn` — multi-type admission, refusal, a null `portalType` refused rather than matched, and the single-type message preserved verbatim                       |
-| `test/employer-learner-access.e2e-spec.ts`       | end to end, every "can read" paired with a "cannot"                                                                                                                         |
+| File                                             | Covers                                                                                                                                                                                |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/apprentices/apprentices.service.spec.ts`    | the branch itself — provider keeps ownership scoping and gains no `EXISTS`; employer gets the `EXISTS`, on `employerOrganisationId` only, with ownership _not_ ORed back in           |
+| `src/reporting/reporting-portal.service.spec.ts` | `assertPortalTypeIn` — multi-type admission, refusal, a null `portalType` refused rather than matched, and the single-type message preserved verbatim                                 |
+| `src/learners/learner-profile.service.spec.ts`   | the OR predicate has two arms and no `providerOrganisationId`; every sub-read receives the enrolment owner's id while the caller is the employer; messaging still receives the caller |
+| `test/employer-learner-access.e2e-spec.ts`       | end to end, every "can read" paired with a "cannot" — 11 cases, none skipped                                                                                                          |
 
 The sharpest e2e case is the near miss: a learner **at the same provider** whose
 employer is somebody else. A fix that widened to "any apprentice my provider

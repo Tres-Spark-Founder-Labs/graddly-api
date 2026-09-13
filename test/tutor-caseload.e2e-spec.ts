@@ -88,6 +88,15 @@ describe('Tutor caseload (e2e)', () => {
       (t) => t.tutorUserId === ctx.owner.userId,
     );
     expect(assigned?.learnerCount).toBe(1);
+    /*
+     * The name, not only the count. `loadTutorNames` now hydrates under the
+     * RLS bootstrap flag so the employer's learner profile can show the tutor
+     * (F1.2.2 AC1) — this screen is a provider one and read the same names
+     * before the change, so its answer must not have moved. Unresolved would
+     * surface here as "Unknown tutor", which is a different string from
+     * "Unassigned" on purpose.
+     */
+    expect(assigned?.tutorName).toBe('E2E User');
   });
 
   /**

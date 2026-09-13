@@ -4,6 +4,7 @@ import request from 'supertest';
 import { ORGANISATION_ID_HEADER } from '../src/common/constants/organisation-headers.js';
 
 import { createE2eApp } from './helpers/e2e-app.js';
+import { createVerifiedUser } from './helpers/e2e-http.js';
 import {
   createLearnerScopeContext,
   type ILearnerScopeContext,
@@ -45,6 +46,10 @@ describe('Employer access to apprentices and learner profiles (e2e)', () => {
   /** A wholly separate provider and employer. */
   let theirs: ILearnerScopeContext;
 
+  /** learnerA's tutor: a member of the provider's organisation, and nothing else. */
+  let tutorUserId: string;
+  const TUTOR_NAME = 'Rowan Tutor';
+
   /** learnerB, reassigned to the *other* employer but still at provider A. */
   let sameProviderOtherEmployerEnrolmentId: string;
   let sameProviderOtherEmployerApprenticeId: string;
@@ -84,6 +89,46 @@ describe('Employer access to apprentices and learner profiles (e2e)', () => {
       `UPDATE enrolments SET "employerOrganisationId" = $1 WHERE id = $2`,
       [theirs.employerOrgId, sameProviderOtherEmployerEnrolmentId],
     );
+    /*
+     * A tutor for learnerA.
+     *
+     * `mine.staffUserId` cannot stand in for one. The fixture's owner creates
+     * both organisations, so they hold a membership of the employer org too,
+     * and `app_user_in_current_org` would then admit them to the employer for
+     * the wrong reason — the tutor assertion below would pass with the
+     * employer's read still broken. This user is a plain member of the
+     * PROVIDER's organisation and of nothing else, which is what a tutor is in
+     * this schema.
+     */
+    const tutor = await createVerifiedUser(app, {
+      firstName: 'Rowan',
+      lastName: 'Tutor',
+      email: `employer-access-tutor-${Date.now()}@example.com`,
+    });
+    tutorUserId = tutor.userId;
+    await mine.sudo.query(
+      `INSERT INTO organisation_memberships ("organisationId", "userId", role, status)
+       VALUES ($1, $2, 'member', 'active')`,
+      [mine.providerOrgId, tutorUserId],
+    );
+    await mine.sudo.query(
+      `UPDATE enrolments SET "tutorUserId" = $1 WHERE id = $2`,
+      [tutorUserId, mine.learnerA.enrolmentId],
+    );
+
+    /*
+     * learnerA's portfolio item, accepted, so the document library has
+     * something it could include. The fixture creates it as `draft` and
+     * `listForEnrolment` picks up only `accepted` — asserting the employer
+     * cannot see a draft row would pass whether or not the row policy held.
+     */
+    await mine.sudo.query(
+      `UPDATE ks_evidence_items
+          SET status = 'accepted', "acceptedAt" = NOW()
+        WHERE id = $1`,
+      [mine.learnerA.evidenceId],
+    );
+
     /*
      * Two whole tenants, where every other spec using this fixture builds one.
      * Cross-tenant isolation cannot be asserted from inside a single tenant, so
@@ -216,6 +261,95 @@ describe('Employer access to apprentices and learner profiles (e2e)', () => {
         .get(`/api/v1/learners/${theirs.learnerA.enrolmentId}/profile`)
         .set(mine.staffHeaders)
         .expect(404);
+    });
+
+    /**
+     * F1.2.2 AC1 — "personal details (name, start date, standard, provider,
+     * tutor, line manager)".
+     *
+     * The six cases above assert `enrolmentId` and `personal.firstName`, and
+     * that is exactly how the tutor stayed null through eleven green tests:
+     * nothing asserted the rest of the payload. `users_select` admits
+     * `app_user_in_current_org(id)`, the tutor belongs to the *provider's*
+     * organisation, and so the employer received a non-null `tutor.userId`
+     * beside a null `tutor.name` — a field the AC names, absent, with nothing
+     * anywhere reporting an error.
+     *
+     * The name is now hydrated by `LearnerMetricsService.loadTutorNames` under
+     * the RLS bootstrap flag, the shape `loadEmployerContacts` in the same
+     * aggregate already used. See `docs/employer-learner-access.md`,
+     * "Bootstrap is for display names".
+     */
+    it('carries the tutor’s name, not only their id', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/learners/${mine.learnerA.enrolmentId}/profile`)
+        .set(employerHeaders(mine))
+        .expect(200);
+
+      const body = res.body as {
+        data: { tutor: { userId: string | null; name: string | null } };
+      };
+      expect(body.data.tutor.userId).toBe(tutorUserId);
+      expect(body.data.tutor.name).toBe(TUTOR_NAME);
+    });
+
+    it('shows the provider the same tutor it shows the employer', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/learners/${mine.learnerA.enrolmentId}/profile`)
+        .set(mine.staffHeaders)
+        .expect(200);
+
+      const body = res.body as { data: { tutor: { name: string | null } } };
+      // The bootstrap window replaced a read the provider was already allowed
+      // to make, so the provider's own answer must not have moved.
+      expect(body.data.tutor.name).toBe(TUTOR_NAME);
+    });
+
+    /**
+     * F1.2.2 AC5 against F2.2.4 AC4 — the one point where the PRD specifies
+     * the two learner profiles differently.
+     *
+     *   F1.2.2 AC5  employer  "all signed agreements, review records, and
+     *                         correspondence"
+     *   F2.2.4 AC4  tutor     "all signed agreements, review records,
+     *                         uploaded evidence"
+     *
+     * One endpoint serves both, so the employer's narrower library is the
+     * specification rather than a gap — and nothing in the code says so.
+     * `learner-documents.service.ts` reads accepted evidence for every caller
+     * and, since the scoping fix, asks for it under the *provider's*
+     * organisationId: the only thing keeping portfolio evidence out of the
+     * employer's library is `ks_evidence_items_select` failing to match.
+     *
+     * Widen that policy for some unrelated reason and F1.2.2's document
+     * library changes behaviour with no edit to the profile code. This pair is
+     * what fails if anybody does.
+     */
+    it('keeps portfolio evidence out of the employer’s document library', async () => {
+      const documentsFor = async (headers: Record<string, string>) => {
+        const res = await request(app.getHttpServer())
+          .get(`/api/v1/learners/${mine.learnerA.enrolmentId}/profile`)
+          .set(headers)
+          .expect(200);
+        const body = res.body as {
+          data: { documents: { type: string; title: string }[] };
+        };
+        return body.data.documents;
+      };
+
+      // The provider's library does carry it. Without this half, the employer
+      // assertion passes against an empty table and proves nothing.
+      const providerDocs = await documentsFor(mine.staffHeaders);
+      expect(providerDocs.map((d) => d.type)).toContain('evidence');
+      expect(providerDocs.map((d) => d.title)).toContain(
+        mine.learnerA.evidenceMarker,
+      );
+
+      const employerDocs = await documentsFor(employerHeaders(mine));
+      expect(employerDocs.map((d) => d.type)).not.toContain('evidence');
+      expect(employerDocs.map((d) => d.title)).not.toContain(
+        mine.learnerA.evidenceMarker,
+      );
     });
   });
 

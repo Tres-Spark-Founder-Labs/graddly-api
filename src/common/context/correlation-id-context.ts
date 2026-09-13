@@ -16,7 +16,11 @@ export interface ICorrelationIdStore {
    */
   currentActorName?: string;
   currentActorRole?: string;
-  /** When true, RLS bootstrap policies apply (public auth routes). */
+  /**
+   * When true, RLS bootstrap policies apply: public auth routes, which have no
+   * organisation to scope by, and display-name hydration. No third use without
+   * reading {@link setRlsBootstrap}.
+   */
   rlsBootstrap?: boolean;
 }
 
@@ -142,6 +146,32 @@ export function getRlsBootstrap(): boolean {
   return storage.getStore()?.rlsBootstrap === true;
 }
 
+/**
+ * Turn the RLS bootstrap flag on or off for the remainder of this request.
+ *
+ * ── THIS IS A BYPASS ────────────────────────────────────────────────────────
+ *
+ * `app_rls_bootstrap()` is the first arm of `users_select`,
+ * `organisation_memberships_select`, `ks_evidence_items_select` and others, so
+ * while it is set those policies admit rows on the id alone. Two uses are
+ * legitimate:
+ *
+ *   public auth routes      no organisation exists yet, so nothing can be
+ *                           scoped by one
+ *   display-name hydration  a label rendered beside a record the caller may
+ *                           already read
+ *
+ * The rules for the second are not optional, and they are written out in
+ * `docs/employer-learner-access.md`, "Bootstrap is for display names":
+ * display fields only, a `select` column-scoped to exactly those, a window as
+ * narrow as the reads inside it, and ids that came from rows the caller has
+ * already read under its own policy — under this flag the ids ARE the access
+ * decision. `LearnerMetricsService.loadTutorNames` is the worked example and
+ * `learner-metrics.service.spec.ts` asserts every clause of it.
+ *
+ * Restore the previous value in a `finally` rather than setting `false`, or a
+ * nested call switches the flag off under its caller.
+ */
 export function setRlsBootstrap(enabled: boolean): void {
   const store = storage.getStore();
   if (store) {

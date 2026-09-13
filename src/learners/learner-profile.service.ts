@@ -151,7 +151,7 @@ export class LearnerProfileService {
       otjEntryCount,
       threads,
       otjPercent,
-      tutor,
+      tutorNames,
       manager,
       recentInterventions,
       openBreak,
@@ -182,9 +182,27 @@ export class LearnerProfileService {
       // F2.2.4 AC5 — summaries, not bare ids. See the service method for why.
       this.messageThreadsService.listSummariesForEnrolment(user, enrolmentId),
       this.otjMetricsService.percentForEnrolment(enrolment),
-      enrolment.tutorUserId
-        ? this.userRepo.findOne({ where: { id: enrolment.tutorUserId } })
-        : Promise.resolve(null),
+      /**
+       * F1.2.2 AC1 — the tutor's name, which came back null for an employer
+       * beside a non-null userId.
+       *
+       * Routed through LearnerMetricsService rather than read here: the tutor
+       * is a member of the *provider's* organisation, so `users_select` does
+       * not admit the row for an employer caller. That service hydrates
+       * display names under the RLS bootstrap flag, and the reasons it is
+       * allowed to — plus the rules that come with it — are on
+       * `loadTutorNames` and in `docs/employer-learner-access.md`.
+       *
+       * The line manager below is deliberately NOT routed the same way. They
+       * are a member of the *employer's* organisation, so the employer — the
+       * party AC1 is about — reads them under the ordinary policy, and a
+       * provider caller falls back to `employerContacts`. Whether a provider
+       * should see the named manager rather than that fallback is F2.2.4's
+       * question, not this one's.
+       */
+      this.metricsService.loadTutorNames(
+        enrolment.tutorUserId ? [enrolment.tutorUserId] : [],
+      ),
       enrolment.employerManagerUserId
         ? this.userRepo.findOne({
             where: { id: enrolment.employerManagerUserId },
@@ -264,7 +282,9 @@ export class LearnerProfileService {
       },
       tutor: {
         userId: enrolment.tutorUserId,
-        name: tutor ? `${tutor.firstName} ${tutor.lastName}`.trim() : null,
+        name: enrolment.tutorUserId
+          ? (tutorNames.get(enrolment.tutorUserId) ?? null)
+          : null,
       },
       reviews: reviewItems,
       otj: {

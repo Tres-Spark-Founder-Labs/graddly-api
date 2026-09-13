@@ -21,7 +21,11 @@ describe('LearnerProfileService', () => {
   const otjRepo = { find: jest.fn(), count: jest.fn() };
   const documentsService = { listForEnrolment: jest.fn() };
   const otjMetricsService = { percentForEnrolment: jest.fn() };
-  const metricsService = { loadEmployerContacts: jest.fn() };
+  const userRepo = { findOne: jest.fn() };
+  const metricsService = {
+    loadEmployerContacts: jest.fn(),
+    loadTutorNames: jest.fn(),
+  };
   const interventionActionsService = { listRecentForEnrolment: jest.fn() };
   const breakInLearningService = { findOpen: jest.fn() };
   const messageThreadsService = { listSummariesForEnrolment: jest.fn() };
@@ -37,6 +41,8 @@ describe('LearnerProfileService', () => {
     interventionActionsService.listRecentForEnrolment.mockResolvedValue([]);
     breakInLearningService.findOpen.mockResolvedValue(null);
     messageThreadsService.listSummariesForEnrolment.mockResolvedValue([]);
+    userRepo.findOne.mockResolvedValue(null);
+    metricsService.loadTutorNames.mockResolvedValue(new Map());
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -51,10 +57,7 @@ describe('LearnerProfileService', () => {
           useValue: { find: jest.fn().mockResolvedValue([]) },
         },
         { provide: getRepositoryToken(OtjLogEntry), useValue: otjRepo },
-        {
-          provide: getRepositoryToken(User),
-          useValue: { findOne: jest.fn().mockResolvedValue(null) },
-        },
+        { provide: getRepositoryToken(User), useValue: userRepo },
         { provide: LearnerDocumentsService, useValue: documentsService },
         { provide: OtjProgressMetricsService, useValue: otjMetricsService },
         { provide: LearnerMetricsService, useValue: metricsService },
@@ -275,6 +278,64 @@ describe('LearnerProfileService', () => {
     expect(profile.messageThreads[0].lastMessagePreview).toBe(
       'Can we move Thursday?',
     );
+  });
+
+  /**
+   * F1.2.2 AC1 names the tutor. The aggregate used to read `users` here
+   * directly, which `users_select` refuses for an employer caller — the
+   * tutor belongs to the provider's organisation — so the response carried a
+   * non-null `tutor.userId` beside a null `tutor.name`.
+   */
+  describe('the tutor name', () => {
+    it('comes from the display-name hydrator, not from this service reading users', async () => {
+      enrolmentRepo.findOne.mockResolvedValue(
+        activeEnrolment({ tutorUserId: 'tutor-1' }),
+      );
+      metricsService.loadTutorNames.mockResolvedValue(
+        new Map([['tutor-1', 'Rowan Bell']]),
+      );
+
+      const result = await service.getProfile(
+        { id: 'user-1', organisationId: 'employer-org-1' } as never,
+        'enr-1',
+      );
+
+      expect(metricsService.loadTutorNames).toHaveBeenCalledWith(['tutor-1']);
+      expect(result.tutor).toEqual({ userId: 'tutor-1', name: 'Rowan Bell' });
+      // The read this replaced. The line-manager read stays on userRepo, so
+      // the assertion is about the tutor id specifically.
+      expect(userRepo.findOne).not.toHaveBeenCalledWith({
+        where: { id: 'tutor-1' },
+      });
+    });
+
+    it('asks for nothing when the enrolment has no tutor', async () => {
+      enrolmentRepo.findOne.mockResolvedValue(activeEnrolment());
+
+      const result = await service.getProfile(
+        { id: 'user-1', organisationId: PROVIDER_ORG } as never,
+        'enr-1',
+      );
+
+      // An empty list rather than a skipped call: loadTutorNames returns
+      // early on it and never opens the bootstrap window.
+      expect(metricsService.loadTutorNames).toHaveBeenCalledWith([]);
+      expect(result.tutor).toEqual({ userId: null, name: null });
+    });
+
+    it('reports a name the hydrator could not resolve as absent, not as a blank row', async () => {
+      enrolmentRepo.findOne.mockResolvedValue(
+        activeEnrolment({ tutorUserId: 'tutor-gone' }),
+      );
+      metricsService.loadTutorNames.mockResolvedValue(new Map());
+
+      const result = await service.getProfile(
+        { id: 'user-1', organisationId: PROVIDER_ORG } as never,
+        'enr-1',
+      );
+
+      expect(result.tutor).toEqual({ userId: 'tutor-gone', name: null });
+    });
   });
 
   describe('authorisation is not scoping', () => {

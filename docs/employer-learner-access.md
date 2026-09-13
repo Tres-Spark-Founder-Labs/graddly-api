@@ -1,8 +1,12 @@
 # Employer access to apprentices and learner profiles
 
-> F1.2.1 and F1.2.2 are both fixed. What remains is listed under "Still
-> narrower than the provider's view" — read that before assuming the employer
-> profile is complete.
+> F1.2.1 works for the employer. F1.2.2’s endpoint now serves them too, the
+> tutor’s name included, but **F1.2.2 is not met**: "F1.2.2, criterion by
+> criterion" lists what is still missing — the provider’s name (AC1), two
+> things the API already serves and the drawer does not show (AC2, AC4), a
+> chart that does not exist (AC3), downloads (AC5) and messaging (AC6).
+> "Bootstrap is for display names" is a rule rather than a description: read
+> it before adding a `setRlsBootstrap` call anywhere.
 > Referenced from `test/employer-learner-access.e2e-spec.ts`.
 
 ---
@@ -155,21 +159,154 @@ decision, not an engineering one.
 
 ---
 
+## The tutor's name, and the rule that came with it
+
+F1.2.2 AC1 lists what the profile must contain: _"personal details (name,
+start date, standard, provider, tutor, line manager)"_. After the three fixes
+above, the employer got the profile and the tutor arrived as
+`{ userId: "f2c654c8-…", name: null }` — the field the AC names, empty, with
+nothing anywhere reporting an error.
+
+`users_select` is the only SELECT policy on `users` — checked against the test
+database, not only the migrations:
+
+```
+app_rls_bootstrap() OR id = app_current_user() OR app_user_in_current_org(id)
+```
+
+The tutor is a member of the **provider's** organisation, so an employer
+caller matches none of the three arms and `userRepo.findOne` returned null.
+
+### What the roster already does — the finding that decided this
+
+The gap was believed to reach past the profile. `tutorUserDisplayName` on the
+enrolment roster is built from a `usersById` map
+(`enrolments.service.ts:802`), which looks like the same `users` read under
+the same policy — which would mean a null tutor on every employer roster row
+as well, and "No tutor assigned" on screen against apprentices who have one.
+
+It is not the same read. `enrichEnrolmentsForDisplay` wraps its whole
+hydration block in `setRlsBootstrap(true)` (`enrolments.service.ts:740`,
+restored at `:821`), which satisfies the first arm of `users_select`; the GUCs
+are re-sent before every statement (`postgres-query-runner.patch.ts:47`), so
+the flag is live for exactly those queries. Verified end to end as
+`graddly_app`, with a tutor who is a member of the provider's organisation and
+of nothing else:
+
+| Read, as the employer                      | Result                                                    |
+| ------------------------------------------ | --------------------------------------------------------- |
+| `GET /enrolments` → `tutorUserDisplayName` | `Rowan Tutor (rowan@…)` — identical to the provider's row |
+| `GET /learners/:id/profile` → `tutor`      | `{ userId: …, name: null }`                               |
+
+The employer was already receiving the tutor's name **and email** one endpoint
+over, and the gap was confined to the profile aggregate. That settled the
+choice of fix:
+
+- A **`SECURITY DEFINER`** function returning only the display name would be a
+  new mechanism disclosing strictly less than `/enrolments` already serves. It
+  would guard a name that is already published.
+- **Denormalising** the name onto `enrolments` adds a write path to keep in
+  step with `assignTutorInBulk` and every future writer of `tutorUserId`, for
+  a field the aggregate can read directly. Stale names are the failure mode,
+  and they are silent.
+- **Widening `users_select` row-level** was never available: the row carries
+  `password` and `mfaSecret`, kept off the wire by `select: false` — an ORM
+  convention guarding a database boundary, and the wrong thing to rest a
+  policy decision on.
+
+What shipped is the option the same aggregate was already using one field
+away. `LearnerMetricsService.loadTutorNames` hydrates under the bootstrap flag
+exactly as `loadEmployerContacts` does, and `learner-profile.service.ts`
+routes the tutor through it rather than reading `users` itself.
+
+### Bootstrap is for display names
+
+`setRlsBootstrap(true)` is a bypass. Its own doc comment says "public auth
+routes", which stopped being the whole truth when display-name hydration
+started using it, and three call sites that happen to agree are not a pattern.
+So, a rule:
+
+1. **Display names only.** A label rendered beside a record the caller may
+   already read. Never a row, a list, a count, an id the caller did not
+   already hold, and never anything a decision is taken on.
+2. **Column-scope the `select`** to exactly the fields the DTO renders —
+   `loadTutorNames` takes `['id', 'firstName', 'lastName']`
+   (`learner-metrics.service.ts:183`), and `enrichEnrolmentsForDisplay` takes
+   `email` as well because its labels are `Name (email)`. Not "the entity
+   minus `select: false`".
+3. **The window is as narrow as the reads inside it** — opened immediately
+   before, restored in a `finally`, never spanning unrelated work. Restore the
+   _previous_ value rather than setting `false`, or a nested call switches the
+   flag off under its caller.
+4. **The ids are the access decision.** Under bootstrap the policy matches on
+   the id alone, so the ids must come from rows the caller has already read
+   under its own policy. Every current caller derives them from enrolments it
+   has just read.
+
+A consequence of (4) worth knowing: `assignTutorInBulk` does not check that
+`tutorUserId` is a member of the provider's organisation, so a provider can
+write any UUID there and the hydrator will resolve that user's name. This is
+not new — `/enrolments` has done it since `enrichEnrolmentsForDisplay` was
+written — but it is the shape of hole the rule leaves, and validating the
+assignment, not narrowing the hydrator, is where it closes.
+
+Where this rule comes up next:
+`MessageThreadsService.listSummariesForEnrolment` does a column-scoped
+counterparty read (`message-threads.service.ts:139`) that is _not_ wrapped, so
+a counterparty's name is null for a caller outside their organisation. Left
+alone deliberately — messaging visibility is its own open question, below.
+
+`src/learners/learner-metrics.service.spec.ts` asserts all four points at both
+call sites, so the rule fails a build rather than a review.
+
+---
+
+## F1.2.2, criterion by criterion
+
+The endpoints now serve the employer. **F1.2.2 is not met.** Each row below
+was checked as the employer, running as `graddly_app`, against a real enrolment
+with a saved review record (a temporary e2e, not committed), unless it says
+otherwise. "API" and "screen" are kept apart because they fail differently:
+two of these are already served and simply not shown.
+
+| AC  | Criterion                                                                    | Status                                      | Evidence                                                                                                                                                                                                                                                                                                                                                                                                               |
+| --- | ---------------------------------------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC1 | personal details (name, start date, standard, provider, tutor, line manager) | **provider blank**; the rest served         | Tutor served as of this change. `providerOrganisationName` is null, and the drawer renders `"—"` (`ProfileOverview.jsx:159`). It is resolved from the link column only, which is null whenever the provider owns the enrolment (`enrolments.service.ts:565-566` defines that case). The profile DTO has no provider field. `enrolment-journey.service.ts:501` already uses `providerOrganisationId ?? organisationId`. |
+| AC2 | programme timeline, enrolment to EPA, with milestone completion status       | API ✓ — **screen ✗**                        | `GET /enrolments/:id/journey` as the employer: 200, milestone statuses `complete, complete, current, upcoming ×3`, a four-item gateway checklist. The drawer builds its own timeline from the profile (`programme-milestones.js`), whose header says only reviews carry a state. `useEnrolmentJourney` (`enrolments.query.js:67`) has no caller.                                                                       |
+| AC3 | OTJ hours chart, weekly, over the programme lifetime                         | **screen ✗**; data partial                  | No chart on the drawer — `ProfileActivity.jsx` lists sessions. The profile carries at most 500 entries (`learner-profile.service.ts:30`) with a `truncated` flag, so a long programme cannot be charted over its lifetime from it.                                                                                                                                                                                     |
+| AC4 | review history with dates, outcomes, and action points                       | API ✓ — **screen ✗**                        | `GET /reviews/:id/record` as the employer: 200 with `progressSummary`, `actionsAgreed` and `smartGoals`. `review-records.service.ts:204` admits the linked employer, and so does `review_records_select_linked_org`. The drawer reads only `profile.reviews` — dates, status and signatures (`ProfileReviews.jsx:27-31`).                                                                                              |
+| AC5 | document library: signed agreements, review records, correspondence          | **downloads ✗**; "correspondence" undefined | `pdf_generation_jobs` is owner-only — see below. There is no correspondence document type (`LearnerDocumentType`: commitment, review, evidence), and the PRD does not say what correspondence is. That is a question for the client, not a build task.                                                                                                                                                                 |
+| AC6 | direct messaging thread to tutor and apprentice                              | **deliberately narrow**                     | An employer reaches a thread only as its counterparty — see below.                                                                                                                                                                                                                                                                                                                                                     |
+| AC7 | loads within 2 seconds                                                       | **unpinned for the employer**               | 178 ms on a warm read against a local database — indicative only. The one budget test (`test/learners/profile.e2e-spec.ts:184`) runs as a provider, for F2.2.4 AC7.                                                                                                                                                                                                                                                    |
+
+---
+
 ## Still narrower than the provider's view
 
-The employer now gets the profile, and it is not the provider's profile. Two
-things are missing, both of them row policies, neither widened here because the
-scope of this change was the two parties on the enrolment.
+The employer now gets the profile, and it is not quite the provider's profile.
+One row policy is still narrower than the screen needs, and one behaviour is
+narrower on purpose.
 
-| Table                 | Why                                                                                                             | Effect on the employer                                                                           |
-| --------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `users`               | `users_select` admits `app_user_in_current_org(id)`, and the tutor is a member of the _provider's_ organisation | `tutor.name` is null — and F1.2.2 AC1 names the tutor as a required personal detail              |
-| `pdf_generation_jobs` | `pdf_generation_jobs_select` is owner-only                                                                      | commitment and review documents can list without a `storageKey`, so there is nothing to download |
+| Table                 | Why                                        | Effect on the employer                                                                           |
+| --------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `pdf_generation_jobs` | `pdf_generation_jobs_select` is owner-only | commitment and review documents can list without a `storageKey`, so there is nothing to download |
 
-Message threads are also empty for employer staff, and that one is deliberate:
-`message_threads_select_participant` scopes to the two participants rather than
-to an organisation, which migration 47 explains and `DECISIONS-FOR-CLIENT.md`
-carries as an open privacy question.
+That one is a genuine F1.2.2 AC5 gap, and the worst-shaped kind: the document
+appears in the library and cannot be opened. `resolveReviewPdfKey` and
+`resolveCommitmentPdfKey` read `pdf_generation_jobs` for the output key, and
+that read finds nothing under an employer's organisation, so `storageKey` and
+`downloadUrl` are both absent while the row itself lists.
+
+**Message threads (AC6) are empty for employer staff who are not themselves a
+participant, and that is deliberate.** `message_threads` carries two SELECT
+policies — `app_rls_bootstrap() OR "organisationId" = app_current_org()`, and
+`"apprenticeUserId" = app_current_user() OR "counterpartyUserId" =
+app_current_user()` — and `visibleThreadWhere` mirrors the second
+(`message-threads.service.ts:212`). A thread is stamped with
+`enrolment.organisationId`, which is the provider's, so an employer reaches
+one only as its counterparty. Whether employer staff at large should read a
+learner's thread is a privacy decision rather than an engineering one;
+Migration 47 records it as raised with the client in `DECISIONS-FOR-CLIENT.md` (`1781100000047-LinkedPartyReadPolicies.ts:107`). That file is not in this checkout — nor are `OPEN_QUESTIONS.md` and `PROJECT-STATUS.md`, which the code also cites — so whether the question is still open could not be checked here.
 
 ### `ks_evidence_items` stays closed, and that is the specification
 
@@ -201,7 +338,7 @@ portfolio evidence, that is a new requirement and belongs in
 "gap" that no criterion ever opened.
 
 One warning for whoever reads this next. The distinction is enforced by the row
-policy alone, not by the service. `learner-documents.service.ts:162` reads
+policy alone, not by the service. `learner-documents.service.ts:163` reads
 accepted evidence for every caller, and since the scoping fix it asks for it
 under the _provider’s_ `organisationId` — so the only thing keeping portfolio
 evidence out of the employer’s library is `ks_evidence_items_select` failing to
@@ -210,14 +347,23 @@ library changes behaviour with no edit to the profile code and nothing in this
 suite to fail. Widen it and the employer’s document library must be filtered in
 the service instead.
 
+That coupling is now pinned by a test rather than by this paragraph.
+`employer-learner-access.e2e-spec.ts` asserts both halves against the same
+accepted evidence item: the provider’s library contains it, the employer’s
+does not. A pair on purpose — the employer half alone passes against an empty
+table and proves nothing, which is exactly how the fixture’s draft-status
+evidence row would have flattered it.
+
 ## Tests
 
-| File                                             | Covers                                                                                                                                                                                |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/apprentices/apprentices.service.spec.ts`    | the branch itself — provider keeps ownership scoping and gains no `EXISTS`; employer gets the `EXISTS`, on `employerOrganisationId` only, with ownership _not_ ORed back in           |
-| `src/reporting/reporting-portal.service.spec.ts` | `assertPortalTypeIn` — multi-type admission, refusal, a null `portalType` refused rather than matched, and the single-type message preserved verbatim                                 |
-| `src/learners/learner-profile.service.spec.ts`   | the OR predicate has two arms and no `providerOrganisationId`; every sub-read receives the enrolment owner's id while the caller is the employer; messaging still receives the caller |
-| `test/employer-learner-access.e2e-spec.ts`       | end to end, every "can read" paired with a "cannot" — 11 cases, none skipped                                                                                                          |
+| File                                             | Covers                                                                                                                                                                                                                                                         |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/apprentices/apprentices.service.spec.ts`    | the branch itself — provider keeps ownership scoping and gains no `EXISTS`; employer gets the `EXISTS`, on `employerOrganisationId` only, with ownership _not_ ORed back in                                                                                    |
+| `src/reporting/reporting-portal.service.spec.ts` | `assertPortalTypeIn` — multi-type admission, refusal, a null `portalType` refused rather than matched, and the single-type message preserved verbatim                                                                                                          |
+| `src/learners/learner-profile.service.spec.ts`   | the OR predicate has two arms and no `providerOrganisationId`; every sub-read receives the enrolment owner’s id while the caller is the employer; messaging still receives the caller; the tutor name comes from the hydrator and not from a `users` read here |
+| `src/learners/learner-metrics.service.spec.ts`   | the display-name rule, at both call sites: the flag is on for the read and off after it, a previously-set flag is restored rather than cleared, the `select` is exactly the display fields, and an empty id list opens no window at all                        |
+| `test/employer-learner-access.e2e-spec.ts`       | end to end as `graddly_app`, every "can read" paired with a "cannot" — 14 cases, none skipped, including the tutor’s name and the absence of portfolio evidence                                                                                                |
+| `test/tutor-caseload.e2e-spec.ts`                | the provider side of the same hydrator: the caseload still resolves the tutor’s name, so widening it for the employer did not move the provider’s answer                                                                                                       |
 
 The sharpest e2e case is the near miss: a learner **at the same provider** whose
 employer is somebody else. A fix that widened to "any apprentice my provider

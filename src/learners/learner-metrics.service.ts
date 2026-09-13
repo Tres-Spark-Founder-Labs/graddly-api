@@ -121,17 +121,78 @@ export class LearnerMetricsService {
     };
   }
 
+  /**
+   * Tutor display names, by user id.
+   *
+   * ── WHY THIS READS UNDER THE BOOTSTRAP FLAG ───────────────────────────────
+   *
+   * F1.2.2 AC1 names the tutor among the personal details the employer's
+   * learner profile must show. The tutor is a member of the *provider's*
+   * organisation, and `users_select` admits a row only on
+   * `app_rls_bootstrap() OR id = app_current_user() OR
+   * app_user_in_current_org(id)` — so for an employer caller the row is not
+   * visible, and `tutor.name` came back null beside a non-null
+   * `tutor.userId`.
+   *
+   * Hydrating under the bootstrap flag was chosen over two alternatives, both
+   * rejected on the record:
+   *
+   *   SECURITY DEFINER  a new mechanism disclosing strictly less than the
+   *                     employer already receives. `GET /enrolments` serves
+   *                     them `tutorUserDisplayName` — "First Last (email)" —
+   *                     from `enrichEnrolmentsForDisplay`, which hydrates
+   *                     under this same flag. A function written to guard a
+   *                     name that is already published one endpoint over
+   *                     guards nothing.
+   *   denormalising     a name column on `enrolments` is a second write path
+   *                     to keep in step with `assignTutorInBulk` and every
+   *                     future writer of `tutorUserId`, for a field the
+   *                     aggregate can read directly. Stale names are the
+   *                     failure mode, and they are silent.
+   *
+   * `loadEmployerContacts` below has the same shape for the same reason — the
+   * employer's own contact is not a member of the provider's organisation
+   * either. Two call sites that agree are not a pattern, so the rule is
+   * written down: `docs/employer-learner-access.md`, "Bootstrap is for
+   * display names".
+   *
+   * ── WHAT THE FLAG DOES NOT DO ─────────────────────────────────────────────
+   *
+   * It does not scope the read. Under bootstrap `users_select` matches on the
+   * id alone, so the ids passed in are the whole of the access decision and
+   * must come from rows the caller may already read. Every caller derives them
+   * from enrolments it has just read under its own policy — the profile
+   * aggregate from the one enrolment, the cohort, queue and caseload screens
+   * from the page of enrolments they have listed.
+   *
+   * `select` is the display fields and nothing else: three, not the four
+   * `enrichEnrolmentsForDisplay` uses, because its labels carry the email and
+   * the tutor DTO is `{ userId, name }`. A `User` row also carries
+   * `password` and `mfaSecret`, kept off the wire by `select: false` — an
+   * ORM convention guarding a database boundary, and this read does not lean
+   * on it.
+   */
   async loadTutorNames(tutorUserIds: string[]): Promise<Map<string, string>> {
     if (tutorUserIds.length === 0) {
       return new Map();
     }
-    const users = await this.userRepo.findBy({ id: In(tutorUserIds) });
-    return new Map(
-      users.map((user) => [
-        user.id,
-        `${user.firstName} ${user.lastName}`.trim(),
-      ]),
-    );
+
+    const previousBootstrap = getRlsBootstrap();
+    setRlsBootstrap(true);
+    try {
+      const users = await this.userRepo.find({
+        where: { id: In(tutorUserIds) },
+        select: ['id', 'firstName', 'lastName'],
+      });
+      return new Map(
+        users.map((user) => [
+          user.id,
+          `${user.firstName} ${user.lastName}`.trim(),
+        ]),
+      );
+    } finally {
+      setRlsBootstrap(previousBootstrap);
+    }
   }
 
   async loadEmployerContacts(

@@ -96,7 +96,7 @@ export class LevyTransferFundingService {
      * RLS. The caller is normally the training provider, which is party to the
      * enrolment and not to the transfer, so `levy_transfers_select` does not
      * show it the row — the counterparty case of the bootstrap rule on
-     * `setRlsBootstrap`, four named columns in the narrowest window.
+     * `setRlsBootstrap`, four named columns in an exclusive window.
      */
     const transfer = await this.transferForLink(transferId);
     if (

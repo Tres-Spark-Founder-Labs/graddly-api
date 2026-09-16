@@ -171,13 +171,20 @@ export function getRlsBootstrap(): boolean {
  *
  *   1. Named columns only — a `select` listing exactly the fields needed.
  *      Never a whole row, never a list, never a count.
- *   2. The narrowest window that can hold the read: opened immediately before
- *      it, restored in a `finally`, never spanning unrelated work — and
- *      never opened beside concurrent reads. The flag is request-scoped, so
- *      a window inside a Promise.all covers every sibling's statements: an
- *      employer's evidence read once matched app_rls_bootstrap() that way and
- *      owner-only portfolio evidence appeared in their library. Sequence the
- *      window after the batch has resolved.
+ *   2. Exclusive, not brief: A BOOTSTRAP WINDOW MAY CONTAIN ONLY READS THAT
+ *      ARE MEANT TO BYPASS. The flag is request-global — it holds for every
+ *      statement the request sends while it is set, not for the lines between
+ *      set and restore — so a window three lines long is no safer than a long
+ *      one. What matters is what else is in flight. A loader called inside a
+ *      Promise.all beside a scoped read makes that read a bypass: the
+ *      profile's evidence read did exactly that, and owner-only portfolio
+ *      evidence appeared in an employer's library. `enrichEnrolmentsForDisplay`
+ *      runs a Promise.all *inside* its window and is safe, because every read
+ *      in that batch is display hydration. Windows must not overlap either:
+ *      each restores the value it found, so two open at once can restore out
+ *      of order and leave the flag on after both have finished.
+ *      `bootstrap-window-exclusivity.spec.ts` enforces this on every
+ *      request-path file.
  *   3. After an authorisation check, not instead of one. Under this flag the
  *      ids ARE the access decision, so they must come from rows the caller has
  *      already read under its own policy — and for a counterparty read, the

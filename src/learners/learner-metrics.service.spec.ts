@@ -30,13 +30,13 @@ import { LearnerMetricsService } from './learner-metrics.service.js';
  * caller's organisation does not contain — the tutor belongs to the provider,
  * the employer contact to the employer — so both run under the RLS bootstrap
  * flag. That flag is a bypass, and the only things keeping it honest are
- * conventions: display fields only, the narrowest possible window, and ids
+ * conventions: display fields only, a window holding only bypassing reads, and ids
  * that came from rows the caller could already read.
  *
  * Two call sites that happen to agree are not a pattern, which is why the
  * conventions are pinned here and written out in
  * `docs/employer-learner-access.md`, "Bootstrap is for named, narrow reads":
- * named columns only, the narrowest window, after an authorisation check, and
+ * named columns only, an exclusive window, after an authorisation check, and
  * nothing a decision is taken on that the caller could not otherwise have.
  */
 describe('LearnerMetricsService — display-name hydration', () => {

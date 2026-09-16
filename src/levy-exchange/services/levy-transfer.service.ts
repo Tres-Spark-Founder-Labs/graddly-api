@@ -579,8 +579,8 @@ export class LevyTransferService {
    * needs to be told the transfer is for. This is the counterparty case of the
    * bootstrap rule on `setRlsBootstrap`: one named column of one row, of an
    * organisation this caller is provably party to, read after the caller has
-   * been confirmed as this transfer's donor, in the narrowest window that can
-   * hold the read.
+   * been confirmed as this transfer's donor, in a window that holds this read
+   * and no other.
    *
    * The caller's own authorisation is NOT this function's job and must have
    * happened already: `submitToDas` establishes the caller is the donor of

@@ -75,10 +75,20 @@ export class TutorCaseloadService {
         enrolments.map((e) => e.tutorUserId).filter((id): id is string => !!id),
       ),
     ];
-    const [tutorNames, complianceByTutor] = await Promise.all([
-      this.metricsService.loadTutorNames(tutorIds),
-      this.reviewComplianceByTutor(organisationId, tutorIds),
-    ]);
+    /**
+     * Sequenced, never batched. loadTutorNames opens the RLS bootstrap
+     * window, and that flag is request-global: whatever else is in flight
+     * while it is open runs with `app_rls_bootstrap()` true. A bootstrap
+     * window may contain only reads that are meant to bypass, and the
+     * compliance read is not one — that it is scoped by its own where clause
+     * today is a fact about today's query, which is the argument that let
+     * owner-only evidence into an employer's profile.
+     */
+    const complianceByTutor = await this.reviewComplianceByTutor(
+      organisationId,
+      tutorIds,
+    );
+    const tutorNames = await this.metricsService.loadTutorNames(tutorIds);
 
     const buckets = new Map<
       string | null,

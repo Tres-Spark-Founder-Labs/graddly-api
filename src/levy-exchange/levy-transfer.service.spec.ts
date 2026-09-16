@@ -733,7 +733,7 @@ describe('LevyTransferService', () => {
   });
   /**
    * The counterparty case of the bootstrap rule on setRlsBootstrap. The four
-   * conditions, at this call site: named column, narrowest window, after the
+   * conditions, at this call site: named column, exclusive window, after the
    * authorisation check, and nothing else read.
    */
   describe("the recipient's UKPRN, read in a bootstrap window", () => {

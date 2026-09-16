@@ -18095,7 +18095,7 @@
             }
           },
           "403": {
-            "description": "No active organisation context",
+            "description": "The caller can see the link but does not own the enrolment; only the enrolment's owner can unlink it",
             "content": {
               "application/json": {
                 "schema": {

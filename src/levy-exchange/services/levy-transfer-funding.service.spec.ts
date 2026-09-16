@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
@@ -231,6 +235,52 @@ describe('LevyTransferFundingService', () => {
       await expect(
         service.link(asProvider({ enrolmentId: 'nope' })),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('unlink', () => {
+    const existing = () => ({
+      id: 'link-1',
+      transferId: 't-1',
+      enrolmentId: 'e-1',
+      isDeleted: false,
+    });
+
+    it('soft-deletes the link and confirms it by reading back', async () => {
+      linkRepo.findOne
+        .mockResolvedValueOnce(existing())
+        .mockResolvedValueOnce({ id: 'link-1', isDeleted: true });
+
+      await service.unlink('t-1', 'e-1');
+
+      expect(linkRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'link-1', isDeleted: true }),
+      );
+    });
+
+    /**
+     * levy_transfer_enrolments_select shows the link to the donor and the
+     * recipient; levy_transfer_enrolments_update admits only the enrolment's
+     * owner. Under RLS the refused UPDATE affects no rows and save() does not
+     * say so, so the read-back is the only thing between a donor and a
+     * success message over an untouched row.
+     */
+    it('refuses rather than reporting success when the update affected no rows', async () => {
+      linkRepo.findOne
+        .mockResolvedValueOnce(existing())
+        .mockResolvedValueOnce({ id: 'link-1', isDeleted: false });
+
+      await expect(service.unlink('t-1', 'e-1')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+    });
+
+    it('throws when the link does not exist', async () => {
+      linkRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.unlink('t-1', 'nope')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 

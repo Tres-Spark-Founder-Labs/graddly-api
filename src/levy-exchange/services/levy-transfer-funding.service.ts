@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -172,6 +173,27 @@ export class LevyTransferFundingService {
     }
     existing.isDeleted = true;
     await this.linkRepo.save(existing);
+    await this.assertUnlinked(existing.id);
+  }
+
+  /**
+   * levy_transfer_enrolments_select shows the link to the donor and the
+   * recipient, but levy_transfer_enrolments_update admits only the enrolment's
+   * owner. Under RLS the refused UPDATE affects no rows and save() does not say
+   * so, and this route answered with its success envelope over an untouched
+   * row. The read-back is what turns that into an answer, the way
+   * assertDocumentSigned does for the agreement.
+   */
+  private async assertUnlinked(id: string): Promise<void> {
+    const row = await this.linkRepo.findOne({
+      where: { id },
+      select: ['id', 'isDeleted'],
+    });
+    if (!row?.isDeleted) {
+      throw new ForbiddenException(
+        'Only the organisation that owns the enrolment can unlink it',
+      );
+    }
   }
 
   /** Enrolments funded by one transfer. */

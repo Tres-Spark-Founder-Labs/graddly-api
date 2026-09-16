@@ -144,6 +144,14 @@ describe('LevySurplusService', () => {
   });
 
   it('groups expiry calendar tranches by month within 24 months', async () => {
+    // Relative to now, not hardcoded: the calendar skips expiresOn < today,
+    // so a fixed date walks out of the window and the test fails for good.
+    // Next month keeps both tranches in one month and inside 24 months.
+    const nextMonth = new Date();
+    nextMonth.setUTCDate(1);
+    nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1);
+    const month = nextMonth.toISOString().slice(0, 7);
+
     donorLinkFind.mockResolvedValue([
       {
         id: 'link-1',
@@ -157,20 +165,20 @@ describe('LevySurplusService', () => {
         id: 'tranche-1',
         donorLinkId: 'link-1',
         amount: '1500.00',
-        expiresOn: '2026-09-15',
+        expiresOn: `${month}-01`,
       },
       {
         id: 'tranche-2',
         donorLinkId: 'link-1',
         amount: '500.00',
-        expiresOn: '2026-09-30',
+        expiresOn: `${month}-15`,
       },
     ]);
 
     const result = await service.getExpiryCalendar('org-1');
 
     expect(result).toHaveLength(1);
-    expect(result[0].month).toBe('2026-09');
+    expect(result[0].month).toBe(month);
     expect(result[0].totalAmount).toBe('2000.00');
     expect(result[0].tranches).toHaveLength(2);
   });

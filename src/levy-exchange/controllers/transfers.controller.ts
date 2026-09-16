@@ -397,6 +397,11 @@ export class TransfersController {
       'Soft-deletes the link. The enrolment and the transfer are untouched — ' +
       'only the claim that this transfer paid for that learner is withdrawn.',
   })
+  @ApiForbiddenResponse({
+    description:
+      "The caller can see the link but does not own the enrolment; only the enrolment's owner can unlink it",
+    type: ErrorResponseDto,
+  })
   @ApiNotFoundResponse({
     description: 'No such link',
     type: ErrorResponseDto,

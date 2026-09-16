@@ -196,14 +196,15 @@ for every POST under `/levy-exchange/transfers`, and the recipient could not
 read its own agreement at all (GETs were never bypassed, and the document
 policy was owner-only). What crosses the tenant line now, and how:
 
-| Crossing                                                      | Granted by                                                                                                                            |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| The recipient reads the agreement                             | `levy_transfer_documents_select_recipient`                                                                                            |
-| The recipient's final signature closes it, `ready` → `signed` | `levy_transfer_documents_update_recipient_completes`, with the restrictive `levy_transfer_documents_owner_is_donor` pinning ownership |
-| Both parties see both signature slots                         | `levy_transfer_signatures_select_party`                                                                                               |
-| The donor creates the recipient's empty slot                  | `levy_transfer_signatures_insert_recipient_slot`                                                                                      |
-| The donor reads the recipient's UKPRN for ESFA                | A narrow `setRlsBootstrap` window in `submitToDas`, `select: ['ukprn']`, after the caller is confirmed as the donor                   |
-| The enrolment's owner reads a transfer to link a learner      | A narrow `setRlsBootstrap` window in `link`, four named columns, after the caller is authorised on the enrolment it owns              |
+| Crossing                                                      | Granted by                                                                                                                             |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| The recipient reads the agreement                             | `levy_transfer_documents_select_recipient`                                                                                             |
+| The recipient's final signature closes it, `ready` → `signed` | `levy_transfer_documents_update_recipient_completes`, with the restrictive `levy_transfer_documents_owner_is_donor` pinning ownership  |
+| Both parties see both signature slots                         | `levy_transfer_signatures_select_party`                                                                                                |
+| The donor creates the recipient's empty slot                  | `levy_transfer_signatures_insert_recipient_slot`                                                                                       |
+| A signature slot belongs to the party it names                | `levy_transfer_signatures_owner_is_party`, restrictive: a donor row is owned by the transfer's donor, a recipient row by its recipient |
+| The donor reads the recipient's UKPRN for ESFA                | A narrow `setRlsBootstrap` window in `submitToDas`, `select: ['ukprn']`, after the caller is confirmed as the donor                    |
+| The enrolment's owner reads a transfer to link a learner      | A narrow `setRlsBootstrap` window in `link`, four named columns, after the caller is authorised on the enrolment it owns               |
 
 `test/levy-exchange/transfers.e2e-spec.ts` runs the whole lifecycle as the
 application role, asserts that role is neither superuser nor BYPASSRLS, and
@@ -215,6 +216,13 @@ none of them, and its spec fails if the list grows or if an entry stops being
 an anchored, two-segment suffix. The two reads that cross the tenant line do it
 one named read at a time, under the rule recorded on `setRlsBootstrap` and in
 `docs/employer-learner-access.md`, "Bootstrap is for named, narrow reads".
+
+Where a policy refuses a write, the service says so. Under RLS a refused
+UPDATE affects no rows and `save()` does not report it, so the two writes a
+counterparty can attempt are read back: the recipient's completing signature
+(`assertDocumentSigned`) and an unlink by anyone but the enrolment's owner
+(`assertUnlinked`, a 403). The donor and the recipient can see a funding
+link; only the enrolment's owner can remove it.
 
 ## Crons (worker)
 

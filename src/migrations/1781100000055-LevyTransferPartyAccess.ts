@@ -43,8 +43,10 @@ import { ensureRlsHelperFunctions } from './helpers/ensure-rls-helper-functions.
  * recipient admitted by (2)'s USING could otherwise write a new row that
  * passes the OWNER policy's WITH CHECK by setting "organisationId" to itself —
  * taking the donor's row. The RESTRICTIVE policy below pins ownership to the
- * transfer's donor on every update, whoever makes it. It is the first
- * restrictive policy in this schema, and that is the reason for it.
+ * transfer's donor on every update, whoever makes it. It and its mirror on
+ * the signatures table — a slot's organisationId must be the party the slot
+ * names — are the first restrictive policies in this schema, and that is the
+ * reason for them.
  *
  * ── WHY BOTH PARTIES READ BOTH SIGNATURE SLOTS ──────────────────────────────
  *
@@ -167,10 +169,37 @@ CREATE POLICY levy_transfer_signatures_insert_recipient_slot ON levy_transfer_si
         AND t.status IN ('draft', 'pending_signatures')
     )
   )`);
+
+    /**
+     * A slot belongs to the party it names. The generic
+     * levy_transfer_signatures_insert admits any row whose organisationId is
+     * the caller's, and permissive policies OR, so without this a donor could
+     * insert a party = 'recipient' row that it owns and then sign it under the
+     * generic UPDATE. Not reachable through the API today — the service builds
+     * the row and no DTO carries organisationId — and closed anyway, for the
+     * same reason as the document pin above. An unknown party falls through
+     * the CASE to NULL and is refused.
+     */
+    await queryRunner.query(`
+CREATE POLICY levy_transfer_signatures_owner_is_party ON levy_transfer_signatures
+  AS RESTRICTIVE
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM levy_transfers t
+      WHERE t.id = levy_transfer_signatures."transferId"
+        AND levy_transfer_signatures."organisationId" = CASE levy_transfer_signatures.party
+          WHEN 'donor' THEN t."donorOrganisationId"
+          WHEN 'recipient' THEN t."recipientOrganisationId"
+        END
+    )
+  )`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     for (const [table, policy] of [
+      ['levy_transfer_signatures', 'levy_transfer_signatures_owner_is_party'],
       [
         'levy_transfer_signatures',
         'levy_transfer_signatures_insert_recipient_slot',

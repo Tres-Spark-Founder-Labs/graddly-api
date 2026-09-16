@@ -296,7 +296,7 @@ describe('Levy Exchange transfers (e2e)', () => {
         expect.objectContaining({ party: 'recipient', signed: true }),
       ]);
 
-      // ── submit: the recipient's UKPRN arrives through the scoped function ──
+      // ── submit: the recipient's UKPRN arrives through a narrow window ──────
       const submitRes = await http()
         .post(`${BASE}/${transferId}/submit`)
         .set(donorCtx.authHeaders)
@@ -324,9 +324,39 @@ describe('Levy Exchange transfers (e2e)', () => {
       }
       const linked = await link(scope.staffHeaders).expect(201);
       const again = await link(scope.staffHeaders).expect(201);
-      expect((again.body as { data: { id: string } }).data.id).toBe(
-        (linked.body as { data: { id: string } }).data.id,
-      );
+      const linkId = (linked.body as { data: { id: string } }).data.id;
+      expect((again.body as { data: { id: string } }).data.id).toBe(linkId);
+
+      // ── unlink: the donor and the recipient can SEE the link, and only the
+      //    enrolment's owner can remove it. Under RLS their refused UPDATE
+      //    affects no rows and save() does not say so, so this measures the
+      //    read-back — the route used to answer them with success. ──────────
+      const linkedIds = async (headers: Record<string, string>) =>
+        (
+          (
+            await http()
+              .get(`${BASE}/${transferId}/enrolments`)
+              .set(headers)
+              .expect(200)
+          ).body as { data: { id: string }[] }
+        ).data.map((row) => row.id);
+      const unlink = (headers: Record<string, string>) =>
+        http()
+          .delete(
+            `${BASE}/${transferId}/enrolments/${scope.learnerA.enrolmentId}`,
+          )
+          .set(headers);
+
+      for (const outsider of [donorCtx.authHeaders, recipientCtx.authHeaders]) {
+        expect(await linkedIds(outsider)).toEqual([linkId]);
+        const refused = await unlink(outsider).expect(403);
+        expect((refused.body as { message: string }).message).toBe(
+          'Only the organisation that owns the enrolment can unlink it',
+        );
+        expect(await linkedIds(outsider)).toEqual([linkId]);
+      }
+      await unlink(scope.staffHeaders).expect(200);
+      expect(await linkedIds(scope.staffHeaders)).toEqual([]);
 
       // ── and nobody else reaches any of it ──────────────────────────────────
       const stranger = await createLexOrgContext(app, 'transfers-stranger');

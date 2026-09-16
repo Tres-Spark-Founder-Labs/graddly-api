@@ -172,7 +172,12 @@ export function getRlsBootstrap(): boolean {
  *   1. Named columns only — a `select` listing exactly the fields needed.
  *      Never a whole row, never a list, never a count.
  *   2. The narrowest window that can hold the read: opened immediately before
- *      it, restored in a `finally`, never spanning unrelated work.
+ *      it, restored in a `finally`, never spanning unrelated work — and
+ *      never opened beside concurrent reads. The flag is request-scoped, so
+ *      a window inside a Promise.all covers every sibling's statements: an
+ *      employer's evidence read once matched app_rls_bootstrap() that way and
+ *      owner-only portfolio evidence appeared in their library. Sequence the
+ *      window after the batch has resolved.
  *   3. After an authorisation check, not instead of one. Under this flag the
  *      ids ARE the access decision, so they must come from rows the caller has
  *      already read under its own policy — and for a counterparty read, the

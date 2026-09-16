@@ -166,8 +166,6 @@ export class LearnerProfileService {
       otjEntryCount,
       threads,
       otjPercent,
-      tutorNames,
-      providerNames,
       manager,
       recentInterventions,
       openBreak,
@@ -199,30 +197,13 @@ export class LearnerProfileService {
       this.messageThreadsService.listSummariesForEnrolment(user, enrolmentId),
       this.otjMetricsService.percentForEnrolment(enrolment),
       /**
-       * F1.2.2 AC1 — the tutor's name, which came back null for an employer
-       * beside a non-null userId.
-       *
-       * Routed through LearnerMetricsService rather than read here: the tutor
-       * is a member of the *provider's* organisation, so `users_select` does
-       * not admit the row for an employer caller. That service hydrates
-       * display names under the RLS bootstrap flag, and the reasons it is
-       * allowed to — plus the rules that come with it — are on
-       * `loadTutorNames` and in `docs/employer-learner-access.md`.
-       *
-       * The line manager below is deliberately NOT routed the same way. They
-       * are a member of the *employer's* organisation, so the employer — the
-       * party AC1 is about — reads them under the ordinary policy, and a
-       * provider caller falls back to `employerContacts`. Whether a provider
-       * should see the named manager rather than that fallback is F2.2.4's
-       * question, not this one's.
+       * The line manager. Deliberately NOT routed through the bootstrap
+       * loaders below: they are a member of the *employer's* organisation, so
+       * the employer — the party AC1 is about — reads them under the ordinary
+       * policy, and a provider caller falls back to `employerContacts`.
+       * Whether a provider should see the named manager rather than that
+       * fallback is F2.2.4's question, not this one's.
        */
-      this.metricsService.loadTutorNames(
-        enrolment.tutorUserId ? [enrolment.tutorUserId] : [],
-      ),
-      // The provider's name, under the same rule and for the same reason:
-      // `organisations_select` admits members only, and the employer is not
-      // a member of the provider.
-      this.metricsService.loadOrganisationNames([providerOrganisationId]),
       enrolment.employerManagerUserId
         ? this.userRepo.findOne({
             where: { id: enrolment.employerManagerUserId },
@@ -235,6 +216,34 @@ export class LearnerProfileService {
       // F2.2.4 AC6 — in the same parallel batch rather than sequenced after
       // it, so the profile's AC7 two-second budget is unaffected.
       this.breakInLearningService.findOpen(organisationId, enrolmentId),
+    ]);
+
+    /**
+     * ── THE BOOTSTRAP WINDOWS RUN AFTER THE BATCH, NEVER INSIDE IT ─────────
+     *
+     * F1.2.2 AC1 — the tutor's name and the provider's name. Both are members
+     * of the *provider's* organisation, which `users_select` and
+     * `organisations_select` do not admit to an employer caller, so
+     * LearnerMetricsService hydrates them under the RLS bootstrap flag; the
+     * rules that come with that are on `loadTutorNames` and in
+     * `docs/employer-learner-access.md`.
+     *
+     * They used to sit inside the Promise.all above. The flag is request-
+     * scoped, so a window opened beside concurrent siblings covers their
+     * statements too: the employer's evidence read went out with
+     * `app_rls_bootstrap()` true, `ks_evidence_items_select` matched on it,
+     * and portfolio evidence — owner-only by specification — appeared in the
+     * employer's document library. Caught by the e2e under `graddly_app`,
+     * not by any unit test, which is the reason that suite exists.
+     *
+     * So: sequenced after every scoped read has resolved, one at a time. Two
+     * small reads by id; the AC7 budget is unaffected (70 ms measured).
+     */
+    const tutorNames = await this.metricsService.loadTutorNames(
+      enrolment.tutorUserId ? [enrolment.tutorUserId] : [],
+    );
+    const providerNames = await this.metricsService.loadOrganisationNames([
+      providerOrganisationId,
     ]);
 
     const reviewItems = await Promise.all(

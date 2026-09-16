@@ -489,4 +489,46 @@ describe('LearnerProfileService', () => {
       });
     });
   });
+  /**
+   * The bootstrap windows run after the scoped reads, never beside them.
+   *
+   * The flag is request-scoped, so a window opened inside the profile's
+   * Promise.all covered its siblings' statements: the employer's evidence
+   * read matched app_rls_bootstrap() and owner-only portfolio evidence
+   * appeared in the employer's library. Caught by the e2e under graddly_app.
+   * This pins the ordering so it cannot drift back into the batch.
+   */
+  describe('the display-name windows', () => {
+    it('open only after every scoped read has resolved', async () => {
+      enrolmentRepo.findOne.mockResolvedValue(
+        activeEnrolment({ tutorUserId: 'tutor-1' }),
+      );
+      let releaseDocuments = () => {};
+      documentsService.listForEnrolment.mockReturnValue(
+        new Promise((resolve) => {
+          releaseDocuments = () => resolve([]);
+        }),
+      );
+
+      const pending = service.getProfile(
+        { id: 'user-1', organisationId: 'org-1' } as never,
+        'enr-1',
+      );
+      // Let every synchronous part of the batch start.
+      await new Promise((resolve) => {
+        setImmediate(resolve);
+      });
+
+      expect(metricsService.loadTutorNames).not.toHaveBeenCalled();
+      expect(metricsService.loadOrganisationNames).not.toHaveBeenCalled();
+
+      releaseDocuments();
+      await pending;
+
+      expect(metricsService.loadTutorNames).toHaveBeenCalledWith(['tutor-1']);
+      expect(metricsService.loadOrganisationNames).toHaveBeenCalledWith([
+        PROVIDER_ORG,
+      ]);
+    });
+  });
 });

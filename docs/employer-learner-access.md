@@ -241,7 +241,15 @@ Both obey the same four conditions:
    `loadOrganisationNames` takes `['id', 'name']`, `recipientUkprn` takes
    `['ukprn']`. Never a whole row, never a list, never a count.
 2. **The narrowest window that can hold the read**: opened immediately before
-   it, restored in a `finally`, never spanning unrelated work. Restore the
+   it, restored in a `finally`, never spanning unrelated work — and **never
+   opened beside concurrent reads**. The flag is request-scoped, so a window
+   inside a `Promise.all` covers every sibling's statements. That is not
+   hypothetical: `loadOrganisationNames` was first placed in the profile's
+   batch, the employer's evidence read went out with `app_rls_bootstrap()`
+   true, and owner-only portfolio evidence appeared in the employer's
+   library. The e2e under `graddly_app` caught it; no unit test could have.
+   Sequence the window after the batch has resolved
+   (`learner-profile.service.spec.ts` pins the ordering). Restore the
    _previous_ value rather than setting `false`, or a nested call switches the
    flag off under its caller.
 3. **After an authorisation check, not instead of one.** Under the flag the

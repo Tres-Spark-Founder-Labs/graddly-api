@@ -6,8 +6,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
+import {
+  getRlsBootstrap,
+  setRlsBootstrap,
+} from '../../common/context/correlation-id-context.js';
 import { buildPaginationMeta } from '../../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../../common/pagination/paginated-result.js';
 import { DAS_CLIENT } from '../../das/das-client.constants.js';
@@ -42,6 +46,11 @@ import {
   LevyTransferParty,
 } from '../enums/levy-transfer-party.enum.js';
 import { LevyTransferStatus } from '../enums/levy-transfer-status.enum.js';
+import {
+  nextSigningParty,
+  partyForOrganisation,
+  transferActionRequired,
+} from '../levy-transfer-signing-state.js';
 
 import { BilateralCoSignOrchestrator } from './bilateral-co-sign.orchestrator.js';
 import { DasDonorOAuthService } from './das-donor-oauth.service.js';
@@ -60,12 +69,12 @@ export class LevyTransferService {
     private readonly signatureRepo: Repository<LevyTransferSignature>,
     @InjectRepository(LevyMatchApplication)
     private readonly matchRepo: Repository<LevyMatchApplication>,
-    @InjectRepository(Organisation)
-    private readonly organisationRepo: Repository<Organisation>,
     @InjectRepository(DasDonorLink)
     private readonly donorLinkRepo: Repository<DasDonorLink>,
     @InjectRepository(DasDonorOAuthToken)
     private readonly donorTokenRepo: Repository<DasDonorOAuthToken>,
+    @InjectRepository(Organisation)
+    private readonly organisationRepo: Repository<Organisation>,
     @InjectRepository(PdfGenerationJob)
     private readonly pdfJobRepo: Repository<PdfGenerationJob>,
     private readonly pdfDispatch: PdfDispatchService,
@@ -137,7 +146,7 @@ export class LevyTransferService {
       dto.recipientSignerUserId,
     );
 
-    return this.toResponse(transfer);
+    return this.respond(user, transfer);
   }
 
   async findOne(
@@ -148,13 +157,14 @@ export class LevyTransferService {
       user.organisationId!,
       transferId,
     );
-    return this.toResponse(transfer);
+    return this.respond(user, transfer);
   }
 
   async list(
-    organisationId: string,
+    user: AuthenticatedUser,
     query: ListTransfersQueryDto,
   ): Promise<PaginatedResult<LevyTransferResponseDto>> {
+    const organisationId = user.organisationId!;
     const page = query.page ?? 1;
     const perPage = query.perPage ?? 20;
 
@@ -186,8 +196,11 @@ export class LevyTransferService {
       .take(perPage);
 
     const [rows, total] = await qb.getManyAndCount();
+    const slotsByTransfer = await this.loadSlots(rows.map((row) => row.id));
     return new PaginatedResult(
-      rows.map((row) => this.toResponse(row)),
+      rows.map((row) =>
+        this.toResponse(row, user, slotsByTransfer.get(row.id) ?? []),
+      ),
       buildPaginationMeta({ total, page, perPage }),
     );
   }
@@ -254,15 +267,32 @@ export class LevyTransferService {
     );
 
     if (remaining.length === 0) {
-      refreshed.status = LevyTransferStatus.PENDING_ESFA;
-      await this.transferRepo.save(refreshed);
-      document.status = LevyTransferDocumentStatus.SIGNED;
-      document.signedStorageKey = await this.copyPdfToDonorOrg(
+      /**
+       * F4.2.4 AC3 — "copies are stored in both the donor's and SME's
+       * document libraries". The fully signed PDF was produced in the final
+       * signer's storage; each party gets a lasting copy under its own
+       * organisation and both keys are recorded. Previously only the donor's
+       * copy was made, and the only fully signed thing the recipient ever saw
+       * was the temporary URL in its own sign response.
+       */
+      document.signedStorageKey = await this.copySignedPdf(
         refreshed,
         result.signedPdfKey,
         organisationId,
+        refreshed.donorOrganisationId,
       );
+      document.recipientSignedStorageKey = await this.copySignedPdf(
+        refreshed,
+        result.signedPdfKey,
+        organisationId,
+        refreshed.recipientOrganisationId,
+      );
+      document.status = LevyTransferDocumentStatus.SIGNED;
       await this.documentRepo.save(document);
+      await this.assertDocumentSigned(document.id);
+
+      refreshed.status = LevyTransferStatus.PENDING_ESFA;
+      await this.transferRepo.save(refreshed);
     } else if (dto.party === LevyTransferParty.DONOR) {
       document.status = LevyTransferDocumentStatus.READY;
       await this.documentRepo.save(document);
@@ -298,10 +328,8 @@ export class LevyTransferService {
       );
     }
 
-    const recipient = await this.organisationRepo.findOne({
-      where: { id: transfer.recipientOrganisationId, isDeleted: false },
-    });
-    if (!recipient?.ukprn) {
+    const recipientUkprn = await this.recipientUkprn(transfer);
+    if (!recipientUkprn) {
       throw new BadRequestException('Recipient organisation has no UKPRN');
     }
 
@@ -324,7 +352,7 @@ export class LevyTransferService {
     const consent = await this.dasHttpClient.createLevyTransferConsent(
       {
         amount: transfer.amount,
-        recipientAccount: recipient.ukprn,
+        recipientAccount: recipientUkprn,
         startDate,
         ukprn: donorLink.ukprn ?? undefined,
       },
@@ -337,7 +365,7 @@ export class LevyTransferService {
     transfer.confirmedAt = new Date();
 
     const saved = await this.transferRepo.save(transfer);
-    return this.toResponse(saved);
+    return this.respond(user, saved);
   }
 
   async getDocument(
@@ -350,7 +378,7 @@ export class LevyTransferService {
       transfer.donorOrganisationId,
       transferId,
     );
-    return this.toDocumentResponse(document, organisationId);
+    return this.toDocumentResponse(document, transfer, organisationId);
   }
 
   async syncTransferStatusFromDas(transfer: LevyTransfer): Promise<void> {
@@ -500,28 +528,77 @@ export class LevyTransferService {
     });
   }
 
-  private async copyPdfToDonorOrg(
+  /** Copies the fully signed agreement into one party's own storage. */
+  private async copySignedPdf(
     transfer: LevyTransfer,
     sourceKey: string,
     sourceOrganisationId: string,
+    targetOrganisationId: string,
   ): Promise<string> {
     const buffer = await this.storage.getObjectBuffer(
       sourceOrganisationId,
       sourceKey,
     );
-    const donorKey = this.keyBuilder.build({
-      organisationId: transfer.donorOrganisationId,
+    const targetKey = this.keyBuilder.build({
+      organisationId: targetOrganisationId,
       category: StorageObjectCategory.EXPORT,
       filename: `levy-transfer-signed-${transfer.id}.pdf`,
       objectId: transfer.id,
     });
     await this.storage.putObject(
-      transfer.donorOrganisationId,
-      donorKey,
+      targetOrganisationId,
+      targetKey,
       buffer,
       'application/pdf',
     );
-    return donorKey;
+    return targetKey;
+  }
+
+  /**
+   * An UPDATE the row policies do not admit affects no rows, and save() does
+   * not report that. The recipient's completing write is admitted by
+   * `levy_transfer_documents_update_recipient_completes`; reading the row back
+   * is how a refused write is noticed rather than silently lost.
+   */
+  private async assertDocumentSigned(documentId: string): Promise<void> {
+    const stored = await this.documentRepo.findOne({
+      where: { id: documentId, isDeleted: false },
+    });
+    if (stored?.status !== LevyTransferDocumentStatus.SIGNED) {
+      throw new ConflictException(
+        'The signed agreement could not be recorded. No copy was marked signed.',
+      );
+    }
+  }
+
+  /**
+   * The recipient's UKPRN, for the ESFA consent payload.
+   *
+   * `organisations_select` admits members only, so the donor cannot read the
+   * recipient's organisation — and the recipient's UKPRN is exactly what ESFA
+   * needs to be told the transfer is for. This is the counterparty case of the
+   * bootstrap rule on `setRlsBootstrap`: one named column of one row, of an
+   * organisation this caller is provably party to, read after the caller has
+   * been confirmed as this transfer's donor, in the narrowest window that can
+   * hold the read.
+   *
+   * The caller's own authorisation is NOT this function's job and must have
+   * happened already: `submitToDas` establishes the caller is the donor of
+   * this transfer before calling it.
+   */
+  private async recipientUkprn(transfer: LevyTransfer): Promise<string | null> {
+    const previousBootstrap = getRlsBootstrap();
+    setRlsBootstrap(true);
+    try {
+      const recipient = await this.organisationRepo.findOne({
+        where: { id: transfer.recipientOrganisationId, isDeleted: false },
+        select: ['ukprn'],
+      });
+      const ukprn = recipient?.ukprn;
+      return typeof ukprn === 'string' && ukprn.trim() !== '' ? ukprn : null;
+    } finally {
+      setRlsBootstrap(previousBootstrap);
+    }
   }
 
   private async copyPdfToRecipientOrg(
@@ -601,6 +678,7 @@ export class LevyTransferService {
 
   private async toDocumentResponse(
     document: LevyTransferDocument,
+    transfer: LevyTransfer,
     organisationId: string,
   ): Promise<LevyTransferDocumentResponseDto> {
     const dto: LevyTransferDocumentResponseDto = {
@@ -610,7 +688,20 @@ export class LevyTransferService {
       status: document.status,
     };
 
-    let key = document.signedStorageKey ?? document.unsignedStorageKey;
+    /**
+     * Each party's own lasting copy first (F4.2.4 AC3): the donor's is
+     * `signedStorageKey`, the recipient's `recipientSignedStorageKey`. A
+     * transfer completed before migration 1781100000055 has no recipient copy,
+     * so the recipient falls back to the donor's. Before anyone has signed,
+     * both parties see the unsigned agreement.
+     */
+    const ownSignedCopy =
+      partyForOrganisation(transfer, organisationId) ===
+      LevyTransferParty.RECIPIENT
+        ? document.recipientSignedStorageKey
+        : document.signedStorageKey;
+    let key =
+      ownSignedCopy ?? document.signedStorageKey ?? document.unsignedStorageKey;
     if (!key && document.pdfJobId) {
       const pdfJob = await this.pdfJobRepo.findOne({
         where: {
@@ -643,7 +734,11 @@ export class LevyTransferService {
     return dto;
   }
 
-  private toResponse(transfer: LevyTransfer): LevyTransferResponseDto {
+  private toResponse(
+    transfer: LevyTransfer,
+    user: AuthenticatedUser,
+    slots: LevyTransferSignature[],
+  ): LevyTransferResponseDto {
     return {
       id: transfer.id,
       donorOrganisationId: transfer.donorOrganisationId,
@@ -658,6 +753,46 @@ export class LevyTransferService {
       expiryDate: transfer.expiryDate,
       createdAt: transfer.createdAt.toISOString(),
       updatedAt: transfer.updatedAt.toISOString(),
+      signatures: [...slots]
+        .sort((a, b) => a.signOrder - b.signOrder)
+        .map((slot) => ({
+          party: slot.party,
+          signOrder: slot.signOrder,
+          signed: slot.signedAt !== null,
+          signedAt: slot.signedAt ? slot.signedAt.toISOString() : null,
+        })),
+      nextParty: nextSigningParty(transfer.status, slots),
+      actionRequired: transferActionRequired(user, transfer, slots),
     };
+  }
+
+  /** One transfer's response for this user, with its signing state. */
+  private async respond(
+    user: AuthenticatedUser,
+    transfer: LevyTransfer,
+  ): Promise<LevyTransferResponseDto> {
+    const slots = await this.signatureRepo.find({
+      where: { transferId: transfer.id, isDeleted: false },
+    });
+    return this.toResponse(transfer, user, slots);
+  }
+
+  /** Every slot for a page of transfers, in one query, grouped by transfer. */
+  private async loadSlots(
+    transferIds: string[],
+  ): Promise<Map<string, LevyTransferSignature[]>> {
+    const byTransfer = new Map<string, LevyTransferSignature[]>();
+    if (transferIds.length === 0) {
+      return byTransfer;
+    }
+    const slots = await this.signatureRepo.find({
+      where: { transferId: In(transferIds), isDeleted: false },
+    });
+    for (const slot of slots) {
+      const list = byTransfer.get(slot.transferId) ?? [];
+      list.push(slot);
+      byTransfer.set(slot.transferId, list);
+    }
+    return byTransfer;
   }
 }

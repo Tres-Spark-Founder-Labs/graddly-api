@@ -19,7 +19,11 @@ import { User } from '../users/entities/user.entity.js';
 import { LearnerMetricsService } from './learner-metrics.service.js';
 
 /**
- * The display-name hydration rule, asserted rather than described.
+ * The bootstrap rule, asserted rather than described — the display-name half
+ * of it. `levy-transfer.service.spec.ts` and
+ * `levy-transfer-funding.service.spec.ts` assert the same four conditions for
+ * the counterparty half (one named field of the other party to a record the
+ * caller is party to).
  *
  * `loadTutorNames` and `loadEmployerContacts` read `users` for a party the
  * caller's organisation does not contain — the tutor belongs to the provider,
@@ -30,7 +34,9 @@ import { LearnerMetricsService } from './learner-metrics.service.js';
  *
  * Two call sites that happen to agree are not a pattern, which is why the
  * conventions are pinned here and written out in
- * `docs/employer-learner-access.md`.
+ * `docs/employer-learner-access.md`, "Bootstrap is for named, narrow reads":
+ * named columns only, the narrowest window, after an authorisation check, and
+ * nothing a decision is taken on that the caller could not otherwise have.
  */
 describe('LearnerMetricsService — display-name hydration', () => {
   const userRepo = { find: jest.fn() };

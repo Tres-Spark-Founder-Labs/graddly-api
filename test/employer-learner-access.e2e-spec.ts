@@ -278,7 +278,7 @@ describe('Employer access to apprentices and learner profiles (e2e)', () => {
      * The name is now hydrated by `LearnerMetricsService.loadTutorNames` under
      * the RLS bootstrap flag, the shape `loadEmployerContacts` in the same
      * aggregate already used. See `docs/employer-learner-access.md`,
-     * "Bootstrap is for display names".
+     * "Bootstrap is for named, narrow reads".
      */
     it('carries the tutor’s name, not only their id', async () => {
       const res = await request(app.getHttpServer())

@@ -24,23 +24,23 @@ Content-Type: application/json
 
 **Response `data`:**
 
-| Field | Description |
-|-------|-------------|
-| `status` | `eligible` \| `not_eligible` \| `check_with_advisor` |
-| `estimatedFundingBand` | `{ min, max, currency }` from `eligibility-rules.v1.json` |
-| `nextSteps` | Actionable strings for the UI |
+| Field                   | Description                                                          |
+| ----------------------- | -------------------------------------------------------------------- |
+| `status`                | `eligible` \| `not_eligible` \| `check_with_advisor`                 |
+| `estimatedFundingBand`  | `{ min, max, currency }` from `eligibility-rules.v1.json`            |
+| `nextSteps`             | Actionable strings for the UI                                        |
 | `beginRegistrationPath` | Present when `eligible` — `/api/v1/flowportal-registration/sessions` |
 
 Rules: `src/levy-exchange/config/eligibility-rules.v1.json`. Existing DAS account → `check_with_advisor`.
 
 ## Module overview
 
-| Slice | Feature | Key tables |
-|-------|---------|------------|
-| LEX-001 | Donor DAS link + OAuth consent | `das_donor_links`, `das_donor_oauth_tokens` |
-| LEX-002 | Surplus + expiry alerts | `das_levy_tranches`, `levy_surplus_snapshots`, `levy_expiry_alert_dispatches` |
-| LEX-003 | Rule-based matching v1 | `levy_recipient_profiles`, `levy_transfer_preferences`, `levy_match_applications` |
-| LEX-004 | Transfer docs + e-sign + DAS create | `levy_transfers`, `levy_transfer_documents`, `levy_transfer_signatures` |
+| Slice   | Feature                             | Key tables                                                                        |
+| ------- | ----------------------------------- | --------------------------------------------------------------------------------- |
+| LEX-001 | Donor DAS link + OAuth consent      | `das_donor_links`, `das_donor_oauth_tokens`                                       |
+| LEX-002 | Surplus + expiry alerts             | `das_levy_tranches`, `levy_surplus_snapshots`, `levy_expiry_alert_dispatches`     |
+| LEX-003 | Rule-based matching v1              | `levy_recipient_profiles`, `levy_transfer_preferences`, `levy_match_applications` |
+| LEX-004 | Transfer docs + e-sign + DAS create | `levy_transfers`, `levy_transfer_documents`, `levy_transfer_signatures`           |
 
 ## Donor DAS linking (F4.1.1)
 
@@ -103,12 +103,12 @@ Enable: `CRON_LEVY_EXPIRY_ALERTS_ENABLED=true` (worker process).
 
 Rule-based v1 (no ML). Weights in `src/levy-exchange/config/matching-rules.v1.json`:
 
-| Criterion | Weight |
-|-----------|--------|
-| Sector alignment | 30% |
-| Regional proximity | 25% |
-| Programme type | 25% |
-| Amount fit | 20% |
+| Criterion          | Weight |
+| ------------------ | ------ |
+| Sector alignment   | 30%    |
+| Regional proximity | 25%    |
+| Programme type     | 25%    |
+| Amount fit         | 20%    |
 
 **SME profile:**
 
@@ -152,27 +152,76 @@ Phase 1 MVP may run matching in **assisted mode** ([09-release-phases.md](prd/09
 
 Pipeline: `draft` → `pending_signatures` → `pending_esfa` → `confirmed` / `active` / `failed`
 
-```http
-POST /api/v1/levy-exchange/transfers
-{ "matchApplicationId": "<confirmed-application-uuid>", "startDate": "2026-06-01" }
-
-POST /api/v1/levy-exchange/transfers/{id}/sign
-{ "party": "donor", "signatureImageKey": "orgs/.../signature.png" }
-
-POST /api/v1/levy-exchange/transfers/{id}/submit
-GET /api/v1/levy-exchange/transfers/{id}/document
+```
+POST /api/v1/levy-exchange/transfers                  donor, from a confirmed match
+POST /api/v1/levy-exchange/transfers/{id}/sign        { "party": "donor" | "recipient", "signatureImageKey": "orgs/.../signature.png" }
+POST /api/v1/levy-exchange/transfers/{id}/submit      donor, once both parties have signed
+GET  /api/v1/levy-exchange/transfers[?role=donor|recipient]
+GET  /api/v1/levy-exchange/transfers/{id}
+GET  /api/v1/levy-exchange/transfers/{id}/document
+POST /api/v1/levy-exchange/transfers/{id}/enrolments  the enrolment's owner, normally the provider
 ```
 
-On both parties signed, donor submits to DAS (`createLevyTransferConsent`). Daily cron syncs transfer status from ESFA.
+The agreement PDF (`levy_transfer_agreement`) is generated when the transfer is
+created. When it completes, the transfer opens for signing and the document
+becomes `ready` with the unsigned PDF, so both parties can read it before
+anyone signs. The donor signs first, then the recipient; the recipient's
+signature moves the transfer to `pending_esfa`, and the donor submits to DAS
+(`createLevyTransferConsent`). A daily cron syncs status from ESFA.
 
-PDF template: `levy_transfer_agreement`.
+### Who is asked to sign
+
+Every transfer carries `signatures` (both slots, in order), `nextParty` and
+`actionRequired`. `actionRequired` is true only when the requesting user's
+party is next **and** they may sign for it — its assigned signer, or an owner
+or admin. That is the same rule the sign endpoint enforces
+(`mayUserSignSlot`, `levy-transfer-signing-state.ts`), so the two cannot
+disagree. Do not read `status === pending_signatures` as "your turn": it is
+true for both parties while the donor has not signed.
+
+### The document, for both parties
+
+One document row per transfer, owned by the donor and readable by the
+recipient. Once both have signed, `GET /document` returns each party's own
+lasting copy — the donor's in the donor's storage (`signedStorageKey`), the
+recipient's in the recipient's (`recipientSignedStorageKey`), per F4.2.4 AC3.
+Before that, both get the unsigned agreement. Transfers completed before
+migration `1781100000055` have no recipient copy; the recipient is served the
+donor's.
+
+### Access model: every transfer route runs under RLS
+
+Until migration `1781100000055`, `rls-bootstrap.middleware.ts` turned RLS off
+for every POST under `/levy-exchange/transfers`, and the recipient could not
+read its own agreement at all (GETs were never bypassed, and the document
+policy was owner-only). What crosses the tenant line now, and how:
+
+| Crossing                                                      | Granted by                                                                                                                            |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| The recipient reads the agreement                             | `levy_transfer_documents_select_recipient`                                                                                            |
+| The recipient's final signature closes it, `ready` → `signed` | `levy_transfer_documents_update_recipient_completes`, with the restrictive `levy_transfer_documents_owner_is_donor` pinning ownership |
+| Both parties see both signature slots                         | `levy_transfer_signatures_select_party`                                                                                               |
+| The donor creates the recipient's empty slot                  | `levy_transfer_signatures_insert_recipient_slot`                                                                                      |
+| The donor reads the recipient's UKPRN for ESFA                | A narrow `setRlsBootstrap` window in `submitToDas`, `select: ['ukprn']`, after the caller is confirmed as the donor                   |
+| The enrolment's owner reads a transfer to link a learner      | A narrow `setRlsBootstrap` window in `link`, four named columns, after the caller is authorised on the enrolment it owns              |
+
+`test/levy-exchange/transfers.e2e-spec.ts` runs the whole lifecycle as the
+application role, asserts that role is neither superuser nor BYPASSRLS, and
+clears process-global tenant state before every request, so a pass cannot come
+from another request's organisation.
+
+No transfer route is exempt from RLS: `rls-bootstrap.middleware.ts` matches
+none of them, and its spec fails if the list grows or if an entry stops being
+an anchored, two-segment suffix. The two reads that cross the tenant line do it
+one named read at a time, under the rule recorded on `setRlsBootstrap` and in
+`docs/employer-learner-access.md`, "Bootstrap is for named, narrow reads".
 
 ## Crons (worker)
 
-| Cron | Env flag | Default schedule |
-|------|----------|------------------|
-| Levy expiry alerts | `CRON_LEVY_EXPIRY_ALERTS_ENABLED` | `0 8 * * *` |
-| Transfer status sync | `CRON_LEVY_TRANSFER_STATUS_ENABLED` | `0 3 * * *` |
+| Cron                 | Env flag                            | Default schedule |
+| -------------------- | ----------------------------------- | ---------------- |
+| Levy expiry alerts   | `CRON_LEVY_EXPIRY_ALERTS_ENABLED`   | `0 8 * * *`      |
+| Transfer status sync | `CRON_LEVY_TRANSFER_STATUS_ENABLED` | `0 3 * * *`      |
 
 ## Swagger
 

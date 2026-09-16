@@ -5,7 +5,7 @@
 > criterion" lists what is still missing — the provider’s name (AC1), two
 > things the API already serves and the drawer does not show (AC2, AC4), a
 > chart that does not exist (AC3), downloads (AC5) and messaging (AC6).
-> "Bootstrap is for display names" is a rule rather than a description: read
+> "Bootstrap is for named, narrow reads" is a rule rather than a description: read
 > it before adding a `setRlsBootstrap` call anywhere.
 > Referenced from `test/employer-learner-access.e2e-spec.ts`.
 
@@ -219,31 +219,48 @@ away. `LearnerMetricsService.loadTutorNames` hydrates under the bootstrap flag
 exactly as `loadEmployerContacts` does, and `learner-profile.service.ts`
 routes the tutor through it rather than reading `users` itself.
 
-### Bootstrap is for display names
+### Bootstrap is for named, narrow reads
 
-`setRlsBootstrap(true)` is a bypass. Its own doc comment says "public auth
+`setRlsBootstrap(true)` is a bypass. Its own doc comment said "public auth
 routes", which stopped being the whole truth when display-name hydration
 started using it, and three call sites that happen to agree are not a pattern.
-So, a rule:
+So, a rule. Two kinds of read may use it:
 
-1. **Display names only.** A label rendered beside a record the caller may
-   already read. Never a row, a list, a count, an id the caller did not
-   already hold, and never anything a decision is taken on.
-2. **Column-scope the `select`** to exactly the fields the DTO renders —
-   `loadTutorNames` takes `['id', 'firstName', 'lastName']`
-   (`learner-metrics.service.ts:183`), and `enrichEnrolmentsForDisplay` takes
-   `email` as well because its labels are `Name (email)`. Not "the entity
-   minus `select: false`".
-3. **The window is as narrow as the reads inside it** — opened immediately
-   before, restored in a `finally`, never spanning unrelated work. Restore the
+- **a display name** — a label rendered beside a record the caller may already
+  read (the tutor's name on an employer's learner profile);
+- **a counterparty field** — one named field of a row belonging to the other
+  party to a record the caller is party to, where that party's own table admits
+  only its members (the recipient's UKPRN, which the donor must send to ESFA;
+  the transfer a provider is attaching its own learner to).
+
+Both obey the same four conditions:
+
+1. **Named columns only.** A `select` listing exactly the fields needed —
+   `loadTutorNames` takes `['id', 'firstName', 'lastName']`,
+   `recipientUkprn` takes `['ukprn']`. Never a whole row, never a list,
+   never a count.
+2. **The narrowest window that can hold the read**: opened immediately before
+   it, restored in a `finally`, never spanning unrelated work. Restore the
    _previous_ value rather than setting `false`, or a nested call switches the
    flag off under its caller.
-4. **The ids are the access decision.** Under bootstrap the policy matches on
-   the id alone, so the ids must come from rows the caller has already read
-   under its own policy. Every current caller derives them from enrolments it
-   has just read.
+3. **After an authorisation check, not instead of one.** Under the flag the
+   ids are the whole access decision, so they must come from rows the caller
+   has already read under its own policy. `submitToDas` confirms the caller is
+   the transfer's donor first; the enrolment link authorises on the enrolment —
+   which the caller owns, read under RLS — before it reads the transfer.
+4. **Nothing a decision is taken on that the caller could not otherwise have.**
+   A label, or a field the relationship entitles them to. Not a row they are
+   merely curious about.
 
-A consequence of (4) worth knowing: `assignTutorInBulk` does not check that
+Never a whole request. `rls-bootstrap.middleware.ts` once matched every POST
+under `/levy-exchange/transfers` with an unanchored `path.includes()`, which
+turned the tenant boundary off on four routes to serve two reads — create,
+sign, submit and enrolment links, with the service's `where` clauses the only
+separation, and an e2e suite that passed a recipient's signature because of it.
+That branch is gone, and its spec now fails if the bypass list grows or if any
+entry stops being an anchored suffix.
+
+A consequence of (3) worth knowing: `assignTutorInBulk` does not check that
 `tutorUserId` is a member of the provider's organisation, so a provider can
 write any UUID there and the hydrator will resolve that user's name. This is
 not new — `/enrolments` has done it since `enrichEnrolmentsForDisplay` was
@@ -256,8 +273,11 @@ counterparty read (`message-threads.service.ts:139`) that is _not_ wrapped, so
 a counterparty's name is null for a caller outside their organisation. Left
 alone deliberately — messaging visibility is its own open question, below.
 
-`src/learners/learner-metrics.service.spec.ts` asserts all four points at both
-call sites, so the rule fails a build rather than a review.
+`src/learners/learner-metrics.service.spec.ts`,
+`src/levy-exchange/levy-transfer.service.spec.ts` and
+`src/levy-exchange/services/levy-transfer-funding.service.spec.ts` assert all
+four conditions at every call site, so the rule fails a build rather than a
+review.
 
 ---
 

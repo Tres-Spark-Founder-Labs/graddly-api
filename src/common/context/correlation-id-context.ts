@@ -153,21 +153,42 @@ export function getRlsBootstrap(): boolean {
  *
  * `app_rls_bootstrap()` is the first arm of `users_select`,
  * `organisation_memberships_select`, `ks_evidence_items_select` and others, so
- * while it is set those policies admit rows on the id alone. Two uses are
+ * while it is set those policies admit rows on the id alone. Three uses are
  * legitimate:
  *
  *   public auth routes      no organisation exists yet, so nothing can be
  *                           scoped by one
  *   display-name hydration  a label rendered beside a record the caller may
  *                           already read
+ *   counterparty reads      one named field of a row belonging to the other
+ *                           party to a record the caller is provably party
+ *                           to, where that party's own table admits only its
+ *                           members
  *
- * The rules for the second are not optional, and they are written out in
- * `docs/employer-learner-access.md`, "Bootstrap is for display names":
- * display fields only, a `select` column-scoped to exactly those, a window as
- * narrow as the reads inside it, and ids that came from rows the caller has
- * already read under its own policy — under this flag the ids ARE the access
- * decision. `LearnerMetricsService.loadTutorNames` is the worked example and
- * `learner-metrics.service.spec.ts` asserts every clause of it.
+ * The rules are the same for both of the last two, they are not optional, and
+ * they are written out in `docs/employer-learner-access.md`, "Bootstrap is
+ * for named, narrow reads":
+ *
+ *   1. Named columns only — a `select` listing exactly the fields needed.
+ *      Never a whole row, never a list, never a count.
+ *   2. The narrowest window that can hold the read: opened immediately before
+ *      it, restored in a `finally`, never spanning unrelated work.
+ *   3. After an authorisation check, not instead of one. Under this flag the
+ *      ids ARE the access decision, so they must come from rows the caller has
+ *      already read under its own policy — and for a counterparty read, the
+ *      caller's right to the record must already be established.
+ *   4. Nothing a decision is taken on that the caller could not otherwise
+ *      have. A label, or a field the counterparty relationship entitles them
+ *      to; not a row they are merely curious about.
+ *
+ * `LearnerMetricsService.loadTutorNames` is the worked example for a display
+ * name and `LevyTransferService.recipientUkprn` for a counterparty field;
+ * `learner-metrics.service.spec.ts`, `levy-transfer.service.spec.ts` and
+ * `levy-transfer-funding.service.spec.ts` assert every clause.
+ *
+ * What this flag is never for: a whole request. `rls-bootstrap.middleware.ts`
+ * once turned it on for every POST under `/levy-exchange/transfers`, which
+ * disabled the tenant boundary on four routes to serve two reads.
  *
  * Restore the previous value in a `finally` rather than setting `false`, or a
  * nested call switches the flag off under its caller.

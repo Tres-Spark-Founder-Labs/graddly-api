@@ -2,6 +2,10 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import {
+  getRlsBootstrap,
+  runWithCorrelationId,
+} from '../../common/context/correlation-id-context.js';
 import { Enrolment } from '../../enrolments/entities/enrolment.entity.js';
 import { LevyTransferEnrolment } from '../entities/levy-transfer-enrolment.entity.js';
 import { LevyTransfer } from '../entities/levy-transfer.entity.js';
@@ -26,25 +30,28 @@ describe('LevyTransferFundingService', () => {
     find: jest.fn(),
     createQueryBuilder: jest.fn(),
   };
-  const transferRepo = { findOne: jest.fn() };
   const enrolmentRepo = { findOne: jest.fn() };
+  const transferRepo = { findOne: jest.fn() };
 
   const DONOR = 'org-donor';
   const RECIPIENT = 'org-recipient';
 
+  const PROVIDER = 'org-provider';
+
+  /** The four columns the link depends on, and nothing else. */
   const transfer = (overrides = {}) =>
     ({
       id: 't-1',
+      status: LevyTransferStatus.CONFIRMED,
       donorOrganisationId: DONOR,
       recipientOrganisationId: RECIPIENT,
-      status: LevyTransferStatus.CONFIRMED,
-      isDeleted: false,
       ...overrides,
     }) as LevyTransfer;
 
   const enrolment = (overrides = {}) =>
     ({
       id: 'e-1',
+      organisationId: PROVIDER,
       employerOrganisationId: RECIPIENT,
       isDeleted: false,
       ...overrides,
@@ -58,8 +65,8 @@ describe('LevyTransferFundingService', () => {
           provide: getRepositoryToken(LevyTransferEnrolment),
           useValue: linkRepo,
         },
-        { provide: getRepositoryToken(LevyTransfer), useValue: transferRepo },
         { provide: getRepositoryToken(Enrolment), useValue: enrolmentRepo },
+        { provide: getRepositoryToken(LevyTransfer), useValue: transferRepo },
       ],
     }).compile();
 
@@ -72,14 +79,21 @@ describe('LevyTransferFundingService', () => {
   });
 
   describe('link', () => {
-    it('records the link and denormalises the donor', async () => {
-      transferRepo.findOne.mockResolvedValue(transfer());
-      enrolmentRepo.findOne.mockResolvedValue(enrolment());
+    const asProvider = (overrides = {}) => ({
+      transferId: 't-1',
+      enrolmentId: 'e-1',
+      callerOrganisationId: PROVIDER,
+      ...overrides,
+    });
 
-      const result = await service.link({
-        transferId: 't-1',
-        enrolmentId: 'e-1',
-      });
+    const inRequest = <T>(fn: () => Promise<T>): Promise<T> =>
+      runWithCorrelationId({ correlationId: 'funding-spec' }, fn);
+
+    it('records the link and denormalises the donor', async () => {
+      enrolmentRepo.findOne.mockResolvedValue(enrolment());
+      transferRepo.findOne.mockResolvedValue(transfer());
+
+      const result = await service.link(asProvider());
 
       expect(result).toMatchObject({
         transferId: 't-1',
@@ -88,15 +102,62 @@ describe('LevyTransferFundingService', () => {
       });
     });
 
-    it('accepts an active transfer as well as a confirmed one', async () => {
-      transferRepo.findOne.mockResolvedValue(
-        transfer({ status: LevyTransferStatus.ACTIVE }),
-      );
+    /**
+     * The counterparty case of the bootstrap rule on setRlsBootstrap: the
+     * caller is party to the enrolment, not to the transfer, so the four
+     * conditions apply here too.
+     */
+    it('reads the transfer in a bootstrap window, and only the columns the link depends on', async () => {
+      const flagDuringRead: boolean[] = [];
+      enrolmentRepo.findOne.mockImplementation(() => {
+        flagDuringRead.push(getRlsBootstrap());
+        return Promise.resolve(enrolment());
+      });
+      transferRepo.findOne.mockImplementation(() => {
+        flagDuringRead.push(getRlsBootstrap());
+        return Promise.resolve(transfer());
+      });
+
+      await inRequest(async () => {
+        await service.link(asProvider());
+        // The enrolment is read under RLS; only the transfer needs the window.
+        expect(flagDuringRead).toEqual([false, true]);
+        expect(getRlsBootstrap()).toBe(false);
+      });
+
+      expect(transferRepo.findOne).toHaveBeenCalledWith({
+        where: { id: 't-1', isDeleted: false },
+        select: [
+          'id',
+          'status',
+          'donorOrganisationId',
+          'recipientOrganisationId',
+        ],
+      });
+    });
+
+    /**
+     * The fix for this route. It ran with RLS off and never looked at the
+     * caller, so any organisation could attach a recipient's learner to a
+     * transfer — and this count is published in a donor's ESG report.
+     */
+    it('refuses a caller that does not own the enrolment, before reading the transfer', async () => {
       enrolmentRepo.findOne.mockResolvedValue(enrolment());
 
       await expect(
-        service.link({ transferId: 't-1', enrolmentId: 'e-1' }),
-      ).resolves.toBeDefined();
+        service.link(asProvider({ callerOrganisationId: DONOR })),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(transferRepo.findOne).not.toHaveBeenCalled();
+      expect(linkRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('accepts an active transfer as well as a confirmed one', async () => {
+      enrolmentRepo.findOne.mockResolvedValue(enrolment());
+      transferRepo.findOne.mockResolvedValue(
+        transfer({ status: LevyTransferStatus.ACTIVE }),
+      );
+
+      await expect(service.link(asProvider())).resolves.toBeDefined();
     });
 
     it.each([
@@ -107,12 +168,12 @@ describe('LevyTransferFundingService', () => {
     ])(
       'refuses a transfer that is %s — it has not funded anything',
       async (status) => {
-        transferRepo.findOne.mockResolvedValue(transfer({ status }));
         enrolmentRepo.findOne.mockResolvedValue(enrolment());
+        transferRepo.findOne.mockResolvedValue(transfer({ status }));
 
-        await expect(
-          service.link({ transferId: 't-1', enrolmentId: 'e-1' }),
-        ).rejects.toBeInstanceOf(BadRequestException);
+        await expect(service.link(asProvider())).rejects.toBeInstanceOf(
+          BadRequestException,
+        );
       },
     );
 
@@ -121,54 +182,54 @@ describe('LevyTransferFundingService', () => {
      * a donor's transfer.
      */
     it('refuses an enrolment belonging to a different employer', async () => {
-      transferRepo.findOne.mockResolvedValue(transfer());
       enrolmentRepo.findOne.mockResolvedValue(
         enrolment({ employerOrganisationId: 'org-someone-else' }),
       );
+      transferRepo.findOne.mockResolvedValue(transfer());
 
-      await expect(
-        service.link({ transferId: 't-1', enrolmentId: 'e-1' }),
-      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.link(asProvider())).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(linkRepo.save).not.toHaveBeenCalled();
     });
 
     it('refuses an enrolment with no employer rather than assuming it matches', async () => {
-      transferRepo.findOne.mockResolvedValue(transfer());
       enrolmentRepo.findOne.mockResolvedValue(
         enrolment({ employerOrganisationId: null }),
       );
 
-      await expect(
-        service.link({ transferId: 't-1', enrolmentId: 'e-1' }),
-      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.link(asProvider())).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(transferRepo.findOne).not.toHaveBeenCalled();
     });
 
     it('is idempotent — relinking returns the existing row, it does not duplicate', async () => {
-      transferRepo.findOne.mockResolvedValue(transfer());
       enrolmentRepo.findOne.mockResolvedValue(enrolment());
+      transferRepo.findOne.mockResolvedValue(transfer());
       const already = { id: 'link-1', transferId: 't-1', enrolmentId: 'e-1' };
       linkRepo.findOne.mockResolvedValue(already);
 
-      const result = await service.link({
-        transferId: 't-1',
-        enrolmentId: 'e-1',
-      });
+      const result = await service.link(asProvider());
 
       expect(result).toBe(already);
       expect(linkRepo.save).not.toHaveBeenCalled();
     });
 
     it('throws when the transfer does not exist', async () => {
+      enrolmentRepo.findOne.mockResolvedValue(enrolment());
       transferRepo.findOne.mockResolvedValue(null);
+
       await expect(
-        service.link({ transferId: 'nope', enrolmentId: 'e-1' }),
+        service.link(asProvider({ transferId: 'nope' })),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('throws when the enrolment does not exist', async () => {
-      transferRepo.findOne.mockResolvedValue(transfer());
       enrolmentRepo.findOne.mockResolvedValue(null);
+
       await expect(
-        service.link({ transferId: 't-1', enrolmentId: 'nope' }),
+        service.link(asProvider({ enrolmentId: 'nope' })),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });

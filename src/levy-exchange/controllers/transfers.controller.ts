@@ -165,7 +165,7 @@ export class TransfersController {
   ) {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
-    return this.transferService.list(user.organisationId!, query);
+    return this.transferService.list(user, query);
   }
 
   @Get(':id')
@@ -300,9 +300,16 @@ export class TransfersController {
    *
    * Lives on the transfer rather than on the enrolment because the transfer is
    * what all three interested parties have in common: the donor who paid, the
-   * SME whose learner it is, and the provider delivering the training. Who can
-   * see which rows is decided by the row-level security policy on
-   * `levy_transfer_enrolments`, not here.
+   * SME whose learner it is, and the provider delivering the training.
+   *
+   * Until migration 1781100000055 this comment said row-level security decided
+   * who could link, which was false for this route: POSTs under
+   * /levy-exchange/transfers ran with RLS off, and the service never looked at
+   * the caller. Linking now runs under RLS and the service checks the caller
+   * too — it must own the enrolment, the rule `levy_transfer_enrolments_insert`
+   * states — and reads the transfer only inside a narrow `setRlsBootstrap`
+   * window, four named columns, after that check has passed. Listing and
+   * unlinking run under RLS and are governed by that table's policies.
    */
   @Post(':id/enrolments')
   @ResponseMessage('Enrolment linked to transfer successfully')
@@ -346,6 +353,7 @@ export class TransfersController {
     const link = await this.fundingService.link({
       transferId: id,
       enrolmentId: dto.enrolmentId,
+      callerOrganisationId: user.organisationId!,
       attributedAmount:
         dto.attributedAmount !== undefined
           ? String(dto.attributedAmount)

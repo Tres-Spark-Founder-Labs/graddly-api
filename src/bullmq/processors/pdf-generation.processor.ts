@@ -18,7 +18,9 @@ import {
 import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
 import { ListLearnerCohortQueryDto } from '../../learners/dto/list-learner-cohort-query.dto.js';
 import { LearnerCohortService } from '../../learners/learner-cohort.service.js';
+import { LevyTransferDocument } from '../../levy-exchange/entities/levy-transfer-document.entity.js';
 import { LevyTransfer } from '../../levy-exchange/entities/levy-transfer.entity.js';
+import { LevyTransferDocumentStatus } from '../../levy-exchange/enums/levy-transfer-document-status.enum.js';
 import { LevyTransferStatus } from '../../levy-exchange/enums/levy-transfer-status.enum.js';
 import { QipActionsService } from '../../ofsted/qip-actions.service.js';
 import { Organisation } from '../../organisations/entities/organisation.entity.js';
@@ -269,7 +271,7 @@ export class PdfGenerationProcessor extends WorkerHost {
         );
       }
       if (template === PdfJobTemplate.LEVY_TRANSFER_AGREEMENT && transferId) {
-        await this.prepareLevyTransferSigning(transferId);
+        await this.prepareLevyTransferSigning(transferId, outputKey);
       }
     } catch (error) {
       const message =
@@ -401,15 +403,45 @@ export class PdfGenerationProcessor extends WorkerHost {
     };
   }
 
-  private async prepareLevyTransferSigning(transferId: string): Promise<void> {
+  /**
+   * The agreement PDF exists: open the transfer for signing, and record the
+   * PDF on the document so both parties can open it before anyone signs.
+   *
+   * The unsigned key used to be written only lazily, the first time someone
+   * called sign. The recipient cannot read the donor's pdf_generation_jobs row,
+   * so until the donor had signed it had nothing to download — the agreement
+   * existed and one of its two parties could not open it.
+   *
+   * Runs as the job's organisation, the donor, which owns the document row.
+   * The repository comes from the entity manager rather than the constructor:
+   * test/helpers/process-pdf-job.ts builds this processor positionally, and a
+   * new constructor argument there shifts every later one silently.
+   */
+  private async prepareLevyTransferSigning(
+    transferId: string,
+    outputKey: string,
+  ): Promise<void> {
     const transfer = await this.levyTransferRepo.findOne({
       where: { id: transferId, isDeleted: false },
     });
-    if (!transfer || transfer.status !== LevyTransferStatus.DRAFT) {
+    if (!transfer) {
       return;
     }
-    transfer.status = LevyTransferStatus.PENDING_SIGNATURES;
-    await this.levyTransferRepo.save(transfer);
+    if (transfer.status === LevyTransferStatus.DRAFT) {
+      transfer.status = LevyTransferStatus.PENDING_SIGNATURES;
+      await this.levyTransferRepo.save(transfer);
+    }
+
+    const documentRepo =
+      this.levyTransferRepo.manager.getRepository(LevyTransferDocument);
+    const document = await documentRepo.findOne({
+      where: { transferId, isDeleted: false },
+    });
+    if (document?.status === LevyTransferDocumentStatus.PENDING) {
+      document.status = LevyTransferDocumentStatus.READY;
+      document.unsignedStorageKey = outputKey;
+      await documentRepo.save(document);
+    }
   }
 
   private async prepareCommitmentSigning(

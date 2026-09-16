@@ -8,9 +8,9 @@ import { Repository } from 'typeorm';
 
 import { CreateSignatureRecordDto } from '../../esignature/dto/create-signature-record.dto.js';
 import { EsignatureService } from '../../esignature/esignature.service.js';
-import { OrganisationRole } from '../../organisations/organisation-role.enum.js';
 import { PdfGenerationJob } from '../../pdf/entities/pdf-generation-job.entity.js';
 import { PdfJobStatus } from '../../pdf/enums/pdf-job-status.enum.js';
+import { mayUserSignSlot } from '../levy-transfer-signing-state.js';
 
 import type {
   IBilateralSignResult,
@@ -47,7 +47,8 @@ export class BilateralCoSignOrchestrator {
         `Next signer is ${next.party}, not ${input.requestedParty}`,
       );
     }
-    if (next.signerUserId !== input.user.id && !this.isAdmin(input.user)) {
+    // Shared with the transfer DTO's actionRequired, so the two cannot drift.
+    if (!mayUserSignSlot(input.user, next.signerUserId)) {
       throw new ForbiddenException(
         'You are not the assigned signer for this party',
       );
@@ -122,13 +123,5 @@ export class BilateralCoSignOrchestrator {
       signatureRecordId: record.id,
       nextParty: nextPending?.party ?? null,
     };
-  }
-
-  private isAdmin(user: AuthenticatedUser): boolean {
-    const roles = user.roles ?? [];
-    return (
-      roles.includes(OrganisationRole.OWNER) ||
-      roles.includes(OrganisationRole.ADMIN)
-    );
   }
 }

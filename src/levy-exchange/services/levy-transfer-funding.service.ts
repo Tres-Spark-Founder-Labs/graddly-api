@@ -6,6 +6,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+import {
+  getRlsBootstrap,
+  setRlsBootstrap,
+} from '../../common/context/correlation-id-context.js';
 import { Enrolment } from '../../enrolments/entities/enrolment.entity.js';
 import { LevyTransferEnrolment } from '../entities/levy-transfer-enrolment.entity.js';
 import { LevyTransfer } from '../entities/levy-transfer.entity.js';
@@ -51,16 +55,53 @@ export class LevyTransferFundingService {
   async link({
     transferId,
     enrolmentId,
+    callerOrganisationId,
     attributedAmount = null,
   }: {
     transferId: string;
     enrolmentId: string;
+    callerOrganisationId: string;
     attributedAmount?: string | null;
   }): Promise<LevyTransferEnrolment> {
-    const transfer = await this.transferRepo.findOne({
-      where: { id: transferId, isDeleted: false },
+    /**
+     * The caller must own the enrolment — the rule levy_transfer_enrolments_insert
+     * states. Checked here as well as by that policy: this route used to run
+     * with RLS off and nothing looked at the caller, so any organisation could
+     * attach a learner to a transfer. Answered as "not found" either way, so
+     * the route cannot be used to probe for other organisations' enrolments.
+     */
+    const enrolment = await this.enrolmentRepo.findOne({
+      where: { id: enrolmentId, isDeleted: false },
     });
-    if (!transfer) {
+    if (!enrolment || enrolment.organisationId !== callerOrganisationId) {
+      throw new NotFoundException('Enrolment not found');
+    }
+
+    /**
+     * The enrolment's employer must be the party the transfer was made to.
+     * `employerOrganisationId` is nullable, and a null must fail rather than
+     * pass — an unlinked enrolment is not evidence that it belongs to the
+     * recipient.
+     */
+    if (!enrolment.employerOrganisationId) {
+      throw new BadRequestException(
+        'This enrolment does not belong to the employer that received the transfer.',
+      );
+    }
+
+    /**
+     * Only now the transfer, and only because the caller has already been
+     * authorised on something it does own: the enrolment above, read under
+     * RLS. The caller is normally the training provider, which is party to the
+     * enrolment and not to the transfer, so `levy_transfers_select` does not
+     * show it the row — the counterparty case of the bootstrap rule on
+     * `setRlsBootstrap`, four named columns in the narrowest window.
+     */
+    const transfer = await this.transferForLink(transferId);
+    if (
+      !transfer ||
+      transfer.recipientOrganisationId !== enrolment.employerOrganisationId
+    ) {
       throw new NotFoundException('Levy transfer not found');
     }
 
@@ -72,28 +113,6 @@ export class LevyTransferFundingService {
       throw new BadRequestException(
         `A transfer can only fund an enrolment once it is confirmed. ` +
           `This one is "${transfer.status}".`,
-      );
-    }
-
-    const enrolment = await this.enrolmentRepo.findOne({
-      where: { id: enrolmentId, isDeleted: false },
-    });
-    if (!enrolment) {
-      throw new NotFoundException('Enrolment not found');
-    }
-
-    /**
-     * The enrolment's employer must be the party the transfer was made to.
-     * `employerOrganisationId` is nullable, and a null must fail rather than
-     * pass — an unlinked enrolment is not evidence that it belongs to the
-     * recipient.
-     */
-    if (
-      !enrolment.employerOrganisationId ||
-      enrolment.employerOrganisationId !== transfer.recipientOrganisationId
-    ) {
-      throw new BadRequestException(
-        'This enrolment does not belong to the employer that received the transfer.',
       );
     }
 
@@ -112,6 +131,34 @@ export class LevyTransferFundingService {
         attributedAmount,
       }),
     );
+  }
+
+  /**
+   * The transfer, for a caller already authorised on its own enrolment.
+   *
+   * Named columns only: the status this link depends on and the two parties it
+   * is checked against. Nothing else about the transfer — not its amount, not
+   * its ESFA reference — is read into a request made by an organisation that
+   * is not a party to it.
+   */
+  private async transferForLink(
+    transferId: string,
+  ): Promise<LevyTransfer | null> {
+    const previousBootstrap = getRlsBootstrap();
+    setRlsBootstrap(true);
+    try {
+      return await this.transferRepo.findOne({
+        where: { id: transferId, isDeleted: false },
+        select: [
+          'id',
+          'status',
+          'donorOrganisationId',
+          'recipientOrganisationId',
+        ],
+      });
+    } finally {
+      setRlsBootstrap(previousBootstrap);
+    }
   }
 
   async unlink(transferId: string, enrolmentId: string): Promise<void> {

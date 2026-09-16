@@ -27,8 +27,18 @@ export class LevyTransferDocument extends BaseEntity {
   @Column({ type: 'varchar', length: 500, nullable: true })
   unsignedStorageKey!: string | null;
 
+  /** The donor's lasting copy of the fully signed agreement, in the donor's storage. */
   @Column({ type: 'varchar', length: 500, nullable: true })
   signedStorageKey!: string | null;
+
+  /**
+   * The recipient's lasting copy of the fully signed agreement, in the
+   * recipient's own storage (F4.2.4 AC3: copies in both parties' libraries).
+   * Null on transfers completed before migration 1781100000055; those fall
+   * back to the donor's copy.
+   */
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  recipientSignedStorageKey!: string | null;
 
   @Column({
     type: 'enum',

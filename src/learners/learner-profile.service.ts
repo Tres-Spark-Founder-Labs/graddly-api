@@ -7,6 +7,7 @@ import { BreakInLearningService } from '../enrolments/break-in-learning.service.
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { MessageThreadsService } from '../messaging/message-threads.service.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
+import { OtjLogStatus } from '../otj/enums/otj-log-status.enum.js';
 import { OtjProgressMetricsService } from '../reporting/otj-progress-metrics.service.js';
 import { ReviewSignature } from '../reviews/entities/review-signature.entity.js';
 import { Review } from '../reviews/entities/review.entity.js';
@@ -14,10 +15,15 @@ import { ReviewSignatureStatus } from '../reviews/enums/review-signature-status.
 import { ReviewSignerParty } from '../reviews/enums/review-signer-party.enum.js';
 import { User } from '../users/entities/user.entity.js';
 
+import { LearnerOtjWeeklyResponseDto } from './dto/learner-otj-weekly-response.dto.js';
 import { LearnerProfileResponseDto } from './dto/learner-profile-response.dto.js';
 import { InterventionActionsService } from './intervention-actions.service.js';
 import { LearnerDocumentsService } from './learner-documents.service.js';
 import { LearnerMetricsService } from './learner-metrics.service.js';
+import {
+  buildWeeklyBuckets,
+  type IOtjWeeklyRow,
+} from './otj-weekly-buckets.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 
@@ -84,8 +90,8 @@ export class LearnerProfileService {
   private async findReadableEnrolment(
     callerOrganisationId: string,
     enrolmentId: string,
+    relations: string[] = ['apprentice', 'standard', 'employerOrganisation'],
   ): Promise<Enrolment> {
-    const relations = ['apprentice', 'standard', 'employerOrganisation'];
     const enrolment = await this.enrolmentRepo.findOne({
       // An array is an OR in TypeORM. Both arms pin `id`, so neither can
       // broaden to "any enrolment of mine".
@@ -143,6 +149,15 @@ export class LearnerProfileService {
      */
     const organisationId = enrolment.organisationId;
 
+    /**
+     * F1.2.2 AC1 — "provider". The link column is null whenever the provider
+     * owns the enrolment, which is the common case; the owner is then the
+     * provider. enrolment-journey.service.ts and the roster resolve it the
+     * same way.
+     */
+    const providerOrganisationId =
+      enrolment.providerOrganisationId ?? enrolment.organisationId;
+
     const apprentice = enrolment.apprentice;
     const [
       documents,
@@ -152,6 +167,7 @@ export class LearnerProfileService {
       threads,
       otjPercent,
       tutorNames,
+      providerNames,
       manager,
       recentInterventions,
       openBreak,
@@ -203,6 +219,10 @@ export class LearnerProfileService {
       this.metricsService.loadTutorNames(
         enrolment.tutorUserId ? [enrolment.tutorUserId] : [],
       ),
+      // The provider's name, under the same rule and for the same reason:
+      // `organisations_select` admits members only, and the employer is not
+      // a member of the provider.
+      this.metricsService.loadOrganisationNames([providerOrganisationId]),
       enrolment.employerManagerUserId
         ? this.userRepo.findOne({
             where: { id: enrolment.employerManagerUserId },
@@ -271,6 +291,10 @@ export class LearnerProfileService {
           : (employerContact?.contactName ?? null),
         managerEmail: manager?.email ?? employerContact?.contactEmail ?? null,
       },
+      provider: {
+        organisationId: providerOrganisationId,
+        name: providerNames.get(providerOrganisationId) ?? null,
+      },
       programme: {
         standardTitle: enrolment.standard.title,
         plannedStartDate: enrolment.plannedStartDate,
@@ -321,6 +345,68 @@ export class LearnerProfileService {
         expectedReturnDate: openBreak?.expectedReturnDate ?? null,
         recentInterventions,
       },
+    };
+  }
+
+  /**
+   * F1.2.2 AC3 — "OTJ hours chart showing weekly logged hours over the
+   * programme lifetime".
+   *
+   * Grouped by the database, not the client. The profile's OTJ list is capped
+   * at LEARNER_PROFILE_OTJ_LIMIT, so a long programme was silently truncated
+   * there, and raising the cap would only hand the browser thousands of rows
+   * to bucket. Same two parties as the profile, through the same
+   * findReadableEnrolment; same scoping — the enrolment's owning
+   * organisation, whoever asks. Under `graddly_app` the aggregate runs under
+   * `otj_log_entries_select_linked_org` (1781100000018), which admits the
+   * employer named on the enrolment.
+   *
+   * The chart's rules — ISO weeks, approved and pending kept apart (D2),
+   * every week present — are the apprentice portal's, and live in
+   * otj-weekly-buckets.ts so the two charts cannot disagree about a week.
+   */
+  async getOtjWeekly(
+    user: AuthenticatedUser,
+    enrolmentId: string,
+  ): Promise<LearnerOtjWeeklyResponseDto> {
+    const enrolment = await this.findReadableEnrolment(
+      user.organisationId!,
+      enrolmentId,
+      [],
+    );
+
+    // Monday of the ISO week, as text so no driver date parsing can shift it.
+    const weekStart =
+      "to_char(date_trunc('week', entry.\"loggedDate\"::timestamp), 'YYYY-MM-DD')";
+    const rows = await this.otjRepo
+      .createQueryBuilder('entry')
+      .select(weekStart, 'weekStart')
+      .addSelect('entry.status', 'status')
+      .addSelect('SUM(entry.minutes)', 'minutes')
+      .where('entry."enrolmentId" = :enrolmentId', { enrolmentId })
+      .andWhere('entry."organisationId" = :organisationId', {
+        organisationId: enrolment.organisationId,
+      })
+      .andWhere('entry."isDeleted" = false')
+      // Approved is authoritative; submitted is the pending figure. Draft and
+      // rejected entries are never counted, so they are never read.
+      .andWhere('entry.status IN (:...statuses)', {
+        statuses: [OtjLogStatus.APPROVED, OtjLogStatus.SUBMITTED],
+      })
+      .groupBy(weekStart)
+      .addGroupBy('entry.status')
+      .getRawMany<IOtjWeeklyRow>();
+
+    const { weeks, truncated } = buildWeeklyBuckets(rows, {
+      programmeStart: enrolment.plannedStartDate,
+      today: new Date(),
+    });
+
+    return {
+      enrolmentId,
+      programmeStart: enrolment.plannedStartDate,
+      weeks,
+      truncated,
     };
   }
 }

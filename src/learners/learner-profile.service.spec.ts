@@ -25,6 +25,7 @@ describe('LearnerProfileService', () => {
   const metricsService = {
     loadEmployerContacts: jest.fn(),
     loadTutorNames: jest.fn(),
+    loadOrganisationNames: jest.fn(),
   };
   const interventionActionsService = { listRecentForEnrolment: jest.fn() };
   const breakInLearningService = { findOpen: jest.fn() };
@@ -43,6 +44,7 @@ describe('LearnerProfileService', () => {
     messageThreadsService.listSummariesForEnrolment.mockResolvedValue([]);
     userRepo.findOne.mockResolvedValue(null);
     metricsService.loadTutorNames.mockResolvedValue(new Map());
+    metricsService.loadOrganisationNames.mockResolvedValue(new Map());
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -423,6 +425,68 @@ describe('LearnerProfileService', () => {
         PROVIDER_ORG,
         'enr-1',
       );
+    });
+  });
+
+  /**
+   * F1.2.2 AC1 — "provider" in the personal details. The profile carried no
+   * provider at all; the roster carried one only when the link column was
+   * set, which it is not when the provider owns the enrolment.
+   */
+  describe('the provider', () => {
+    it('is the owning organisation when no separate provider link is set', async () => {
+      enrolmentRepo.findOne.mockResolvedValue(
+        activeEnrolment({ providerOrganisationId: null }),
+      );
+      metricsService.loadOrganisationNames.mockResolvedValue(
+        new Map([[PROVIDER_ORG, 'Provider Co']]),
+      );
+
+      const profile = await service.getProfile(
+        { id: 'user-1', organisationId: 'org-1' } as never,
+        'enr-1',
+      );
+
+      expect(profile.provider).toEqual({
+        organisationId: PROVIDER_ORG,
+        name: 'Provider Co',
+      });
+      expect(metricsService.loadOrganisationNames).toHaveBeenCalledWith([
+        PROVIDER_ORG,
+      ]);
+    });
+
+    it('is the linked provider when one is set', async () => {
+      enrolmentRepo.findOne.mockResolvedValue(
+        activeEnrolment({ providerOrganisationId: 'linked-provider' }),
+      );
+      metricsService.loadOrganisationNames.mockResolvedValue(
+        new Map([['linked-provider', 'Subcontracted Ltd']]),
+      );
+
+      const profile = await service.getProfile(
+        { id: 'user-1', organisationId: 'org-1' } as never,
+        'enr-1',
+      );
+
+      expect(profile.provider).toEqual({
+        organisationId: 'linked-provider',
+        name: 'Subcontracted Ltd',
+      });
+    });
+
+    it('carries the id with a null name when the read returned nothing', async () => {
+      enrolmentRepo.findOne.mockResolvedValue(activeEnrolment());
+
+      const profile = await service.getProfile(
+        { id: 'user-1', organisationId: 'org-1' } as never,
+        'enr-1',
+      );
+
+      expect(profile.provider).toEqual({
+        organisationId: PROVIDER_ORG,
+        name: null,
+      });
     });
   });
 });

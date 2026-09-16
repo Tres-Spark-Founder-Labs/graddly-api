@@ -14229,6 +14229,89 @@
         ]
       }
     },
+    "/learners/{enrolmentId}/otj/weekly": {
+      "get": {
+        "description": "Approved and submitted (pending) minutes for every ISO week from the programme start to this week, grouped server-side so a long programme is neither truncated nor bucketed in the browser. Approved is the authoritative figure; pending is kept separate and never merged into it.",
+        "operationId": "LearnersController_getOtjWeekly",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "enrolmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Weekly buckets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/LearnerOtjWeeklyResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context, non-provider org, or enrolment not accessible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Enrolment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Off-the-job minutes per ISO week over the programme lifetime",
+        "tags": [
+          "Learners"
+        ]
+      }
+    },
     "/reporting/donor-analytics": {
       "get": {
         "description": "Total transferred, SMEs funded, learners funded, completion rate and EPA pass rate — the last two computed over the enrolments this donor funded, not the recipients’ whole cohorts. `esgImpact` (AC3) is always null pending an agreed methodology.",
@@ -29047,6 +29130,22 @@
           }
         }
       },
+      "LearnerProfileProviderDto": {
+        "type": "object",
+        "properties": {
+          "organisationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "organisationId"
+        ]
+      },
       "LearnerProfileReviewItemDto": {
         "type": "object",
         "properties": {
@@ -29267,6 +29366,9 @@
           "tutor": {
             "$ref": "#/components/schemas/LearnerProfileTutorDto"
           },
+          "provider": {
+            "$ref": "#/components/schemas/LearnerProfileProviderDto"
+          },
           "reviews": {
             "type": "array",
             "items": {
@@ -29299,11 +29401,66 @@
           "employer",
           "programme",
           "tutor",
+          "provider",
           "reviews",
           "otj",
           "documents",
           "messageThreads",
           "breakInLearning"
+        ]
+      },
+      "LearnerOtjWeeklyBucketDto": {
+        "type": "object",
+        "properties": {
+          "weekStart": {
+            "type": "string",
+            "format": "date",
+            "description": "Monday of the ISO week, YYYY-MM-DD."
+          },
+          "approvedMinutes": {
+            "type": "number",
+            "description": "Approved off-the-job minutes logged in the week. The authoritative figure."
+          },
+          "pendingMinutes": {
+            "type": "number",
+            "description": "Submitted minutes awaiting a decision. Shown separately from approved, never merged into it. Draft and rejected entries are in neither."
+          }
+        },
+        "required": [
+          "weekStart",
+          "approvedMinutes",
+          "pendingMinutes"
+        ]
+      },
+      "LearnerOtjWeeklyResponseDto": {
+        "type": "object",
+        "properties": {
+          "enrolmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "programmeStart": {
+            "type": "string",
+            "nullable": true,
+            "format": "date",
+            "description": "The planned programme start the range is anchored to, when recorded."
+          },
+          "weeks": {
+            "description": "Every ISO week from the earlier of the programme start and the first logged week, to the later of this week and the last logged week. Weeks with no logging are present with zeros.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LearnerOtjWeeklyBucketDto"
+            }
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "True when the range exceeded 520 weeks and the oldest were dropped."
+          }
+        },
+        "required": [
+          "enrolmentId",
+          "weeks",
+          "truncated"
         ]
       },
       "LearnerMeSummaryOtjPaceDto": {

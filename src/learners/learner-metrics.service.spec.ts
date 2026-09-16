@@ -12,6 +12,7 @@ import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { MessageThread } from '../messaging/entities/message-thread.entity.js';
 import { Message } from '../messaging/entities/message.entity.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
+import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { Review } from '../reviews/entities/review.entity.js';
 import { User } from '../users/entities/user.entity.js';
@@ -41,6 +42,7 @@ import { LearnerMetricsService } from './learner-metrics.service.js';
 describe('LearnerMetricsService — display-name hydration', () => {
   const userRepo = { find: jest.fn() };
   const membershipRepo = { find: jest.fn() };
+  const organisationRepo = { find: jest.fn() };
 
   let service: LearnerMetricsService;
   /** `getRlsBootstrap()` as observed from inside each repository call. */
@@ -57,6 +59,10 @@ describe('LearnerMetricsService — display-name hydration', () => {
         { id: 'tutor-1', firstName: 'Rowan', lastName: 'Bell' },
         { id: 'tutor-2', firstName: '  ', lastName: ' ' },
       ]);
+    });
+    organisationRepo.find.mockImplementation(() => {
+      flagDuringRead.push(getRlsBootstrap());
+      return Promise.resolve([{ id: 'provider-org-1', name: 'Provider Co' }]);
     });
     membershipRepo.find.mockImplementation(() => {
       flagDuringRead.push(getRlsBootstrap());
@@ -84,6 +90,10 @@ describe('LearnerMetricsService — display-name hydration', () => {
         {
           provide: getRepositoryToken(OrganisationMembership),
           useValue: membershipRepo,
+        },
+        {
+          provide: getRepositoryToken(Organisation),
+          useValue: organisationRepo,
         },
         { provide: EnrolmentJourneyService, useValue: {} },
       ],
@@ -164,6 +174,63 @@ describe('LearnerMetricsService — display-name hydration', () => {
       expect(names.get('tutor-2')).toBe('');
       // An id the read did not return is absent rather than guessed at.
       expect(names.has('tutor-3')).toBe(false);
+    });
+  });
+
+  /** F1.2.2 AC1 — the provider's name, the second display-name read. */
+  describe('loadOrganisationNames', () => {
+    it('reads under the bootstrap flag and puts it back', async () => {
+      await inRequest(async () => {
+        expect(getRlsBootstrap()).toBe(false);
+
+        await service.loadOrganisationNames(['provider-org-1']);
+
+        expect(flagDuringRead).toEqual([true]);
+        expect(getRlsBootstrap()).toBe(false);
+      });
+    });
+
+    it('restores a bootstrap that was already set, rather than clearing it', async () => {
+      await inRequest(async () => {
+        setRlsBootstrap(true);
+
+        await service.loadOrganisationNames(['provider-org-1']);
+
+        expect(getRlsBootstrap()).toBe(true);
+      });
+    });
+
+    it('selects the label and nothing else', async () => {
+      await inRequest(async () => {
+        await service.loadOrganisationNames(['provider-org-1']);
+      });
+
+      const [options] = organisationRepo.find.mock.calls[0] as [
+        { select: string[]; where: unknown },
+      ];
+      // Exact: the name is the label. Never the UKPRN, never an address,
+      // never the row.
+      expect(options.select).toEqual(['id', 'name']);
+    });
+
+    it('does not open the window at all for an empty id list', async () => {
+      await inRequest(async () => {
+        const names = await service.loadOrganisationNames([]);
+
+        expect(names.size).toBe(0);
+        expect(organisationRepo.find).not.toHaveBeenCalled();
+        expect(flagDuringRead).toEqual([]);
+        expect(getRlsBootstrap()).toBe(false);
+      });
+    });
+
+    it('maps ids to names, and leaves an unknown id absent', async () => {
+      const names = await inRequest(() =>
+        service.loadOrganisationNames(['provider-org-1', 'provider-org-2']),
+      );
+
+      expect(names.get('provider-org-1')).toBe('Provider Co');
+      expect(names.has('provider-org-2')).toBe(false);
     });
   });
 

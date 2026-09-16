@@ -123,10 +123,10 @@ export class CommitmentBoardService {
     const groupById = new Map(groups.map((g) => [g.id, g]));
     const [apprenticeNames, providerNames, standardNames] = await Promise.all([
       this.loadApprenticeNames(groups.map((g) => g.apprenticeId)),
+      // F1.2.2 AC1 — the link column, or the owner when the provider owns the
+      // enrolment (the common case, which used to render as no provider).
       this.loadOrganisationNames(
-        enrolments
-          .map((e) => e.providerOrganisationId)
-          .filter((id): id is string => !!id),
+        enrolments.map((e) => e.providerOrganisationId ?? e.organisationId),
       ),
       this.loadStandardNames(enrolments.map((e) => e.standardId)),
     ]);
@@ -141,9 +141,10 @@ export class CommitmentBoardService {
         enrolmentId: enrolment.id,
         apprenticeId: group.apprenticeId,
         apprenticeName: apprenticeNames.get(group.apprenticeId) ?? null,
-        providerName: enrolment.providerOrganisationId
-          ? (providerNames.get(enrolment.providerOrganisationId) ?? null)
-          : null,
+        providerName:
+          providerNames.get(
+            enrolment.providerOrganisationId ?? enrolment.organisationId,
+          ) ?? null,
         providerOrganisationId: enrolment.providerOrganisationId,
         standardName: standardNames.get(enrolment.standardId) ?? null,
         standardId: enrolment.standardId,

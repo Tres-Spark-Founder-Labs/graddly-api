@@ -9,6 +9,7 @@ import {
   createLearnerScopeContext,
   type ILearnerScopeContext,
 } from './helpers/learner-scope-e2e.js';
+import { createAppDbClient, setTenantGucs } from './helpers/rls-db.js';
 
 import type { App } from 'supertest/types';
 
@@ -49,6 +50,34 @@ describe('Employer access to apprentices and learner profiles (e2e)', () => {
   /** learnerA's tutor: a member of the provider's organisation, and nothing else. */
   let tutorUserId: string;
   const TUTOR_NAME = 'Rowan Tutor';
+
+  /** F1.2.2 AC1 — the provider's name as the organisations table holds it. */
+  let providerName: string;
+
+  /**
+   * F1.2.2 AC5 — the job behind learnerA's completed review, owned by the
+   * PROVIDER, and a job nothing points at, which stays owner-only.
+   */
+  let reviewPdfJobId: string;
+  let reviewPdfKey: string;
+  let orphanPdfJobId: string;
+
+  /** F1.2.2 AC3 — Mondays of the two past ISO weeks the seeded entries use. */
+  let weekMinus3: string;
+  let weekMinus2: string;
+
+  /** Monday, YYYY-MM-DD, of the ISO week `weeksAgo` weeks before this one. */
+  const isoMonday = (weeksAgo: number): string => {
+    const d = new Date();
+    d.setUTCHours(0, 0, 0, 0);
+    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) - weeksAgo * 7);
+    return d.toISOString().slice(0, 10);
+  };
+  const plusDays = (isoDate: string, days: number): string => {
+    const d = new Date(`${isoDate}T00:00:00.000Z`);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  };
 
   /** learnerB, reassigned to the *other* employer but still at provider A. */
   let sameProviderOtherEmployerEnrolmentId: string;
@@ -128,6 +157,79 @@ describe('Employer access to apprentices and learner profiles (e2e)', () => {
         WHERE id = $1`,
       [mine.learnerA.evidenceId],
     );
+
+    const providerRow = await mine.sudo.query<{ name: string }>(
+      `SELECT name FROM organisations WHERE id = $1`,
+      [mine.providerOrgId],
+    );
+    providerName = providerRow.rows[0].name;
+
+    /*
+     * F1.2.2 AC5 — learnerA's review, completed, with its PDF recorded on a
+     * job the PROVIDER owns. The review row is visible to the employer through
+     * reviews_select_linked_org (1781100000018); whether the job behind it is,
+     * and therefore whether the document can be downloaded, is what migration
+     * 1781100000056 decides. A second job nothing points at is the control:
+     * the new policy must not widen it.
+     */
+    reviewPdfKey = `orgs/${mine.providerOrgId}/pdf/review-${Date.now()}.pdf`;
+    const jobRow = await mine.sudo.query<{ id: string }>(
+      `INSERT INTO pdf_generation_jobs
+         ("organisationId", "requestedByUserId", template, status, "outputKey", "completedAt")
+       VALUES ($1, $2, 'review_snapshot', 'completed', $3, NOW())
+       RETURNING id`,
+      [mine.providerOrgId, mine.staffUserId, reviewPdfKey],
+    );
+    reviewPdfJobId = jobRow.rows[0].id;
+    await mine.sudo.query(
+      `UPDATE reviews SET status = 'completed', "snapshotPdfJobId" = $1 WHERE id = $2`,
+      [reviewPdfJobId, mine.learnerA.reviewId],
+    );
+    const orphanRow = await mine.sudo.query<{ id: string }>(
+      `INSERT INTO pdf_generation_jobs
+         ("organisationId", "requestedByUserId", template, status, "outputKey", "completedAt")
+       VALUES ($1, $2, 'hello', 'completed', $3, NOW())
+       RETURNING id`,
+      [
+        mine.providerOrgId,
+        mine.staffUserId,
+        `orgs/${mine.providerOrgId}/pdf/orphan.pdf`,
+      ],
+    );
+    orphanPdfJobId = orphanRow.rows[0].id;
+
+    /*
+     * F1.2.2 AC3 — entries in two past ISO weeks, where nothing else this
+     * fixture creates can land. Approved is the figure; submitted is pending;
+     * rejected and draft count in neither. One entry sits mid-week so the
+     * grouping, not just the date, is what is asserted.
+     */
+    weekMinus3 = isoMonday(3);
+    weekMinus2 = isoMonday(2);
+    const seededEntries: [string, number, string][] = [
+      [weekMinus3, 90, 'approved'],
+      [plusDays(weekMinus3, 2), 30, 'approved'],
+      [plusDays(weekMinus3, 4), 60, 'rejected'],
+      [weekMinus2, 45, 'submitted'],
+      [plusDays(weekMinus2, 1), 20, 'draft'],
+      [plusDays(weekMinus2, 3), 15, 'approved'],
+    ];
+    for (const [loggedDate, minutes, status] of seededEntries) {
+      await mine.sudo.query(
+        `INSERT INTO otj_log_entries
+           ("organisationId", "enrolmentId", "apprenticeId", "loggedDate", minutes, "activityName", category, status)
+         VALUES ($1, $2, $3, $4, $5, $6, 'taught_learning', $7)`,
+        [
+          mine.providerOrgId,
+          mine.learnerA.enrolmentId,
+          mine.learnerA.apprenticeId,
+          loggedDate,
+          minutes,
+          `weekly ${status}`,
+          status,
+        ],
+      );
+    }
 
     /*
      * Two whole tenants, where every other spec using this fixture builds one.
@@ -350,6 +452,177 @@ describe('Employer access to apprentices and learner profiles (e2e)', () => {
       expect(employerDocs.map((d) => d.title)).not.toContain(
         mine.learnerA.evidenceMarker,
       );
+    });
+  });
+
+  /**
+   * F1.2.2 AC1 — "provider". Two faults: the roster resolved the name from
+   * the link column only, which is null when the provider owns the enrolment,
+   * and the profile had no provider field at all.
+   */
+  describe('F1.2.2 AC1 — the provider’s name', () => {
+    it('names the provider on the profile for the employer', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/learners/${mine.learnerA.enrolmentId}/profile`)
+        .set(employerHeaders(mine))
+        .expect(200);
+      const body = res.body as {
+        data: { provider: { organisationId: string; name: string | null } };
+      };
+
+      // The fixture's enrolment has no separate provider link: the owner is
+      // the provider, and its name is one the employer cannot read under
+      // organisations_select — which is the point of the assertion.
+      expect(body.data.provider).toEqual({
+        organisationId: mine.providerOrgId,
+        name: providerName,
+      });
+    });
+
+    it('names the provider on the roster for the employer', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/enrolments?perPage=100')
+        .set(employerHeaders(mine))
+        .expect(200);
+      const rows = (
+        res.body as {
+          data: { id: string; providerOrganisationName: string | null }[];
+        }
+      ).data;
+      const row = rows.find((r) => r.id === mine.learnerA.enrolmentId);
+
+      expect(row).toBeDefined();
+      expect(row?.providerOrganisationName).toBe(providerName);
+    });
+  });
+
+  /**
+   * F1.2.2 AC5 — a document library where the documents can be downloaded.
+   * The review row was already visible to the employer; the job holding its
+   * PDF was not, so the library listed it with no key and no link.
+   */
+  describe('F1.2.2 AC5 — documents an employer can download', () => {
+    it('serves the review’s storage key and a download link to the employer', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/learners/${mine.learnerA.enrolmentId}/profile`)
+        .set(employerHeaders(mine))
+        .expect(200);
+      const documents = (
+        res.body as {
+          data: {
+            documents: {
+              id: string;
+              type: string;
+              storageKey: string | null;
+              downloadUrl?: string;
+            }[];
+          };
+        }
+      ).data.documents;
+      const review = documents.find((d) => d.id === mine.learnerA.reviewId);
+
+      expect(review).toBeDefined();
+      expect(review?.type).toBe('review');
+      expect(review?.storageKey).toBe(reviewPdfKey);
+      expect(typeof review?.downloadUrl).toBe('string');
+    });
+
+    /**
+     * The policy itself, as graddly_app with the employer's GUCs — not
+     * through the endpoint, whose own where clauses could mask a policy that
+     * admits too much or too little.
+     */
+    it('admits the employer to that job under RLS, and nobody to the orphan', async () => {
+      const db = createAppDbClient();
+      await db.connect();
+      try {
+        const role = await db.query<{
+          rolsuper: boolean;
+          rolbypassrls: boolean;
+        }>(
+          `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user`,
+        );
+        expect(role.rows[0]).toEqual({ rolsuper: false, rolbypassrls: false });
+
+        const visible = async (orgId: string, jobId: string) => {
+          await setTenantGucs(db, mine.staffUserId, orgId);
+          const res = await db.query(
+            `SELECT id FROM pdf_generation_jobs WHERE id = $1`,
+            [jobId],
+          );
+          return res.rowCount;
+        };
+
+        expect(await visible(mine.employerOrgId, reviewPdfJobId)).toBe(1);
+        expect(await visible(mine.providerOrgId, reviewPdfJobId)).toBe(1);
+        expect(await visible(theirs.employerOrgId, reviewPdfJobId)).toBe(0);
+        // A job no document points at is owner-only, before and after.
+        expect(await visible(mine.employerOrgId, orphanPdfJobId)).toBe(0);
+        expect(await visible(mine.providerOrgId, orphanPdfJobId)).toBe(1);
+      } finally {
+        await db.end();
+      }
+    });
+  });
+
+  /**
+   * F1.2.2 AC3 — weekly logged hours over the programme lifetime, from an
+   * endpoint that groups server-side rather than from the capped profile.
+   */
+  describe('F1.2.2 AC3 — GET /learners/:enrolmentId/otj/weekly', () => {
+    type Week = {
+      weekStart: string;
+      approvedMinutes: number;
+      pendingMinutes: number;
+    };
+    const weeksFor = async (
+      headers: Record<string, string>,
+    ): Promise<Week[]> => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/learners/${mine.learnerA.enrolmentId}/otj/weekly`)
+        .set(headers)
+        .expect(200);
+      return (res.body as { data: { weeks: Week[] } }).data.weeks;
+    };
+
+    it('buckets approved and pending minutes per ISO week for the employer', async () => {
+      const weeks = await weeksFor(employerHeaders(mine));
+      const byStart = new Map(weeks.map((w) => [w.weekStart, w]));
+
+      // 90 + 30 approved; the 60 rejected is in neither figure.
+      expect(byStart.get(weekMinus3)).toEqual({
+        weekStart: weekMinus3,
+        approvedMinutes: 120,
+        pendingMinutes: 0,
+      });
+      // 15 approved; 45 submitted is pending; the 20 draft is in neither.
+      expect(byStart.get(weekMinus2)).toEqual({
+        weekStart: weekMinus2,
+        approvedMinutes: 15,
+        pendingMinutes: 45,
+      });
+
+      // Every week is present, through to this one, seven days apart.
+      expect(weeks[weeks.length - 1].weekStart).toBe(isoMonday(0));
+      for (let i = 1; i < weeks.length; i++) {
+        expect(weeks[i].weekStart).toBe(plusDays(weeks[i - 1].weekStart, 7));
+      }
+    });
+
+    it('shows the provider the same weeks', async () => {
+      // Sequential on purpose: concurrent requests corrupt the shared
+      // client's bootstrap bracket (see the lint rule that forbids it).
+      const asEmployer = await weeksFor(employerHeaders(mine));
+      const asProvider = await weeksFor(mine.staffHeaders);
+
+      expect(asProvider).toEqual(asEmployer);
+    });
+
+    it('answers 404 for an enrolment the caller is not party to', async () => {
+      await request(app.getHttpServer())
+        .get(`/api/v1/learners/${mine.learnerA.enrolmentId}/otj/weekly`)
+        .set(employerHeaders(theirs))
+        .expect(404);
     });
   });
 

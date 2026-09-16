@@ -726,12 +726,17 @@ export class EnrolmentsService {
         ),
       ),
     ];
+    // F1.2.2 AC1 — the provider is the link column when set, otherwise the
+    // owner. `providerOrganisationId` is null whenever the provider owns the
+    // enrolment, which is the common case, and the roster showed an employer
+    // "—" for it. enrolment-journey.service.ts resolves it the same way.
     const linkOrgIds = [
       ...new Set(
         enrolments.flatMap((e) =>
-          [e.employerOrganisationId, e.providerOrganisationId].filter(
-            (id): id is string => !!id,
-          ),
+          [
+            e.employerOrganisationId,
+            e.providerOrganisationId ?? e.organisationId,
+          ].filter((id): id is string => !!id),
         ),
       ),
     ];
@@ -791,9 +796,10 @@ export class EnrolmentsService {
           employerOrganisationName: enrolment.employerOrganisationId
             ? (orgNameById.get(enrolment.employerOrganisationId) ?? null)
             : null,
-          providerOrganisationName: enrolment.providerOrganisationId
-            ? (orgNameById.get(enrolment.providerOrganisationId) ?? null)
-            : null,
+          providerOrganisationName:
+            orgNameById.get(
+              enrolment.providerOrganisationId ?? enrolment.organisationId,
+            ) ?? null,
           apprenticeUserDisplayName: enrolment.apprenticeUserId
             ? this.formatUserDisplayName(
                 usersById.get(enrolment.apprenticeUserId),

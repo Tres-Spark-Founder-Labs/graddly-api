@@ -66,6 +66,20 @@ export class LearnerProfileProgrammeDto {
   epaOrganisationUkprn!: string | null;
 }
 
+/**
+ * F1.2.2 AC1 — "provider" in the personal details, which the profile did not
+ * carry at all. Resolved as `providerOrganisationId ?? organisationId`: the
+ * link column is null whenever the provider owns the enrolment, which is the
+ * common case, and the owner is then the provider.
+ */
+export class LearnerProfileProviderDto {
+  @ApiProperty({ format: 'uuid' })
+  organisationId!: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  name!: string | null;
+}
+
 export class LearnerProfileTutorDto {
   @ApiPropertyOptional({ format: 'uuid', nullable: true })
   userId!: string | null;
@@ -178,6 +192,9 @@ export class LearnerProfileResponseDto {
 
   @ApiProperty({ type: LearnerProfileTutorDto })
   tutor!: LearnerProfileTutorDto;
+
+  @ApiProperty({ type: LearnerProfileProviderDto })
+  provider!: LearnerProfileProviderDto;
 
   @ApiProperty({ type: [LearnerProfileReviewItemDto] })
   reviews!: LearnerProfileReviewItemDto[];

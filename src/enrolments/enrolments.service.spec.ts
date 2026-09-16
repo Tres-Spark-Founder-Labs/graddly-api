@@ -292,13 +292,18 @@ describe('EnrolmentsService', () => {
     standardFind.mockResolvedValue([
       { id: 'std-1', title: 'Software Developer', code: 'ST0123' },
     ]);
-    organisationFind.mockResolvedValue([{ id: 'emp-1', name: 'Acme Ltd' }]);
+    organisationFind.mockResolvedValue([
+      { id: 'emp-1', name: 'Acme Ltd' },
+      { id: 'org-1', name: 'Provider Co' },
+    ]);
     userFind.mockResolvedValue([]);
 
     const result = await service.findOne(user, 'enr-1');
 
     expect(result.employerOrganisationName).toBe('Acme Ltd');
-    expect(result.providerOrganisationName).toBeNull();
+    // F1.2.2 AC1 — no separate provider link, so the owner is the provider.
+    // This used to be null, and an employer's roster showed it as "—".
+    expect(result.providerOrganisationName).toBe('Provider Co');
     expect(result.apprenticeDisplayName).toBe('Jane Smith');
     expect(result.standardDisplayName).toBe('Software Developer (ST0123)');
   });

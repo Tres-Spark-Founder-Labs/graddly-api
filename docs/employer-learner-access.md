@@ -1,10 +1,11 @@
 # Employer access to apprentices and learner profiles
 
-> F1.2.1 works for the employer. F1.2.2’s endpoint now serves them too, the
-> tutor’s name included, but **F1.2.2 is not met**: "F1.2.2, criterion by
-> criterion" lists what is still missing — the provider’s name (AC1), two
-> things the API already serves and the drawer does not show (AC2, AC4), a
-> chart that does not exist (AC3), downloads (AC5) and messaging (AC6).
+> F1.2.1 works for the employer. **F1.2.2’s API half is closed**: the profile
+> carries the provider and the tutor (AC1), documents download (AC5) and a
+> weekly OTJ endpoint exists (AC3). "F1.2.2, criterion by criterion" lists what
+> is still missing, all of it screen wiring or a product decision — two things
+> the API serves and the drawer does not show (AC2, AC4), the chart itself
+> (AC3), the load-time assertion (AC7) and messaging (AC6).
 > "Bootstrap is for named, narrow reads" is a rule rather than a description: read
 > it before adding a `setRlsBootstrap` call anywhere.
 > Referenced from `test/employer-learner-access.e2e-spec.ts`.
@@ -237,8 +238,8 @@ Both obey the same four conditions:
 
 1. **Named columns only.** A `select` listing exactly the fields needed —
    `loadTutorNames` takes `['id', 'firstName', 'lastName']`,
-   `recipientUkprn` takes `['ukprn']`. Never a whole row, never a list,
-   never a count.
+   `loadOrganisationNames` takes `['id', 'name']`, `recipientUkprn` takes
+   `['ukprn']`. Never a whole row, never a list, never a count.
 2. **The narrowest window that can hold the read**: opened immediately before
    it, restored in a `finally`, never spanning unrelated work. Restore the
    _previous_ value rather than setting `false`, or a nested call switches the
@@ -283,39 +284,42 @@ review.
 
 ## F1.2.2, criterion by criterion
 
-The endpoints now serve the employer. **F1.2.2 is not met.** Each row below
-was checked as the employer, running as `graddly_app`, against a real enrolment
-with a saved review record (a temporary e2e, not committed), unless it says
-otherwise. "API" and "screen" are kept apart because they fail differently:
-two of these are already served and simply not shown.
+**The API half of F1.2.2 is closed** as of migration `1781100000056`: AC1, AC3
+and AC5 are served to the employer and asserted as one in
+`test/employer-learner-access.e2e-spec.ts`. What remains is screen wiring —
+AC2 and AC4 (task 2.5), AC7's load-time assertion (with 2.5) — and the AC6
+product decision. "API" and "screen" are kept apart because they fail
+differently: two of these are already served and simply not shown.
 
-| AC  | Criterion                                                                    | Status                                      | Evidence                                                                                                                                                                                                                                                                                                                                                                                                               |
-| --- | ---------------------------------------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AC1 | personal details (name, start date, standard, provider, tutor, line manager) | **provider blank**; the rest served         | Tutor served as of this change. `providerOrganisationName` is null, and the drawer renders `"—"` (`ProfileOverview.jsx:159`). It is resolved from the link column only, which is null whenever the provider owns the enrolment (`enrolments.service.ts:565-566` defines that case). The profile DTO has no provider field. `enrolment-journey.service.ts:501` already uses `providerOrganisationId ?? organisationId`. |
-| AC2 | programme timeline, enrolment to EPA, with milestone completion status       | API ✓ — **screen ✗**                        | `GET /enrolments/:id/journey` as the employer: 200, milestone statuses `complete, complete, current, upcoming ×3`, a four-item gateway checklist. The drawer builds its own timeline from the profile (`programme-milestones.js`), whose header says only reviews carry a state. `useEnrolmentJourney` (`enrolments.query.js:67`) has no caller.                                                                       |
-| AC3 | OTJ hours chart, weekly, over the programme lifetime                         | **screen ✗**; data partial                  | No chart on the drawer — `ProfileActivity.jsx` lists sessions. The profile carries at most 500 entries (`learner-profile.service.ts:30`) with a `truncated` flag, so a long programme cannot be charted over its lifetime from it.                                                                                                                                                                                     |
-| AC4 | review history with dates, outcomes, and action points                       | API ✓ — **screen ✗**                        | `GET /reviews/:id/record` as the employer: 200 with `progressSummary`, `actionsAgreed` and `smartGoals`. `review-records.service.ts:204` admits the linked employer, and so does `review_records_select_linked_org`. The drawer reads only `profile.reviews` — dates, status and signatures (`ProfileReviews.jsx:27-31`).                                                                                              |
-| AC5 | document library: signed agreements, review records, correspondence          | **downloads ✗**; "correspondence" undefined | `pdf_generation_jobs` is owner-only — see below. There is no correspondence document type (`LearnerDocumentType`: commitment, review, evidence), and the PRD does not say what correspondence is. That is a question for the client, not a build task.                                                                                                                                                                 |
-| AC6 | direct messaging thread to tutor and apprentice                              | **deliberately narrow**                     | An employer reaches a thread only as its counterparty — see below.                                                                                                                                                                                                                                                                                                                                                     |
-| AC7 | loads within 2 seconds                                                       | **unpinned for the employer**               | 178 ms on a warm read against a local database — indicative only. The one budget test (`test/learners/profile.e2e-spec.ts:184`) runs as a provider, for F2.2.4 AC7.                                                                                                                                                                                                                                                    |
+| AC  | Criterion                                                                    | Status                                      | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| --- | ---------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| AC1 | personal details (name, start date, standard, provider, tutor, line manager) | **API ✓**                                   | Provider, two faults closed: the roster resolved the name from the link column only, which is null whenever the provider owns the enrolment, so it now resolves `providerOrganisationId ?? organisationId` as `enrolment-journey.service.ts` always did (roster, commitment board, audit trail alike); and the profile, which carried no provider at all, gains `provider: { organisationId, name }`, the name hydrated by `LearnerMetricsService.loadOrganisationNames` under the rule above — `organisations_select` admits members only, so no policy could serve it. |
+| AC2 | programme timeline, enrolment to EPA, with milestone completion status       | API ✓ — **screen ✗**                        | `GET /enrolments/:id/journey` as the employer: 200, milestone statuses `complete, complete, current, upcoming ×3`, a four-item gateway checklist. The drawer builds its own timeline from the profile (`programme-milestones.js`), whose header says only reviews carry a state. `useEnrolmentJourney` (`enrolments.query.js:67`) has no caller.                                                                                                                                                                                                                         |
+| AC3 | OTJ hours chart, weekly, over the programme lifetime                         | **API ✓** — screen is 2.5                   | `GET /learners/:enrolmentId/otj/weekly`: approved and pending minutes per ISO week from the programme start to this week, grouped in the database, every week present, authorised exactly as the profile is. The profile's 500-entry cap could not serve a lifetime chart and raising it would have moved the bucketing into the browser. Rules are the apprentice portal's own (`weekly-hours.js`): Monday weeks, approved and pending apart (D2), never merged.                                                                                                        |
+| AC4 | review history with dates, outcomes, and action points                       | API ✓ — **screen ✗**                        | `GET /reviews/:id/record` as the employer: 200 with `progressSummary`, `actionsAgreed` and `smartGoals`. `review-records.service.ts:204` admits the linked employer, and so does `review_records_select_linked_org`. The drawer reads only `profile.reviews` — dates, status and signatures (`ProfileReviews.jsx:27-31`).                                                                                                                                                                                                                                                |
+| AC5 | document library: signed agreements, review records, correspondence          | **downloads ✓**; "correspondence" undefined | Migration `1781100000056` admits the employer to the `pdf_generation_jobs` row behind a commitment statement or review on its enrolment — see below — so `storageKey` and `downloadUrl` are served, proved as `graddly_app` with the employer's GUCs. There is still no correspondence document type (`LearnerDocumentType`: commitment, review, evidence), and the PRD does not say what correspondence is. That is a question for the client, not a build task.                                                                                                        |
+| AC6 | direct messaging thread to tutor and apprentice                              | **deliberately narrow**                     | An employer reaches a thread only as its counterparty — see below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| AC7 | loads within 2 seconds                                                       | **unpinned for the employer**               | 178 ms on a warm read against a local database — indicative only. The one budget test (`test/learners/profile.e2e-spec.ts:184`) runs as a provider, for F2.2.4 AC7.                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 ---
 
 ## Still narrower than the provider's view
 
-The employer now gets the profile, and it is not quite the provider's profile.
-One row policy is still narrower than the screen needs, and one behaviour is
-narrower on purpose.
+The employer now gets the profile. Until migration `1781100000056` it was not
+quite the provider's profile: `pdf_generation_jobs_select` was owner-only, so
+commitment and review documents listed without a `storageKey` — the
+worst-shaped gap, a document that appears in the library and cannot be opened.
+`resolveReviewPdfKey` and `resolveCommitmentPdfKey` read `pdf_generation_jobs`
+for the output key, and that read found nothing for an employer.
 
-| Table                 | Why                                        | Effect on the employer                                                                           |
-| --------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| `pdf_generation_jobs` | `pdf_generation_jobs_select` is owner-only | commitment and review documents can list without a `storageKey`, so there is nothing to download |
-
-That one is a genuine F1.2.2 AC5 gap, and the worst-shaped kind: the document
-appears in the library and cannot be opened. `resolveReviewPdfKey` and
-`resolveCommitmentPdfKey` read `pdf_generation_jobs` for the output key, and
-that read finds nothing under an employer's organisation, so `storageKey` and
-`downloadUrl` are both absent while the row itself lists.
+`pdf_generation_jobs_select_employer` closes it. The table carries no enrolment
+reference — its columns are the organisation, the requester, the template,
+status, output key, error and completion time — so the policy joins through
+the document that recorded the job: `commitment_statements."snapshotPdfJobId"`
+via its group, and `reviews."snapshotPdfJobId"`, each to the enrolment's
+`employerOrganisationId`. A job no document points at stays owner-only. Like
+its siblings from `1781100000047` and `1781100000054`, it does not filter on
+enrolment status. One behaviour is still narrower, on purpose.
 
 **Message threads (AC6) are empty for employer staff who are not themselves a
 participant, and that is deliberate.** `message_threads` carries two SELECT

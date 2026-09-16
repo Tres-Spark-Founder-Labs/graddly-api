@@ -223,7 +223,10 @@ export class CommitmentAuditTrailService {
     const [ownerOrg, employerOrg, providerOrg, requester] = await Promise.all([
       this.findOrganisationName(statement.organisationId),
       this.findOrganisationName(enrolment?.employerOrganisationId ?? null),
-      this.findOrganisationName(enrolment?.providerOrganisationId ?? null),
+      // F1.2.2 AC1 — the owner is the provider when no separate link is set.
+      this.findOrganisationName(
+        enrolment?.providerOrganisationId ?? enrolment?.organisationId ?? null,
+      ),
       this.userRepo.findOne({ where: { id: requestedByUserId } }),
     ]);
 

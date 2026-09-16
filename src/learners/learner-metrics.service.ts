@@ -13,6 +13,7 @@ import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
 import { MessageThread } from '../messaging/entities/message-thread.entity.js';
 import { Message } from '../messaging/entities/message.entity.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
+import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { OrganisationRole } from '../organisations/organisation-role.enum.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { OtjPaceAlertLevel } from '../otj/enums/otj-pace-alert-level.enum.js';
@@ -56,6 +57,8 @@ export class LearnerMetricsService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(OrganisationMembership)
     private readonly membershipRepo: Repository<OrganisationMembership>,
+    @InjectRepository(Organisation)
+    private readonly organisationRepo: Repository<Organisation>,
     private readonly journeyService: EnrolmentJourneyService,
   ) {}
 
@@ -188,6 +191,42 @@ export class LearnerMetricsService {
         users.map((user) => [
           user.id,
           `${user.firstName} ${user.lastName}`.trim(),
+        ]),
+      );
+    } finally {
+      setRlsBootstrap(previousBootstrap);
+    }
+  }
+
+  /**
+   * F1.2.2 AC1 — the provider's name on the employer's screen.
+   *
+   * The same read `enrichEnrolmentsForDisplay` has always made for the
+   * roster, and the same rule as `loadTutorNames`: `organisations_select`
+   * admits members only (1780500000006), so an employer cannot read the
+   * provider's row under its own policy, and the label is hydrated under the
+   * bootstrap flag instead. Ids come from an enrolment the caller has just
+   * read; the select is the label and nothing else — never the UKPRN, never
+   * an address, never the row.
+   */
+  async loadOrganisationNames(
+    organisationIds: string[],
+  ): Promise<Map<string, string>> {
+    if (organisationIds.length === 0) {
+      return new Map();
+    }
+
+    const previousBootstrap = getRlsBootstrap();
+    setRlsBootstrap(true);
+    try {
+      const organisations = await this.organisationRepo.find({
+        where: { id: In(organisationIds), isDeleted: false },
+        select: ['id', 'name'],
+      });
+      return new Map(
+        organisations.map((organisation) => [
+          organisation.id,
+          organisation.name,
         ]),
       );
     } finally {

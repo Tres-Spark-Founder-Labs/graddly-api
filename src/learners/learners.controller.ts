@@ -55,6 +55,10 @@ import {
   LearnerMeSummaryOtjPaceDto,
   LearnerMeSummaryResponseDto,
 } from './dto/learner-me-summary-response.dto.js';
+import {
+  LearnerOtjWeeklyBucketDto,
+  LearnerOtjWeeklyResponseDto,
+} from './dto/learner-otj-weekly-response.dto.js';
 import { LearnerProfileResponseDto } from './dto/learner-profile-response.dto.js';
 import {
   InterventionActionResponseDto,
@@ -104,6 +108,8 @@ function isCsvCohortResult(
   InterventionActionResponseDto,
   CreateInterventionActionDto,
   LearnerProfileResponseDto,
+  LearnerOtjWeeklyResponseDto,
+  LearnerOtjWeeklyBucketDto,
   LearnerMeSummaryResponseDto,
   LearnerMeSummaryOtjPaceDto,
   ListInterventionQueueQueryDto,
@@ -456,5 +462,42 @@ export class LearnersController {
     setCurrentUserId(user.id);
     setLastKnownUserIdForGuc(user.id);
     return this.profileService.getProfile(user, enrolmentId);
+  }
+
+  /**
+   * F1.2.2 AC3. Authorised exactly as the profile is — the provider that owns
+   * the enrolment and the employer named on it — and answered 404 for anyone
+   * else, for the reason given on findReadableEnrolment.
+   */
+  @Get(':enrolmentId/otj/weekly')
+  @ResponseMessage('Weekly off-the-job hours retrieved successfully')
+  @ApiOperation({
+    summary: 'Off-the-job minutes per ISO week over the programme lifetime',
+    description:
+      'Approved and submitted (pending) minutes for every ISO week from the programme start ' +
+      'to this week, grouped server-side so a long programme is neither truncated nor ' +
+      'bucketed in the browser. Approved is the authoritative figure; pending is kept ' +
+      'separate and never merged into it.',
+  })
+  @ApiOkResponse({
+    description: 'Weekly buckets',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(LearnerOtjWeeklyResponseDto) },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Enrolment not found',
+    type: ErrorResponseDto,
+  })
+  getOtjWeekly(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('enrolmentId', ParseUUIDPipe) enrolmentId: string,
+  ): Promise<LearnerOtjWeeklyResponseDto> {
+    setCurrentUserId(user.id);
+    setLastKnownUserIdForGuc(user.id);
+    return this.profileService.getOtjWeekly(user, enrolmentId);
   }
 }

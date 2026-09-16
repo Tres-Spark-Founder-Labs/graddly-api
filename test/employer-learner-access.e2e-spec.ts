@@ -626,6 +626,34 @@ describe('Employer access to apprentices and learner profiles (e2e)', () => {
     });
   });
 
+  /**
+   * F1.2.2 AC7 — "loads within 2 seconds". Modelled on
+   * test/epa-pack-timing.e2e-spec.ts: wall-clock around one request, the
+   * figure printed so a slow-but-passing run is visible, and the budget the
+   * PRD states rather than one chosen to pass. As the employer, whose read
+   * this feature is about; the provider's budget is F2.2.4 AC7's
+   * (test/learners/profile.e2e-spec.ts). The endpoint has been exercised by
+   * the tests above, so this measures a warm read, which is what a user in a
+   * session sees.
+   */
+  describe('F1.2.2 AC7 — the profile loads within two seconds', () => {
+    const BUDGET_MS = 2000;
+
+    it('answers the employer inside the budget', async () => {
+      const started = Date.now();
+      await request(app.getHttpServer())
+        .get(`/api/v1/learners/${mine.learnerA.enrolmentId}/profile`)
+        .set(employerHeaders(mine))
+        .expect(200);
+      const elapsedMs = Date.now() - started;
+
+      console.log(
+        `[F1.2.2 AC7] employer profile in ${elapsedMs} ms (budget ${BUDGET_MS} ms)`,
+      );
+      expect(elapsedMs).toBeLessThan(BUDGET_MS);
+    });
+  });
+
   describe('reads widen, writes do not', () => {
     it('does not let an employer update an apprentice they can now see', async () => {
       // The RLS write policies stayed narrow on purpose (migration

@@ -10,10 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CronJob } from 'cron';
 import { IsNull, Not, Repository } from 'typeorm';
 
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { DasSyncDispatchService } from '../das/das-sync-dispatch.service.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 
@@ -75,17 +72,12 @@ export class DasFundingSyncCronService
        * organisations matched nothing and this returned zero rows for every
        * organisation while the job reported success.
        */
-      const previousBootstrap = getRlsBootstrap();
-      setRlsBootstrap(true);
-      let organisations;
-      try {
-        organisations = await this.organisationsRepo.find({
+      const organisations = await withRlsBootstrap(() =>
+        this.organisationsRepo.find({
           where: { isDeleted: false, ukprn: Not(IsNull()) },
           select: ['id'],
-        });
-      } finally {
-        setRlsBootstrap(previousBootstrap);
-      }
+        }),
+      );
 
       for (const organisation of organisations) {
         await this.dispatch.enqueueFundingSync({

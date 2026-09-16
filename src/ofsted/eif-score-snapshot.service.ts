@@ -2,10 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
 
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
 
@@ -66,9 +63,7 @@ export class EifScoreSnapshotService {
 
   /** Captures every provider organisation. Returns how many were recorded. */
   async captureAll(now: Date = new Date()): Promise<number> {
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       const organisations = await this.organisationRepo.find({
         where: { portalType: PortalType.PROVIDER, isDeleted: false },
         select: ['id'],
@@ -90,9 +85,7 @@ export class EifScoreSnapshotService {
         }
       }
       return captured;
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   /**
@@ -104,9 +97,7 @@ export class EifScoreSnapshotService {
     organisationId: string,
     now: Date = new Date(),
   ): Promise<EifScoreSnapshot> {
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       const computed = await this.calculator.calculate(organisationId);
       const capturedOn = toDay(now);
 
@@ -129,12 +120,10 @@ export class EifScoreSnapshotService {
 
       if (existing) {
         Object.assign(existing, values);
-        return await this.snapshotRepo.save(existing);
+        return this.snapshotRepo.save(existing);
       }
-      return await this.snapshotRepo.save(this.snapshotRepo.create(values));
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+      return this.snapshotRepo.save(this.snapshotRepo.create(values));
+    });
   }
 
   /**

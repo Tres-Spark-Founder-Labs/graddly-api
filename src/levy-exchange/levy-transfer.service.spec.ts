@@ -732,7 +732,7 @@ describe('LevyTransferService', () => {
     });
   });
   /**
-   * The counterparty case of the bootstrap rule on setRlsBootstrap. The four
+   * The counterparty case of the bootstrap rule on withRlsBootstrap. The four
    * conditions, at this call site: named column, exclusive window, after the
    * authorisation check, and nothing else read.
    */

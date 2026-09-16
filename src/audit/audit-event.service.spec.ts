@@ -1,10 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 
 import { AUDIT_ENTITY_TYPE } from './audit-entity-types.js';
 import { AuditEventService } from './audit-event.service.js';
@@ -13,10 +10,19 @@ import { AuditAction } from './enums/audit-action.enum.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 
+/** How many bootstrap windows are open while a collaborator runs. */
+let mockBootstrapDepth = 0;
+
 jest.mock('../common/context/correlation-id-context.js', () => ({
   getCurrentActor: jest.fn(() => ({ name: 'Ada Lovelace', role: 'owner' })),
-  getRlsBootstrap: jest.fn(() => false),
-  setRlsBootstrap: jest.fn(),
+  withRlsBootstrap: jest.fn(async (fn: () => Promise<unknown>) => {
+    mockBootstrapDepth += 1;
+    try {
+      return await fn();
+    } finally {
+      mockBootstrapDepth -= 1;
+    }
+  }),
 }));
 
 describe('AuditEventService (F1.3.3 AC1/AC2)', () => {
@@ -40,7 +46,7 @@ describe('AuditEventService (F1.3.3 AC1/AC2)', () => {
 
     service = moduleRef.get(AuditEventService);
     jest.clearAllMocks();
-    (getRlsBootstrap as jest.Mock).mockReturnValue(false);
+    mockBootstrapDepth = 0;
   });
 
   /**
@@ -94,8 +100,17 @@ describe('AuditEventService (F1.3.3 AC1/AC2)', () => {
    * The audit table's INSERT policy is org-scoped. A view recorded against a
    * statement owned by the *provider* would otherwise be refused by RLS —
    * the same read the employer is entitled to would log nothing.
+   *
+   * There is nothing to restore afterwards: the window is a derived store
+   * that ends with the callback.
    */
-  it('writes under the RLS bootstrap flag and restores it afterwards', async () => {
+  it('writes inside a bootstrap window', async () => {
+    const depthAtInsert: number[] = [];
+    auditRepo.insert.mockImplementation(() => {
+      depthAtInsert.push(mockBootstrapDepth);
+      return Promise.resolve();
+    });
+
     await service.recordView({
       user,
       entityType: AUDIT_ENTITY_TYPE.COMMITMENT_STATEMENT,
@@ -103,21 +118,8 @@ describe('AuditEventService (F1.3.3 AC1/AC2)', () => {
       organisationId: 'org-2',
     });
 
-    expect(setRlsBootstrap).toHaveBeenNthCalledWith(1, true);
-    expect(setRlsBootstrap).toHaveBeenNthCalledWith(2, false);
-  });
-
-  it('restores the previous flag rather than clearing it', async () => {
-    (getRlsBootstrap as jest.Mock).mockReturnValue(true);
-
-    await service.recordView({
-      user,
-      entityType: AUDIT_ENTITY_TYPE.COMMITMENT_STATEMENT,
-      entityId: 'stmt-1',
-      organisationId: 'org-1',
-    });
-
-    expect(setRlsBootstrap).toHaveBeenNthCalledWith(2, true);
+    expect(depthAtInsert).toEqual([1]);
+    expect(withRlsBootstrap).toHaveBeenCalledTimes(1);
   });
 
   /**
@@ -136,9 +138,5 @@ describe('AuditEventService (F1.3.3 AC1/AC2)', () => {
         organisationId: 'org-1',
       }),
     ).resolves.toBeUndefined();
-
-    // ...and the flag is still put back, or every later write in the request
-    // would run with RLS bypassed.
-    expect(setRlsBootstrap).toHaveBeenNthCalledWith(2, false);
   });
 });

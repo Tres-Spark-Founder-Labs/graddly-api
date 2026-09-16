@@ -8,10 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../../common/context/correlation-id-context.js';
 import { buildPaginationMeta } from '../../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../../common/pagination/paginated-result.js';
 import { DAS_CLIENT } from '../../das/das-client.constants.js';
@@ -577,7 +574,7 @@ export class LevyTransferService {
    * `organisations_select` admits members only, so the donor cannot read the
    * recipient's organisation — and the recipient's UKPRN is exactly what ESFA
    * needs to be told the transfer is for. This is the counterparty case of the
-   * bootstrap rule on `setRlsBootstrap`: one named column of one row, of an
+   * bootstrap rule on `withRlsBootstrap`: one named column of one row, of an
    * organisation this caller is provably party to, read after the caller has
    * been confirmed as this transfer's donor, in a window that holds this read
    * and no other.
@@ -587,18 +584,14 @@ export class LevyTransferService {
    * this transfer before calling it.
    */
   private async recipientUkprn(transfer: LevyTransfer): Promise<string | null> {
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       const recipient = await this.organisationRepo.findOne({
         where: { id: transfer.recipientOrganisationId, isDeleted: false },
         select: ['ukprn'],
       });
       const ukprn = recipient?.ukprn;
       return typeof ukprn === 'string' && ukprn.trim() !== '' ? ukprn : null;
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   private async copyPdfToRecipientOrg(

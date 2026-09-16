@@ -10,8 +10,7 @@ import {
 import {
   getCurrentActor,
   getCurrentUserId,
-  getRlsBootstrap,
-  setRlsBootstrap,
+  withRlsBootstrap,
 } from '../common/context/correlation-id-context.js';
 
 import {
@@ -37,13 +36,9 @@ export class AuditLogSubscriber implements EntitySubscriberInterface {
     row: QueryDeepPartialEntity<AuditLogEntry>,
   ): Promise<void> {
     // Mutations may run before app.current_org matches the target row (e.g. org creation).
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    await withRlsBootstrap(async () => {
       await manager.insert(AuditLogEntry, row);
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   private buildRow(

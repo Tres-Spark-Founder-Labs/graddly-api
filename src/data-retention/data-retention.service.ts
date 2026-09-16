@@ -4,10 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { AuditLogEntry } from '../audit/entities/audit-log-entry.entity.js';
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { Invitation } from '../invitations/entities/invitation.entity.js';
 import { MessageThread } from '../messaging/entities/message-thread.entity.js';
 import { Message } from '../messaging/entities/message.entity.js';
@@ -161,13 +158,9 @@ export class DataRetentionService {
     where: string,
     params: Record<string, Date>,
   ): Promise<number> {
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
-      return await this.batchDeleteScoped(repo, alias, where, params);
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    return withRlsBootstrap(async () => {
+      return this.batchDeleteScoped(repo, alias, where, params);
+    });
   }
 
   private async batchDeleteScoped(

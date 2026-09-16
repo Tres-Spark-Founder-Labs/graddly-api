@@ -194,42 +194,6 @@ describe('TutorCaseloadService', () => {
     expect(result.tutors[0].reviewComplianceRate).toBe(75);
   });
 
-  /**
-   * loadTutorNames opens the request-global bootstrap window, so it must not
-   * run while the compliance read is in flight: a bootstrap window may contain
-   * only reads that are meant to bypass. It used to share a Promise.all with
-   * that read. bootstrap-window-exclusivity.spec.ts forbids the shape; this
-   * pins the order at this call site.
-   */
-  it('reads tutor names only after the compliance read has resolved', async () => {
-    withEnrolments([context('tutor-1', 0)]);
-    let releaseCompliance = (): void => {};
-    reviewRepo.createQueryBuilder.mockReturnValue({
-      innerJoin: jest.fn().mockReturnThis(),
-      select: jest.fn().mockReturnThis(),
-      addSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      groupBy: jest.fn().mockReturnThis(),
-      getRawMany: jest.fn(
-        () =>
-          new Promise((resolve) => {
-            releaseCompliance = () => resolve([]);
-          }),
-      ),
-    });
-
-    const pending = service.getCaseload(user);
-    await new Promise((resolve) => {
-      setImmediate(resolve);
-    });
-    expect(metricsService.loadTutorNames).not.toHaveBeenCalled();
-
-    releaseCompliance();
-    await pending;
-    expect(metricsService.loadTutorNames).toHaveBeenCalledWith(['tutor-1']);
-  });
-
   describe('assignTutorInBulk', () => {
     /**
      * F2.2.5 AC4. The audit trail is written by a TypeORM subscriber, and

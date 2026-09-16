@@ -67,10 +67,18 @@ function resolveTenantGucValues(): [string, string, string] {
     fallback.currentUserId ??
     lastKnownUserIdForGuc ??
     '';
-  const bootstrap =
-    getRlsBootstrap() || tenant?.rlsBootstrap || fallback.rlsBootstrap === true
-      ? '1'
-      : '0';
+  /**
+   * The store only — never the process-global fallback.
+   *
+   * This used to OR in `tenant?.rlsBootstrap` and `fallback.rlsBootstrap`,
+   * and the fallback is one object for the whole process, written by every
+   * window that opened. So while any window was open anywhere — another
+   * user's request, a cron — every statement from every concurrent request
+   * resolved `app.rls_bootstrap = '1'`, and no store saying `false` could
+   * override an OR. The flag now lives only in the store `withRlsBootstrap`
+   * runs its callback in, and outside any store it is off.
+   */
+  const bootstrap = getRlsBootstrap() ? '1' : '0';
   return [orgId, userId, bootstrap];
 }
 

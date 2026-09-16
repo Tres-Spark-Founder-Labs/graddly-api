@@ -10,10 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CronJob } from 'cron';
 import { In, Repository } from 'typeorm';
 
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { LevyTransfer } from '../levy-exchange/entities/levy-transfer.entity.js';
 import { LevyTransferStatus } from '../levy-exchange/enums/levy-transfer-status.enum.js';
 import { LevyTransferService } from '../levy-exchange/services/levy-transfer.service.js';
@@ -87,11 +84,8 @@ export class LevyTransferStatusCronService
          * ESFA transfer was ever polled for a status change — while the job
          * logged a clean run.
          */
-        const previousBootstrap = getRlsBootstrap();
-        setRlsBootstrap(true);
-        let transfers: LevyTransfer[];
-        try {
-          transfers = await this.transferRepo.find({
+        const transfers: LevyTransfer[] = await withRlsBootstrap(() =>
+          this.transferRepo.find({
             where: {
               isDeleted: false,
               status: In([
@@ -100,10 +94,8 @@ export class LevyTransferStatusCronService
                 LevyTransferStatus.PENDING_ESFA,
               ]),
             },
-          });
-        } finally {
-          setRlsBootstrap(previousBootstrap);
-        }
+          }),
+        );
 
         let synced = 0;
         for (const transfer of transfers) {

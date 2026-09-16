@@ -1,7 +1,7 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { NextFunction, Request, Response } from 'express';
 
-import { setRlsBootstrap } from '../context/correlation-id-context.js';
+import { withRlsBootstrap } from '../context/correlation-id-context.js';
 
 /**
  * Every route whose requests run with the RLS bootstrap flag set — that is,
@@ -89,10 +89,11 @@ export class RlsBootstrapMiddleware implements NestMiddleware {
       return;
     }
 
-    setRlsBootstrap(true);
-    // Do not clear bootstrap on `finish`/`close`: CorrelationIdMiddleware already
-    // resets tenant ALS state per request. Clearing here can run after the next
-    // request started and disable bootstrap on that request's connection.
-    next();
+    // The rest of this request's pipeline runs inside a store derived from the
+    // request's own, with the flag set. Scoped to this request by
+    // construction: no other request's store is touched, and there is nothing
+    // to clear on `finish`, so the old hazard — a clear landing after the next
+    // request had started — cannot arise.
+    withRlsBootstrap(() => next());
   }
 }

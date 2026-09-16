@@ -6,10 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
@@ -215,17 +212,12 @@ export class AiProgrammeProgressService {
     const organisationId = user.organisationId!;
     await this.portalService.assertPortalType(organisationId, PortalType.FLOW);
 
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    let enrolment: Enrolment | null;
-    try {
-      enrolment = await this.enrolmentRepo.findOne({
+    const enrolment: Enrolment | null = await withRlsBootstrap(() =>
+      this.enrolmentRepo.findOne({
         where: { id: enrolmentId, organisationId, isDeleted: false },
         relations: ['standard', 'standard.programme'],
-      });
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+      }),
+    );
 
     if (!enrolment?.standard?.programme) {
       throw new NotFoundException('Enrolment not found');

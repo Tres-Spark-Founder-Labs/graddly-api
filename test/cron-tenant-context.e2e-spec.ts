@@ -2,10 +2,9 @@ import { INestApplication } from '@nestjs/common';
 import { Client } from 'pg';
 
 import {
-  getRlsBootstrap,
+  runWithCorrelationId,
   setCurrentOrganisationId,
   setCurrentUserId,
-  setRlsBootstrap,
 } from '../src/common/context/correlation-id-context.js';
 import { CaseloadAlertService } from '../src/learners/caseload-alert.service.js';
 import { OtjPaceService } from '../src/otj/otj-pace.service.js';
@@ -93,17 +92,15 @@ describe('Cron tenant context (e2e)', () => {
    * left behind and pass even against the unfixed code — the reason this bug
    * was invisible to the existing suite.
    */
-  const asCronWithNoContext = async <T>(run: () => Promise<T>): Promise<T> => {
-    const previousBootstrap = getRlsBootstrap();
-    setCurrentOrganisationId(undefined);
-    setCurrentUserId(undefined);
-    setRlsBootstrap(false);
-    try {
-      return await run();
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
-  };
+  const asCronWithNoContext = <T>(run: () => Promise<T>): Promise<T> =>
+    // A fresh store, as a cron gets: no organisation, no user, and no
+    // bootstrap flag — which now lives only in a store, so a new one is
+    // enough to clear it.
+    runWithCorrelationId({ correlationId: 'cron-with-no-context' }, () => {
+      setCurrentOrganisationId(undefined);
+      setCurrentUserId(undefined);
+      return run();
+    });
 
   it('otj pace sweep sees active enrolments with no ambient context', async () => {
     await createProviderDirectoryContext(app, 'cron-otj');

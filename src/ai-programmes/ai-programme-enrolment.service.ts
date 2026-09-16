@@ -9,10 +9,7 @@ import { Repository } from 'typeorm';
 
 import { ApprenticesService } from '../apprentices/apprentices.service.js';
 import { ApprenticeStatus } from '../apprentices/enums/apprentice-status.enum.js';
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { EnrolmentsService } from '../enrolments/enrolments.service.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
@@ -157,9 +154,7 @@ export class AiProgrammeEnrolmentService {
   private async loadPrimaryStandard(
     programmeId: string,
   ): Promise<Standard | null> {
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       return this.standardRepo.findOne({
         where: {
           programmeId,
@@ -168,9 +163,7 @@ export class AiProgrammeEnrolmentService {
         },
         order: { createdAt: 'ASC' },
       });
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   private async initializeProgressRows(

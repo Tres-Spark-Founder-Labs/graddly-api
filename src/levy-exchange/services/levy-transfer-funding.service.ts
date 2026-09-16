@@ -7,10 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../../common/context/correlation-id-context.js';
 import { Enrolment } from '../../enrolments/entities/enrolment.entity.js';
 import { LevyTransferEnrolment } from '../entities/levy-transfer-enrolment.entity.js';
 import { LevyTransfer } from '../entities/levy-transfer.entity.js';
@@ -96,7 +93,7 @@ export class LevyTransferFundingService {
      * RLS. The caller is normally the training provider, which is party to the
      * enrolment and not to the transfer, so `levy_transfers_select` does not
      * show it the row — the counterparty case of the bootstrap rule on
-     * `setRlsBootstrap`, four named columns in an exclusive window.
+     * `withRlsBootstrap`, four named columns.
      */
     const transfer = await this.transferForLink(transferId);
     if (
@@ -145,10 +142,8 @@ export class LevyTransferFundingService {
   private async transferForLink(
     transferId: string,
   ): Promise<LevyTransfer | null> {
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
-      return await this.transferRepo.findOne({
+    return withRlsBootstrap(async () => {
+      return this.transferRepo.findOne({
         where: { id: transferId, isDeleted: false },
         select: [
           'id',
@@ -157,9 +152,7 @@ export class LevyTransferFundingService {
           'recipientOrganisationId',
         ],
       });
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   async unlink(transferId: string, enrolmentId: string): Promise<void> {

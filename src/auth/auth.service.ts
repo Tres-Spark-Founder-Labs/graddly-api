@@ -13,8 +13,7 @@ import { v4 as uuidV4 } from 'uuid';
 
 import {
   setCurrentUserId,
-  getRlsBootstrap,
-  setRlsBootstrap,
+  withRlsBootstrap,
 } from '../common/context/correlation-id-context.js';
 import {
   clearLastKnownUserIdForGuc,
@@ -258,10 +257,8 @@ export class AuthService {
 
     await this.redis.del(`${EMAIL_VERIFY_PREFIX}${token}`);
 
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
     clearLastKnownUserIdForGuc();
-    try {
+    return withRlsBootstrap(async () => {
       await this.usersService.markEmailVerified(userId);
 
       const user = await this.usersService.findById(userId);
@@ -270,9 +267,7 @@ export class AuthService {
       }
 
       return this.generateTokens(user);
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   /** Always completes; does not reveal whether the email exists. */

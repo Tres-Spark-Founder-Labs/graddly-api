@@ -11,10 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
 import { Apprentice } from '../apprentices/entities/apprentice.entity.js';
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { LearnerScopeService } from '../common/learner-scope/learner-scope.service.js';
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
@@ -396,9 +393,7 @@ export class EnrolmentsService {
   ): Promise<CounterpartOrganisationLookupResponseDto> {
     await this.assertProviderPortal(user.organisationId!);
 
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       const organisation = await this.organisationRepo.findOne({
         where: {
           ukprn: query.ukprn,
@@ -418,9 +413,7 @@ export class EnrolmentsService {
         ukprn: organisation.ukprn,
         portalType: organisation.portalType as PortalType,
       };
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   async updateOrganisationLinks(
@@ -741,9 +734,7 @@ export class EnrolmentsService {
       ),
     ];
 
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       const [apprentices, standards, users, organisations] = await Promise.all([
         this.apprenticeRepo.find({
           where: { id: In(apprenticeIds), isDeleted: false },
@@ -823,9 +814,7 @@ export class EnrolmentsService {
               : Number(enrolment.otjBehindPercent),
         }),
       );
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   private async loadUsersByIds(
@@ -837,17 +826,13 @@ export class EnrolmentsService {
       return new Map();
     }
 
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       const users = await this.userRepo.find({
         where: { id: In(ids), isDeleted: false },
         select: ['id', 'firstName', 'lastName', 'email'],
       });
       return new Map(users.map((user) => [user.id, user]));
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   private formatUserDisplayName(
@@ -886,9 +871,7 @@ export class EnrolmentsService {
   private async loadOrgMemberOptions(
     organisationId: string,
   ): Promise<ParticipantUserOptionDto[]> {
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       const memberships = await this.membershipRepo.find({
         where: {
           organisation: { id: organisationId },
@@ -910,9 +893,7 @@ export class EnrolmentsService {
         options.push(this.toParticipantUserOption(user));
       }
       return options;
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   private async loadApprenticeUserCandidates(
@@ -933,17 +914,13 @@ export class EnrolmentsService {
 
     const email = enrolment.apprentice?.email?.trim();
     if (email) {
-      const previousBootstrap = getRlsBootstrap();
-      setRlsBootstrap(true);
-      try {
+      await withRlsBootstrap(async () => {
         const user = await this.userRepo.findOne({
           where: { email, isDeleted: false },
           select: ['id', 'firstName', 'lastName', 'email'],
         });
         addUser(user);
-      } finally {
-        setRlsBootstrap(previousBootstrap);
-      }
+      });
     }
 
     if (enrolment.apprenticeUserId) {
@@ -992,9 +969,7 @@ export class EnrolmentsService {
     organisationId: string,
     expectedPortalType?: PortalType,
   ): Promise<void> {
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    await withRlsBootstrap(async () => {
       const organisation = await this.organisationRepo.findOne({
         where: { id: organisationId, isDeleted: false },
       });
@@ -1009,9 +984,7 @@ export class EnrolmentsService {
           `Organisation must be a ${expectedPortalType} portal organisation`,
         );
       }
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   private toIsoDate(value: Date): string {

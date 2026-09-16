@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'async_hooks';
+import { randomUUID } from 'node:crypto';
 
 import type { Request } from 'express';
 
@@ -17,9 +18,10 @@ export interface ICorrelationIdStore {
   currentActorName?: string;
   currentActorRole?: string;
   /**
-   * When true, RLS bootstrap policies apply: public auth routes, which have no
-   * organisation to scope by, and display-name hydration. No third use without
-   * reading {@link setRlsBootstrap}.
+   * When true, RLS bootstrap policies apply. Set only by
+   * {@link withRlsBootstrap}, which runs a callback in a store derived from
+   * this one — never assigned on an existing store, which every sibling async
+   * operation in the request already holds.
    */
   rlsBootstrap?: boolean;
 }
@@ -29,7 +31,6 @@ const storage = new AsyncLocalStorage<ICorrelationIdStore>();
 export interface ITenantRequestContext {
   currentOrganisationId?: string;
   currentUserId?: string;
-  rlsBootstrap?: boolean;
 }
 
 const tenantByCorrelationId = new Map<string, ITenantRequestContext>();
@@ -64,7 +65,6 @@ export function getTenantRequestContext(): ITenantRequestContext | undefined {
     return {
       currentOrganisationId: store.currentOrganisationId,
       currentUserId: store.currentUserId,
-      rlsBootstrap: store.rlsBootstrap,
     };
   }
   const correlationId = getCorrelationId();
@@ -147,17 +147,17 @@ export function getRlsBootstrap(): boolean {
 }
 
 /**
- * Turn the RLS bootstrap flag on or off for the remainder of this request.
+ * Run `fn` with the RLS bootstrap flag set — and nothing else.
  *
  * ── THIS IS A BYPASS ────────────────────────────────────────────────────────
  *
  * `app_rls_bootstrap()` is the first arm of `users_select`,
  * `organisation_memberships_select`, `ks_evidence_items_select` and others, so
- * while it is set those policies admit rows on the id alone. Three uses are
- * legitimate:
+ * inside `fn` those policies admit rows on the id alone. The uses:
  *
  *   public auth routes      no organisation exists yet, so nothing can be
- *                           scoped by one
+ *                           scoped by one (`rls-bootstrap.middleware.ts`)
+ *   system jobs             a cron or processor discovering what to act on
  *   display-name hydration  a label rendered beside a record the caller may
  *                           already read
  *   counterparty reads      one named field of a row belonging to the other
@@ -165,26 +165,34 @@ export function getRlsBootstrap(): boolean {
  *                           to, where that party's own table admits only its
  *                           members
  *
- * The rules are the same for both of the last two, they are not optional, and
- * they are written out in `docs/employer-learner-access.md`, "Bootstrap is
- * for named, narrow reads":
+ * ── WHY A CALLBACK, AND NOT A SETTER ────────────────────────────────────────
+ *
+ * This replaces `setRlsBootstrap(enabled)`, which assigned the flag on the
+ * request's store — the one object every sibling async operation in the
+ * request already held — and also wrote the process-global tenant fallback,
+ * which the GUC resolver OR-ed in. So a window opened in a loader reached a
+ * scoped read in its caller's Promise.all (owner-only evidence appeared in an
+ * employer's profile); two windows restoring out of order could leave the flag
+ * on; and while any window was open anywhere in the process, every concurrent
+ * request ran with bypass on.
+ *
+ * `fn` now runs in a NEW store derived from the current one. Siblings keep the
+ * store they already had, so they cannot see the flag. There is no restore, so
+ * no ordering to get wrong. Nesting is free, and nothing process-global is
+ * written. Outside any store — a cron — a store is created for the callback.
+ *
+ * Everything `fn` starts runs with the flag on, including a Promise.all inside
+ * it. That is what moves the remaining rules from timing to content.
+ *
+ * The rules for display names and counterparty reads are not optional, and are
+ * written out in `docs/employer-learner-access.md`, "Bootstrap is for named,
+ * narrow reads":
  *
  *   1. Named columns only — a `select` listing exactly the fields needed.
  *      Never a whole row, never a list, never a count.
- *   2. Exclusive, not brief: A BOOTSTRAP WINDOW MAY CONTAIN ONLY READS THAT
- *      ARE MEANT TO BYPASS. The flag is request-global — it holds for every
- *      statement the request sends while it is set, not for the lines between
- *      set and restore — so a window three lines long is no safer than a long
- *      one. What matters is what else is in flight. A loader called inside a
- *      Promise.all beside a scoped read makes that read a bypass: the
- *      profile's evidence read did exactly that, and owner-only portfolio
- *      evidence appeared in an employer's library. `enrichEnrolmentsForDisplay`
- *      runs a Promise.all *inside* its window and is safe, because every read
- *      in that batch is display hydration. Windows must not overlap either:
- *      each restores the value it found, so two open at once can restore out
- *      of order and leave the flag on after both have finished.
- *      `bootstrap-window-exclusivity.spec.ts` enforces this on every
- *      request-path file.
+ *   2. Only reads that are meant to bypass go inside the callback. A read
+ *      beside it runs in its own store and cannot be widened by it; a read
+ *      inside it bypasses, whatever it is.
  *   3. After an authorisation check, not instead of one. Under this flag the
  *      ids ARE the access decision, so they must come from rows the caller has
  *      already read under its own policy — and for a counterparty read, the
@@ -194,23 +202,19 @@ export function getRlsBootstrap(): boolean {
  *      to; not a row they are merely curious about.
  *
  * `LearnerMetricsService.loadTutorNames` is the worked example for a display
- * name and `LevyTransferService.recipientUkprn` for a counterparty field;
- * `learner-metrics.service.spec.ts`, `levy-transfer.service.spec.ts` and
- * `levy-transfer-funding.service.spec.ts` assert every clause.
- *
- * What this flag is never for: a whole request. `rls-bootstrap.middleware.ts`
- * once turned it on for every POST under `/levy-exchange/transfers`, which
- * disabled the tenant boundary on four routes to serve two reads.
- *
- * Restore the previous value in a `finally` rather than setting `false`, or a
- * nested call switches the flag off under its caller.
+ * name and `LevyTransferService.recipientUkprn` for a counterparty field.
+ * `bootstrap-window-exclusivity.spec.ts` forbids setting the flag any other
+ * way.
  */
-export function setRlsBootstrap(enabled: boolean): void {
-  const store = storage.getStore();
-  if (store) {
-    store.rlsBootstrap = enabled;
-  }
-  setTenantRequestContext({ rlsBootstrap: enabled });
+export function withRlsBootstrap<T>(fn: () => T): T {
+  const current = storage.getStore();
+  return storage.run(
+    {
+      ...(current ?? { correlationId: `rls-bootstrap-${randomUUID()}` }),
+      rlsBootstrap: true,
+    },
+    fn,
+  );
 }
 
 /** Prefer AsyncLocalStorage; fallback for code outside the request ALS callback. */

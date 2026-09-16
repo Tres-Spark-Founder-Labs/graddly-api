@@ -2,10 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { DasFundingSyncService } from '../das/das-funding-sync.service.js';
 import { DasLevyForecastService } from '../das/das-levy-forecast.service.js';
 import { DasLevyMonthlyService } from '../das/das-levy-monthly.service.js';
@@ -494,25 +491,19 @@ export class LevyRoiReportService {
       return new Map();
     }
 
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       const organisations = await this.organisationRepo.findBy({
         id: In(organisationIds),
         isDeleted: false,
       });
       return new Map(organisations.map((org) => [org.id, org.name]));
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   private async loadOrganisationWithBootstrap(
     organisationId: string,
   ): Promise<Organisation> {
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       const organisation = await this.organisationRepo.findOne({
         where: { id: organisationId, isDeleted: false },
       });
@@ -520,8 +511,6 @@ export class LevyRoiReportService {
         throw new Error('Organisation not found for PDF');
       }
       return organisation;
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 }

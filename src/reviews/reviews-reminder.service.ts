@@ -3,10 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, In, Repository } from 'typeorm';
 
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
@@ -76,20 +73,15 @@ export class ReviewsReminderService {
      * cron never has. A green test proving nothing is exactly what the
      * commitment-chase entry in this log warned about.
      */
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    let reviews: Review[];
-    try {
-      reviews = await this.reviewRepo.find({
+    const reviews: Review[] = await withRlsBootstrap(() =>
+      this.reviewRepo.find({
         where: {
           status: ReviewStatus.SCHEDULED,
           isDeleted: false,
           scheduledAt: Between(dayStart, dayEnd),
         },
-      });
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+      }),
+    );
 
     return this.dispatchForReviews(reviews, kind, { daysAhead });
   }
@@ -109,20 +101,15 @@ export class ReviewsReminderService {
 
     // Same bootstrap requirement as `sendForKind` above — this is the 48-hour
     // apprentice reminder and reads the same tenant-scoped table.
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    let reviews: Review[];
-    try {
-      reviews = await this.reviewRepo.find({
+    const reviews: Review[] = await withRlsBootstrap(() =>
+      this.reviewRepo.find({
         where: {
           status: ReviewStatus.SCHEDULED,
           isDeleted: false,
           scheduledAt: Between(windowStart, windowEnd),
         },
-      });
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+      }),
+    );
 
     return this.dispatchForReviews(reviews, kind, { hoursAhead });
   }
@@ -143,16 +130,12 @@ export class ReviewsReminderService {
        * delivery below, because a duplicate reminder and a missing one are
        * both failures of the same lookup.
        */
-      const previousBootstrap = getRlsBootstrap();
-      setRlsBootstrap(true);
-      let existing: ReviewReminderDispatch | null;
-      try {
-        existing = await this.dispatchRepo.findOne({
-          where: { reviewId: review.id, reminderKind: kind },
-        });
-      } finally {
-        setRlsBootstrap(previousBootstrap);
-      }
+      const existing: ReviewReminderDispatch | null = await withRlsBootstrap(
+        () =>
+          this.dispatchRepo.findOne({
+            where: { reviewId: review.id, reminderKind: kind },
+          }),
+      );
       if (existing) {
         continue;
       }
@@ -218,14 +201,9 @@ export class ReviewsReminderService {
     ];
     // System read to discover who to notify — `users_select` needs a current
     // user or organisation, and a cron has neither.
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    let users: User[];
-    try {
-      users = await this.userRepo.find({ where: { id: In(userIds) } });
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    const users: User[] = await withRlsBootstrap(() =>
+      this.userRepo.find({ where: { id: In(userIds) } }),
+    );
     let delivered = 0;
     const scheduledLabel = review.scheduledAt.toISOString().slice(0, 10);
     const title = review.title ?? `Review on ${scheduledLabel}`;
@@ -272,16 +250,11 @@ export class ReviewsReminderService {
     kind: ReviewReminderKind,
     hoursAhead: number,
   ): Promise<boolean> {
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    let apprentice: User | null;
-    try {
-      apprentice = await this.userRepo.findOne({
+    const apprentice: User | null = await withRlsBootstrap(() =>
+      this.userRepo.findOne({
         where: { id: review.apprenticeUserId, isDeleted: false },
-      });
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+      }),
+    );
     if (!apprentice) {
       // Reaching nobody is reported, not swallowed — the caller must not
       // record this reminder as sent.

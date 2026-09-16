@@ -1,7 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
-import { setRlsBootstrap } from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 
 import { EifScoreCalculatorService } from './eif-score-calculator.service.js';
@@ -10,8 +10,7 @@ import { EifScoreSnapshot } from './entities/eif-score-snapshot.entity.js';
 import { EifRag } from './enums/eif-rag.enum.js';
 
 jest.mock('../common/context/correlation-id-context.js', () => ({
-  getRlsBootstrap: jest.fn(() => false),
-  setRlsBootstrap: jest.fn(),
+  withRlsBootstrap: jest.fn((fn: () => unknown) => fn()),
 }));
 
 const NOW = new Date('2026-08-01T02:00:00Z');
@@ -107,20 +106,18 @@ describe('EifScoreSnapshotService (F2.1.1)', () => {
    * calculator reads is invisible without the flag — and the failure would be
    * a recorded 0% for every provider, every night, rather than an error.
    */
-  it('captures under the RLS bootstrap flag and restores it', async () => {
+  it('captures inside a bootstrap window', async () => {
     await service.captureForOrganisation('org-1', NOW);
 
-    expect(setRlsBootstrap).toHaveBeenNthCalledWith(1, true);
-    expect(setRlsBootstrap).toHaveBeenLastCalledWith(false);
+    expect(withRlsBootstrap).toHaveBeenCalledTimes(1);
   });
 
-  it('restores the flag even when the calculator throws', async () => {
+  it('propagates a calculator failure out of the window', async () => {
     calculator.calculate.mockRejectedValue(new Error('boom'));
 
     await expect(service.captureForOrganisation('org-1', NOW)).rejects.toThrow(
       'boom',
     );
-    expect(setRlsBootstrap).toHaveBeenLastCalledWith(false);
   });
 
   describe('captureAll', () => {
@@ -147,7 +144,6 @@ describe('EifScoreSnapshotService (F2.1.1)', () => {
         });
 
       await expect(service.captureAll(NOW)).resolves.toBe(1);
-      expect(setRlsBootstrap).toHaveBeenLastCalledWith(false);
     });
   });
 

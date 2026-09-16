@@ -307,7 +307,7 @@ export class TransfersController {
    * /levy-exchange/transfers ran with RLS off, and the service never looked at
    * the caller. Linking now runs under RLS and the service checks the caller
    * too — it must own the enrolment, the rule `levy_transfer_enrolments_insert`
-   * states — and reads the transfer only inside a narrow `setRlsBootstrap`
+   * states — and reads the transfer only inside a `withRlsBootstrap`
    * window, four named columns, after that check has passed. Listing and
    * unlinking run under RLS and are governed by that table's policies.
    */

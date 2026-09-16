@@ -3,10 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, In, Repository } from 'typeorm';
 
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../../common/context/correlation-id-context.js';
 import { EmailDispatchService } from '../../email/email-dispatch.service.js';
 import { EmailTemplate } from '../../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../../email/payloads/serialized-email.payload.js';
@@ -65,11 +62,8 @@ export class LevyExpiryAlertService {
      * money the employer permanently loses, so the silence here was expensive
      * as well as invisible.
      */
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    let tranches: DasLevyTranche[];
-    try {
-      tranches = await this.trancheRepo.find({
+    const tranches: DasLevyTranche[] = await withRlsBootstrap(() =>
+      this.trancheRepo.find({
         where: {
           isDeleted: false,
           expiresOn: Between(
@@ -78,10 +72,8 @@ export class LevyExpiryAlertService {
           ),
         },
         relations: { donorLink: true },
-      });
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+      }),
+    );
 
     let sent = 0;
     for (const tranche of tranches) {
@@ -161,11 +153,8 @@ export class LevyExpiryAlertService {
      * reached nobody. Bootstrapped as a system read to discover who to notify,
      * exactly as the commitment-chase signer lookup is.
      */
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    let recipients: OrganisationMembership[];
-    try {
-      recipients = await this.membershipRepo.find({
+    const recipients: OrganisationMembership[] = await withRlsBootstrap(() =>
+      this.membershipRepo.find({
         where: {
           organisation: { id: organisationId },
           role: In([OrganisationRole.OWNER, OrganisationRole.ADMIN]),
@@ -173,10 +162,8 @@ export class LevyExpiryAlertService {
           isDeleted: false,
         },
         relations: { user: true },
-      });
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+      }),
+    );
 
     const notificationType =
       alertType === LevyExpiryAlertType.DAYS_90

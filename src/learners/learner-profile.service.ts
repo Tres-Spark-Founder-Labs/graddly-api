@@ -166,6 +166,8 @@ export class LearnerProfileService {
       otjEntryCount,
       threads,
       otjPercent,
+      tutorNames,
+      providerNames,
       manager,
       recentInterventions,
       openBreak,
@@ -197,8 +199,27 @@ export class LearnerProfileService {
       this.messageThreadsService.listSummariesForEnrolment(user, enrolmentId),
       this.otjMetricsService.percentForEnrolment(enrolment),
       /**
+       * F1.2.2 AC1 — the tutor's name and the provider's name. Both are
+       * members of the *provider's* organisation, which `users_select` and
+       * `organisations_select` do not admit to an employer caller, so
+       * LearnerMetricsService hydrates them inside `withRlsBootstrap`.
+       *
+       * Deliberately back inside this batch, beside the scoped reads. Here is
+       * where the leak was: with `setRlsBootstrap` the window was the
+       * request's shared store, so the employer's evidence read beside it went
+       * out with `app_rls_bootstrap()` true and owner-only portfolio evidence
+       * appeared in their library. `withRlsBootstrap` runs each loader in a
+       * store of its own, so the reads beside it keep this request's policies.
+       * `test/employer-learner-access.e2e-spec.ts` proves that on this exact
+       * shape, which is why it stays this shape.
+       */
+      this.metricsService.loadTutorNames(
+        enrolment.tutorUserId ? [enrolment.tutorUserId] : [],
+      ),
+      this.metricsService.loadOrganisationNames([providerOrganisationId]),
+      /**
        * The line manager. Deliberately NOT routed through the bootstrap
-       * loaders below: they are a member of the *employer's* organisation, so
+       * loaders above: they are a member of the *employer's* organisation, so
        * the employer — the party AC1 is about — reads them under the ordinary
        * policy, and a provider caller falls back to `employerContacts`.
        * Whether a provider should see the named manager rather than that
@@ -216,34 +237,6 @@ export class LearnerProfileService {
       // F2.2.4 AC6 — in the same parallel batch rather than sequenced after
       // it, so the profile's AC7 two-second budget is unaffected.
       this.breakInLearningService.findOpen(organisationId, enrolmentId),
-    ]);
-
-    /**
-     * ── THE BOOTSTRAP WINDOWS RUN AFTER THE BATCH, NEVER INSIDE IT ─────────
-     *
-     * F1.2.2 AC1 — the tutor's name and the provider's name. Both are members
-     * of the *provider's* organisation, which `users_select` and
-     * `organisations_select` do not admit to an employer caller, so
-     * LearnerMetricsService hydrates them under the RLS bootstrap flag; the
-     * rules that come with that are on `loadTutorNames` and in
-     * `docs/employer-learner-access.md`.
-     *
-     * They used to sit inside the Promise.all above. The flag is request-
-     * scoped, so a window opened beside concurrent siblings covers their
-     * statements too: the employer's evidence read went out with
-     * `app_rls_bootstrap()` true, `ks_evidence_items_select` matched on it,
-     * and portfolio evidence — owner-only by specification — appeared in the
-     * employer's document library. Caught by the e2e under `graddly_app`,
-     * not by any unit test, which is the reason that suite exists.
-     *
-     * So: sequenced after every scoped read has resolved, one at a time. Two
-     * small reads by id; the AC7 budget is unaffected (70 ms measured).
-     */
-    const tutorNames = await this.metricsService.loadTutorNames(
-      enrolment.tutorUserId ? [enrolment.tutorUserId] : [],
-    );
-    const providerNames = await this.metricsService.loadOrganisationNames([
-      providerOrganisationId,
     ]);
 
     const reviewItems = await Promise.all(

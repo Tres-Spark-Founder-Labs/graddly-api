@@ -2,10 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
 import { Programme } from '../programmes/entities/programme.entity.js';
 import { ProgrammeDeliveryType } from '../programmes/enums/programme-delivery-type.enum.js';
@@ -94,9 +91,7 @@ export class AiProgrammeCatalogueService {
   }
 
   private async loadActiveAiProgrammes(): Promise<Programme[]> {
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       return this.programmeRepo.find({
         where: {
           deliveryType: ProgrammeDeliveryType.FLOWPORTAL_AI,
@@ -105,9 +100,7 @@ export class AiProgrammeCatalogueService {
         },
         order: { title: 'ASC' },
       });
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   private async loadModulesForProgrammes(
@@ -117,18 +110,14 @@ export class AiProgrammeCatalogueService {
       return [];
     }
 
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       return this.moduleRepo
         .createQueryBuilder('mod')
         .where('mod.programmeId IN (:...programmeIds)', { programmeIds })
         .andWhere('mod.isDeleted = false')
         .orderBy('mod.sortOrder', 'ASC')
         .getMany();
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   private toModuleDto(mod: AiProgrammeModule): AiProgrammeModuleDto {

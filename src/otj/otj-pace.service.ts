@@ -5,10 +5,9 @@ import { Repository } from 'typeorm';
 
 import { Apprentice } from '../apprentices/entities/apprentice.entity.js';
 import {
-  getRlsBootstrap,
   setCurrentOrganisationId,
   setCurrentUserId,
-  setRlsBootstrap,
+  withRlsBootstrap,
 } from '../common/context/correlation-id-context.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
@@ -68,16 +67,11 @@ export class OtjPaceService {
      * context and quietly weaken it — the fix would then be hiding a wider
      * problem than the one it solves.
      */
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    let activeEnrolments: Enrolment[];
-    try {
-      activeEnrolments = await this.enrolmentRepo.find({
+    const activeEnrolments: Enrolment[] = await withRlsBootstrap(() =>
+      this.enrolmentRepo.find({
         where: { status: EnrolmentStatus.ACTIVE, isDeleted: false },
-      });
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+      }),
+    );
 
     let updated = 0;
     for (const enrolment of activeEnrolments) {

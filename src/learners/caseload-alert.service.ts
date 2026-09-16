@@ -3,10 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
 import {
-  getRlsBootstrap,
   setCurrentOrganisationId,
   setCurrentUserId,
-  setRlsBootstrap,
+  withRlsBootstrap,
 } from '../common/context/correlation-id-context.js';
 import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
@@ -57,16 +56,11 @@ export class CaseloadAlertService {
      * Scoped to this read alone. `alertForOrganisation` sets per-organisation
      * context below, and that scoping is correct and must not be blanketed.
      */
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    let providers: Organisation[];
-    try {
-      providers = await this.organisationRepo.find({
+    const providers: Organisation[] = await withRlsBootstrap(() =>
+      this.organisationRepo.find({
         where: { portalType: PortalType.PROVIDER, isDeleted: false },
-      });
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+      }),
+    );
 
     let alertsSent = 0;
     for (const provider of providers) {
@@ -102,21 +96,16 @@ export class CaseloadAlertService {
      * result. Same justification as the commitment-chase signer lookup — a
      * system read to discover who to notify.
      */
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    let managers: OrganisationMembership[];
-    try {
-      managers = await this.membershipRepo.find({
+    const managers: OrganisationMembership[] = await withRlsBootstrap(() =>
+      this.membershipRepo.find({
         where: {
           organisation: { id: organisationId },
           role: In([OrganisationRole.OWNER, OrganisationRole.ADMIN]),
           isDeleted: false,
         },
         relations: ['user'],
-      });
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+      }),
+    );
 
     if (managers.length === 0) {
       return 0;

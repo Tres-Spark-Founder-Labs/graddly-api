@@ -3,10 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
@@ -184,13 +181,9 @@ export class CommitmentChaseService {
     signature: CommitmentSignature,
     options: { isChase: boolean; daysUnsigned?: number },
   ): Promise<boolean> {
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
-      return await this.deliverToSigner(statement, signature, options);
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    return withRlsBootstrap(async () => {
+      return this.deliverToSigner(statement, signature, options);
+    });
   }
 
   private async deliverToSigner(

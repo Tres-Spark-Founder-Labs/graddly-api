@@ -107,7 +107,7 @@ describe('LevyTransferFundingService', () => {
     });
 
     /**
-     * The counterparty case of the bootstrap rule on setRlsBootstrap: the
+     * The counterparty case of the bootstrap rule on withRlsBootstrap: the
      * caller is party to the enrolment, not to the transfer, so the four
      * conditions apply here too.
      */

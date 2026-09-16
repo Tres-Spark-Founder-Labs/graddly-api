@@ -10,10 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
 import { ReportingPortalService } from '../reporting/reporting-portal.service.js';
 
@@ -241,13 +238,9 @@ export class SurveysService {
 
     // Same reason as the lookup: the respondent has no organisation context,
     // so the UPDATE policy would reject this write without the bootstrap.
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    await withRlsBootstrap(async () => {
       await this.invitationRepo.save(invitation);
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
 
     return { recorded: true };
   }
@@ -313,9 +306,7 @@ export class SurveysService {
     invitation: SurveyInvitation;
     campaign: SurveyCampaign;
   }> {
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       const invitation = await this.invitationRepo.findOne({
         where: { tokenHash: hashToken(token), isDeleted: false },
       });
@@ -336,9 +327,7 @@ export class SurveysService {
       }
 
       return { invitation, campaign };
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   // ─── Results (AC3, AC4) ───────────────────────────────────────────────────

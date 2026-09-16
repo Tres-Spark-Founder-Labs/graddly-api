@@ -6,10 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
@@ -291,9 +288,7 @@ export class QipActionsService {
     organisationId: string,
     requestedByUserId: string,
   ): Promise<IQipPlanContent> {
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       const [rows, organisation, requester] = await Promise.all([
         this.repo.find({
           where: { organisationId, isDeleted: false },
@@ -351,9 +346,7 @@ export class QipActionsService {
           ? `${requester.firstName} ${requester.lastName}`.trim()
           : 'Not recorded',
       };
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   private isOverdue(row: QipAction): boolean {

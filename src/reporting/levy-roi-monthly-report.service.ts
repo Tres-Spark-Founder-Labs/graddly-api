@@ -3,10 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
@@ -47,9 +44,7 @@ export class LevyRoiMonthlyReportService {
      * sweep, exactly as the other cron-driven services do — the tenant
      * scoping that matters is applied per organisation as we iterate.
      */
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       const subscriptions = await this.subscriptionsService.listAllEnabled();
       if (subscriptions.length === 0) {
         return 0;
@@ -71,9 +66,7 @@ export class LevyRoiMonthlyReportService {
         );
       }
       return queued;
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   private async sendForOrganisation(

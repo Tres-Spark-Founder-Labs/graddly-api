@@ -240,28 +240,25 @@ Both obey the same four conditions:
    `loadTutorNames` takes `['id', 'firstName', 'lastName']`,
    `loadOrganisationNames` takes `['id', 'name']`, `recipientUkprn` takes
    `['ukprn']`. Never a whole row, never a list, never a count.
-2. **Exclusive, not brief. A bootstrap window may contain only reads that are
-   meant to bypass.** This condition used to say "the narrowest window", and
-   narrowness is what broke. The flag is request-global: it holds for every
-   statement the request sends while it is set, not for the lines between set
-   and restore, so a window three lines long is no safer than a long one. What
-   matters is what else is in flight.
-   - **Unsafe:** a loader that opens a window, called inside a `Promise.all`
-     beside a scoped read. `loadOrganisationNames` was first placed in the
-     profile's batch, the employer's evidence read went out with
-     `app_rls_bootstrap()` true, and owner-only portfolio evidence appeared in
-     the employer's library. The e2e under `graddly_app` caught it; no unit
-     test could have.
-   - **Safe:** `enrichEnrolmentsForDisplay` runs a `Promise.all` _inside_ its
-     window, because every read in that batch is display hydration.
-   - **Also unsafe:** two windows open at once, even when both reads bypass.
-     Each restores the value it found, so they can restore out of order and
-     leave the flag on after both have finished.
+2. **Only reads that are meant to bypass go inside the window.** This used to
+   read "the narrowest window", and then "exclusive, not brief". Both described
+   a mechanism that could not be made safe by care: `setRlsBootstrap(true)`
+   assigned the flag on the request's store, the object every sibling async
+   operation already held, and also wrote a process-global fallback that the
+   GUC resolver OR-ed in. So a window in a loader reached a scoped read in its
+   caller's `Promise.all` (owner-only evidence appeared in an employer's
+   library), two windows restoring out of order could leave the flag on, and
+   while any window was open anywhere in the process, every concurrent request
+   ran with bypass on.
 
-   `src/common/context/bootstrap-window-exclusivity.spec.ts` enforces this on
-   every request-path file (see "Bootstrap concurrency, found by the rule"
-   below). Restore the _previous_ value rather than setting `false`, or a
-   nested call switches the flag off under its caller.
+   `withRlsBootstrap(fn)` replaces it. `fn` runs in a new store derived from
+   the current one; siblings keep theirs, there is no restore to get wrong, and
+   nothing process-global is written. A read _beside_ a window cannot be widened
+   by it. A read _inside_ the callback bypasses, whatever it is — so the rule is
+   now purely about content: put nothing in the callback that is not meant to
+   bypass. `apply-tenant-gucs.spec.ts` proves the isolation at the GUC each
+   statement sends; `rls-bootstrap-mechanism.spec.ts` forbids setting the flag
+   any other way.
 
 3. **After an authorisation check, not instead of one.** Under the flag the
    ids are the whole access decision, so they must come from rows the caller
@@ -287,28 +284,30 @@ not new — `/enrolments` has done it since `enrichEnrolmentsForDisplay` was
 written — but it is the shape of hole the rule leaves, and validating the
 assignment, not narrowing the hydrator, is where it closes.
 
-### Bootstrap concurrency, found by the rule
+### Bootstrap concurrency: the root cause, and what was left
 
-`src/common/context/bootstrap-window-exclusivity.spec.ts` scans every
-request-path file for two shapes: `setRlsBootstrap(true)` in the same function
-as a `Promise.all`, and a function that opens a window called inside a
-`Promise.all`. The second shape is the one that leaked, twice; the first alone
-would have passed both. Background work that runs a whole job as a system actor
-is excluded **by path** — `scheduler/`, `bullmq/`, `migrations/`,
-`*.processor.ts` — and one entry is allowed by name, with a reason:
-`enrichEnrolmentsForDisplay`, whose batch is all display hydration.
+On 2026-09-16 a source scan for windows overlapping concurrent reads found nine
+entries across five functions. Before any of them was sequenced, the cause was
+traced to one line — `setRlsBootstrap` mutating the shared store — and to the
+resolver OR-ing a process-global fallback into the flag. All 47 call sites
+were converted to `withRlsBootstrap` in one change, and the scan was re-run
+against the helper:
 
-On 2026-09-16 the rule found the following. **None has been fixed.** They sit
-in the spec's `REPORTED_PENDING_REVIEW` list, which keeps the build green while
-they are decided and can only shrink.
+- **A window-opening function inside a `Promise.all`** — the shape that leaked,
+  now 11 sites including the profile and the caseload, deliberately returned to
+  their batches. Each window is its own store, so none reaches the reads beside
+  it. Retired as a category.
+- **A `Promise.all` inside a window** — two: `enrichEnrolmentsForDisplay`, whose
+  batch is all display hydration, and `qip-actions.service.ts`
+  `buildPlanContent`, which reads the plan rows, the organisation and the
+  requester inside one window for a PDF job. Whether the plan rows belong in
+  that window is a content question — no different from a sequence of reads
+  inside one — and is the real remainder.
 
-| Where                                                                                                              | Reached from                                            | What runs beside the window                                                                | Hazard                                                                                         |
-| ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| `employer-directory.service.ts` `list` → `loadEmployers`, `loadOwnerMemberships`                                   | request — `employer-directory.controller.ts`            | `loadCommitmentGroups` and `lastVisitDatesByEmployer`, both scoped reads                   | **the shape that leaked**: scoped reads sent with the flag on                                  |
-| `intervention-queue.service.ts` `list` → `loadEmployerContacts`, `loadTutorNames`                                  | request — `learners.controller.ts`                      | two windows, nothing else                                                                  | overlapping windows restore out of order and can leave the flag on for the rest of the request |
-| `enrolments.service.ts` `getParticipantOptions` → `loadApprenticeUserCandidates`, `loadOrgMemberOptions` ×2        | request — `enrolments.controller.ts:472`                | three windows, nothing else                                                                | overlapping windows, as above                                                                  |
-| `qip-actions.service.ts` `buildPlanContent`                                                                        | background by caller (PDF processor), request-path file | `setRlsBootstrap(true)`, then a batch of the plan rows, the organisation and the requester | the path rule cannot exclude it; whether all three reads are meant to bypass is the question   |
-| `levy-roi-report.service.ts` `buildPdfContent`, `buildProviderComparisonContent` → `loadOrganisationWithBootstrap` | background by caller (PDF processor), request-path file | `getBreakdown` and the balance, forecast and enrolment reads, all scoped                   | scoped reads in a PDF job sent with the flag on                                                |
+**Reported, not changed:** `resolveTenantGucValues` still resolves the
+organisation and user with `??` through the same process-global fallback and
+the `lastKnown*` globals, so a store that lacks them can take another request's
+values. Same class of defect as the flag, outside this change.
 
 Where this rule comes up next:
 `MessageThreadsService.listSummariesForEnrolment` does a column-scoped

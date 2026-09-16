@@ -4,7 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { AuditLogEntry } from '../audit/entities/audit-log-entry.entity.js';
 import { AuditAction } from '../audit/enums/audit-action.enum.js';
-import { setRlsBootstrap } from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { PdfDispatchService } from '../pdf/pdf-dispatch.service.js';
@@ -20,8 +20,7 @@ import { CommitmentStatementGroup } from './entities/commitment-statement-group.
 import { CommitmentStatement } from './entities/commitment-statement.entity.js';
 
 jest.mock('../common/context/correlation-id-context.js', () => ({
-  getRlsBootstrap: jest.fn(() => false),
-  setRlsBootstrap: jest.fn(),
+  withRlsBootstrap: jest.fn((fn: () => unknown) => fn()),
 }));
 
 const EMPLOYER_ORG = 'org-employer';
@@ -184,15 +183,14 @@ describe('CommitmentAuditTrailService', () => {
     ]);
   });
 
-  it('reads under the RLS bootstrap flag and restores it', async () => {
+  it('reads inside a bootstrap window', async () => {
     await service.buildPdfContent({
       organisationId: EMPLOYER_ORG,
       statementId: 'stmt-2',
       requestedByUserId: 'user-1',
     });
 
-    expect(setRlsBootstrap).toHaveBeenNthCalledWith(1, true);
-    expect(setRlsBootstrap).toHaveBeenNthCalledWith(2, false);
+    expect(withRlsBootstrap).toHaveBeenCalledTimes(1);
   });
 
   it('refuses an organisation that is not a party', async () => {
@@ -205,7 +203,7 @@ describe('CommitmentAuditTrailService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
 
     // ...and never lifts RLS for them.
-    expect(setRlsBootstrap).not.toHaveBeenCalled();
+    expect(withRlsBootstrap).not.toHaveBeenCalled();
   });
 
   it('renders entries oldest-first with actor, description and diff', async () => {

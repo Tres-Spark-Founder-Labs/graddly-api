@@ -2,7 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
-import { setRlsBootstrap } from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
@@ -13,8 +13,7 @@ import { LevyRoiReportService } from './levy-roi-report.service.js';
 import { ReportSubscriptionsService } from './report-subscriptions.service.js';
 
 jest.mock('../common/context/correlation-id-context.js', () => ({
-  getRlsBootstrap: jest.fn(() => false),
-  setRlsBootstrap: jest.fn(),
+  withRlsBootstrap: jest.fn((fn: () => unknown) => fn()),
 }));
 
 describe('LevyRoiMonthlyReportService (F1.4.1 AC5)', () => {
@@ -136,11 +135,10 @@ describe('LevyRoiMonthlyReportService (F1.4.1 AC5)', () => {
    * rows under RLS. Restored afterwards, or the rest of the process would run
    * with tenant isolation off.
    */
-  it('runs the sweep under the RLS bootstrap flag and restores it', async () => {
+  it('runs the sweep inside a bootstrap window', async () => {
     await service.sendMonthlyReports();
 
-    expect(setRlsBootstrap).toHaveBeenNthCalledWith(1, true);
-    expect(setRlsBootstrap).toHaveBeenNthCalledWith(2, false);
+    expect(withRlsBootstrap).toHaveBeenCalledTimes(1);
   });
 
   /**
@@ -160,7 +158,6 @@ describe('LevyRoiMonthlyReportService (F1.4.1 AC5)', () => {
     const queued = await service.sendMonthlyReports();
 
     expect(queued).toBe(1);
-    expect(setRlsBootstrap).toHaveBeenLastCalledWith(false);
   });
 
   it('skips a subscriber with no email address', async () => {

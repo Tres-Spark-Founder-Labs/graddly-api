@@ -11,10 +11,7 @@ import {
   AuditLogEntry,
   type AuditChanges,
 } from '../audit/entities/audit-log-entry.entity.js';
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { PdfJobTemplate } from '../pdf/enums/pdf-job-template.enum.js';
@@ -289,18 +286,14 @@ export class CommitmentAuditTrailService {
   private async readTrail(entityIds: string[]): Promise<AuditLogEntry[]> {
     if (entityIds.length === 0) return [];
 
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
-      return await this.auditRepo.find({
+    return withRlsBootstrap(async () => {
+      return this.auditRepo.find({
         where: { entityId: In(entityIds) },
         // Oldest first: evidence reads as a narrative, unlike the screens,
         // which want the most recent event at the top.
         order: { createdAt: 'ASC' },
       });
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   private async findOrganisationName(

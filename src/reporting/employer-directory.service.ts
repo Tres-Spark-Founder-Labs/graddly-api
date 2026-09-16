@@ -3,10 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
 import { CommitmentStatementGroup } from '../commitments/entities/commitment-statement-group.entity.js';
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
 import { EmployerVisitsService } from '../employer-visits/employer-visits.service.js';
@@ -210,16 +207,12 @@ export class EmployerDirectoryService {
       return [];
     }
 
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       return this.organisationRepo.findBy({
         id: In(employerIds),
         isDeleted: false,
       });
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   private async loadOwnerMemberships(
@@ -229,9 +222,7 @@ export class EmployerDirectoryService {
       return [];
     }
 
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       return this.membershipRepo.find({
         where: {
           organisation: { id: In(employerIds) },
@@ -240,9 +231,7 @@ export class EmployerDirectoryService {
         },
         relations: ['user', 'organisation'],
       });
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   private async loadCommitmentGroups(

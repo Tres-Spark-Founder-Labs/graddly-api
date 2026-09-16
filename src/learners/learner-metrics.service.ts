@@ -3,10 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
 import { ApprenticeStatus } from '../apprentices/enums/apprentice-status.enum.js';
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { EnrolmentJourneyService } from '../enrolments/enrolment-journey.service.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
@@ -180,9 +177,7 @@ export class LearnerMetricsService {
       return new Map();
     }
 
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       const users = await this.userRepo.find({
         where: { id: In(tutorUserIds) },
         select: ['id', 'firstName', 'lastName'],
@@ -193,9 +188,7 @@ export class LearnerMetricsService {
           `${user.firstName} ${user.lastName}`.trim(),
         ]),
       );
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   /**
@@ -216,9 +209,7 @@ export class LearnerMetricsService {
       return new Map();
     }
 
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       const organisations = await this.organisationRepo.find({
         where: { id: In(organisationIds), isDeleted: false },
         select: ['id', 'name'],
@@ -229,9 +220,7 @@ export class LearnerMetricsService {
           organisation.name,
         ]),
       );
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   async loadEmployerContacts(
@@ -243,9 +232,7 @@ export class LearnerMetricsService {
       return new Map();
     }
 
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
+    return withRlsBootstrap(async () => {
       const memberships = await this.membershipRepo.find({
         where: {
           organisation: { id: In(employerOrgIds) },
@@ -267,9 +254,7 @@ export class LearnerMetricsService {
         });
       }
       return map;
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    });
   }
 
   private buildFlagReasons(input: {

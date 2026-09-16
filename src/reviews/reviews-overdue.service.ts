@@ -2,10 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-import {
-  getRlsBootstrap,
-  setRlsBootstrap,
-} from '../common/context/correlation-id-context.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 
 import { Review } from './entities/review.entity.js';
 import { ReviewStatus } from './enums/review-status.enum.js';
@@ -36,13 +33,9 @@ export class ReviewsOverdueService {
     const overdueThreshold = new Date();
     overdueThreshold.setUTCDate(overdueThreshold.getUTCDate() - 3);
 
-    const previousBootstrap = getRlsBootstrap();
-    setRlsBootstrap(true);
-    try {
-      return await this.flagOverdueReviewsScoped(overdueThreshold);
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    return withRlsBootstrap(async () => {
+      return this.flagOverdueReviewsScoped(overdueThreshold);
+    });
   }
 
   private async flagOverdueReviewsScoped(

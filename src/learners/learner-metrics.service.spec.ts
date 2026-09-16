@@ -5,7 +5,7 @@ import {
   getRlsBootstrap,
   resetSynchronousTenantFallback,
   runWithCorrelationId,
-  setRlsBootstrap,
+  withRlsBootstrap,
 } from '../common/context/correlation-id-context.js';
 import { EnrolmentJourneyService } from '../enrolments/enrolment-journey.service.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
@@ -103,9 +103,8 @@ describe('LearnerMetricsService — display-name hydration', () => {
   });
 
   /**
-   * The flag lives in AsyncLocalStorage, so a spec that calls the service
-   * outside a store would see `setRlsBootstrap` write to the fallback and
-   * `getRlsBootstrap` still answer false — green, and proving nothing.
+   * The flag lives in AsyncLocalStorage, so these run inside a real store:
+   * `getRlsBootstrap` answering false outside one would prove nothing.
    */
   const inRequest = <T>(fn: () => Promise<T>): Promise<T> =>
     runWithCorrelationId({ correlationId: 'metrics-spec' }, fn);
@@ -124,14 +123,14 @@ describe('LearnerMetricsService — display-name hydration', () => {
       });
     });
 
-    it('restores a bootstrap that was already set, rather than clearing it', async () => {
-      await inRequest(async () => {
-        setRlsBootstrap(true);
+    it('nests inside a window the caller already opened, without closing it', async () => {
+      await inRequest(() =>
+        withRlsBootstrap(async () => {
+          await service.loadTutorNames(['tutor-1']);
 
-        await service.loadTutorNames(['tutor-1']);
-
-        expect(getRlsBootstrap()).toBe(true);
-      });
+          expect(getRlsBootstrap()).toBe(true);
+        }),
+      );
     });
 
     it('selects the display fields and nothing else', async () => {
@@ -190,14 +189,14 @@ describe('LearnerMetricsService — display-name hydration', () => {
       });
     });
 
-    it('restores a bootstrap that was already set, rather than clearing it', async () => {
-      await inRequest(async () => {
-        setRlsBootstrap(true);
+    it('nests inside a window the caller already opened, without closing it', async () => {
+      await inRequest(() =>
+        withRlsBootstrap(async () => {
+          await service.loadOrganisationNames(['provider-org-1']);
 
-        await service.loadOrganisationNames(['provider-org-1']);
-
-        expect(getRlsBootstrap()).toBe(true);
-      });
+          expect(getRlsBootstrap()).toBe(true);
+        }),
+      );
     });
 
     it('selects the label and nothing else', async () => {

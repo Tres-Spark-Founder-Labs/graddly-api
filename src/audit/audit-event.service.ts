@@ -4,8 +4,7 @@ import { Repository } from 'typeorm';
 
 import {
   getCurrentActor,
-  getRlsBootstrap,
-  setRlsBootstrap,
+  withRlsBootstrap,
 } from '../common/context/correlation-id-context.js';
 
 import { describeAuditEvent } from './audit-description.util.js';
@@ -69,39 +68,37 @@ export class AuditEventService {
   }): Promise<void> {
     const actor = getCurrentActor();
 
-    const previousBootstrap = getRlsBootstrap();
     // The audit table's INSERT policy is org-scoped; a view recorded against
     // a statement owned by another organisation would otherwise be refused by
     // the very policy that lets an employer read it.
-    setRlsBootstrap(true);
-    try {
-      await this.auditRepo.insert({
-        actorUserId: params.user?.id ?? null,
-        actorName: actor.name ?? null,
-        actorRole: actor.role ?? null,
-        description: describeAuditEvent(
-          params.entityType,
-          params.action,
-          params.detail,
-        ),
-        organisationId: params.organisationId,
-        entityType: params.entityType,
-        entityId: params.entityId,
-        action: params.action,
-        // `insert` takes QueryDeepPartialEntity, which does not accept the
-        // AuditChanges index signature directly.
-        changes: (params.changes ??
-          {}) as QueryDeepPartialEntity<AuditLogEntry>['changes'],
-      });
-    } catch (error) {
-      this.logger.warn(
-        `Audit ${params.action} not recorded for ${params.entityType} ${params.entityId}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    } finally {
-      setRlsBootstrap(previousBootstrap);
-    }
+    await withRlsBootstrap(async () => {
+      try {
+        await this.auditRepo.insert({
+          actorUserId: params.user?.id ?? null,
+          actorName: actor.name ?? null,
+          actorRole: actor.role ?? null,
+          description: describeAuditEvent(
+            params.entityType,
+            params.action,
+            params.detail,
+          ),
+          organisationId: params.organisationId,
+          entityType: params.entityType,
+          entityId: params.entityId,
+          action: params.action,
+          // `insert` takes QueryDeepPartialEntity, which does not accept the
+          // AuditChanges index signature directly.
+          changes: (params.changes ??
+            {}) as QueryDeepPartialEntity<AuditLogEntry>['changes'],
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Audit ${params.action} not recorded for ${params.entityType} ${params.entityId}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    });
   }
 
   /** AC1 — "each view". */

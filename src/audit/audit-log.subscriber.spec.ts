@@ -21,8 +21,7 @@ jest.mock('../common/context/correlation-id-context.js', () => ({
     name: 'Ada Lovelace',
     role: 'owner',
   })),
-  getRlsBootstrap: jest.fn(() => false),
-  setRlsBootstrap: jest.fn(),
+  withRlsBootstrap: jest.fn((fn: () => unknown) => fn()),
 }));
 
 describe('AuditLogSubscriber', () => {

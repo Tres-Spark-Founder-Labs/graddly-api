@@ -25,7 +25,6 @@ import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import {
   DigestPreferenceResponseDto,
@@ -82,7 +81,6 @@ export class NotificationsController {
     @Query() query: ListNotificationsQueryDto,
   ): Promise<PaginatedResult<NotificationResponseDto>> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.notificationsService.listForUser(
       user.id,
       query,
@@ -111,7 +109,6 @@ export class NotificationsController {
     @Body() dto: MarkAllNotificationsReadDto,
   ): Promise<{ updated: number }> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.notificationsService.markAllRead(
       user.id,
       dto.organisationId ?? user.organisationId ?? undefined,
@@ -144,7 +141,6 @@ export class NotificationsController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<DigestPreferenceResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     const frequency = await this.preferencesService.getDigestFrequency(
       user.id,
       NotificationType.OTJ,
@@ -174,7 +170,6 @@ export class NotificationsController {
     @Body() dto: UpdateDigestPreferenceDto,
   ): Promise<DigestPreferenceResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     const saved = await this.preferencesService.setDigestFrequency(
       user.id,
       NotificationType.OTJ,
@@ -201,7 +196,6 @@ export class NotificationsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<NotificationResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.notificationsService.markRead(user.id, id);
   }
 }

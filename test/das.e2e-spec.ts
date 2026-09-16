@@ -3,18 +3,14 @@ import request from 'supertest';
 
 import { AuditAction } from '../src/audit/enums/audit-action.enum.js';
 import { ORGANISATION_ID_HEADER } from '../src/common/constants/organisation-headers.js';
-import {
-  setCurrentOrganisationId,
-  setCurrentUserId,
-} from '../src/common/context/correlation-id-context.js';
 import { DasHttpClient } from '../src/das/das-http.client.js';
 import { DasLevySyncService } from '../src/das/das-levy-sync.service.js';
-import { setLastKnownUserIdForGuc } from '../src/database/apply-tenant-gucs.js';
 
 import { createE2eApp } from './helpers/e2e-app.js';
 import { createVerifiedUser } from './helpers/e2e-http.js';
 import { buildOrgPayload } from './helpers/e2e-organisation.js';
 import { expectSuccessEnvelope } from './helpers/e2e-response-contracts.js';
+import { enterTenantContext } from './helpers/tenant-context.js';
 
 import type { App } from 'supertest/types';
 
@@ -62,9 +58,11 @@ describe('DASController (e2e)', () => {
     });
 
     const syncService = app.get(DasLevySyncService);
-    setCurrentOrganisationId(organisationId);
-    setCurrentUserId(owner.userId);
-    setLastKnownUserIdForGuc(owner.userId);
+    enterTenantContext({
+      label: 'e2e:das',
+      organisationId: organisationId,
+      userId: owner.userId,
+    });
     await syncService.syncOrganisation(organisationId, owner.userId);
     await syncService.syncOrganisation(organisationId, owner.userId);
 

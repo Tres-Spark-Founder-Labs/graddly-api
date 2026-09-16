@@ -15,10 +15,6 @@ import {
   setCurrentUserId,
   withRlsBootstrap,
 } from '../common/context/correlation-id-context.js';
-import {
-  clearLastKnownUserIdForGuc,
-  setLastKnownUserIdForGuc,
-} from '../database/apply-tenant-gucs.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailVerificationEmail } from '../email/payloads/email-verification.email.js';
 import { PasswordResetEmail } from '../email/payloads/password-reset.email.js';
@@ -143,7 +139,6 @@ export class AuthService {
     // token already proves which user this is, so scope RLS to exactly them
     // (satisfies `id = app_current_user()` in users_select/users_update).
     setCurrentUserId(userId);
-    setLastKnownUserIdForGuc(userId);
 
     const valid = dto.code
       ? await this.mfaService.verifyCode(userId, dto.code)
@@ -257,7 +252,6 @@ export class AuthService {
 
     await this.redis.del(`${EMAIL_VERIFY_PREFIX}${token}`);
 
-    clearLastKnownUserIdForGuc();
     return withRlsBootstrap(async () => {
       await this.usersService.markEmailVerified(userId);
 
@@ -493,7 +487,6 @@ export class AuthService {
     existingRefreshToken?: string,
   ): Promise<AuthResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
 
     const membership = await this.resolveActiveMembershipForUser(user.id);
 

@@ -10,7 +10,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CreateOrganisationDto } from './dto/create-organisation.dto.js';
 import { UpdateOrganisationDto } from './dto/update-organisation.dto.js';
@@ -60,7 +59,6 @@ export class OrganisationsService {
     creatorId: string,
   ): Promise<Organisation> {
     setCurrentUserId(creatorId);
-    setLastKnownUserIdForGuc(creatorId);
 
     const slug = await this.generateUniqueSlug(dto.name);
 

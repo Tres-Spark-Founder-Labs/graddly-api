@@ -42,7 +42,6 @@ import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { ApprenticesService } from './apprentices.service.js';
 import { ApprenticeResponseDto } from './dto/apprentice-response.dto.js';
@@ -97,7 +96,6 @@ export class ApprenticesController {
     @Body() dto: CreateApprenticeDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.apprenticesService.create(user, dto);
   }
 
@@ -122,7 +120,6 @@ export class ApprenticesController {
     @Query() query: PaginationQueryDto,
   ): Promise<PaginatedResult<ApprenticeResponseDto>> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.apprenticesService.findAll(user, query);
   }
 
@@ -147,7 +144,6 @@ export class ApprenticesController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.apprenticesService.findOne(user, id);
   }
 
@@ -181,7 +177,6 @@ export class ApprenticesController {
     @Body() dto: UpdateApprenticeDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.apprenticesService.update(user, id, dto);
   }
 
@@ -199,7 +194,6 @@ export class ApprenticesController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     await this.apprenticesService.remove(user, id);
   }
 }

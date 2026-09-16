@@ -32,7 +32,6 @@ import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { FundingClaimResponseDto } from './dto/funding-claim-response.dto.js';
 import { ListFundingClaimsQueryDto } from './dto/list-funding-claims-query.dto.js';
@@ -90,7 +89,6 @@ export class FundingClaimsController {
     @Query() query: ListFundingClaimsQueryDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     const result = await this.tracker.list(user.organisationId!, query);
     return new PaginatedResult(result.items, result.meta);
   }
@@ -124,7 +122,6 @@ export class FundingClaimsController {
     @Body() dto: UpdateFundingClaimResolutionDto,
   ): Promise<FundingClaimResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.tracker.setResolution(
       user.organisationId!,
       enrolmentId,

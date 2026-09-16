@@ -8,12 +8,8 @@ import {
   QUEUE_ENROLMENT_PUSH,
   QUEUE_ENROLMENT_PUSH_DLQ,
 } from '../bullmq/bullmq.constants.js';
-import {
-  setCurrentOrganisationId,
-  setCurrentUserId,
-} from '../common/context/correlation-id-context.js';
+import { runWithTenantContext } from '../common/context/correlation-id-context.js';
 import { DAS_CLIENT } from '../das/das-client.constants.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { EnrolmentPipelineService } from '../enrolments/enrolment-pipeline.service.js';
 import { EnrolmentPipelineState } from '../enrolments/enums/enrolment-pipeline-state.enum.js';
 
@@ -43,15 +39,33 @@ export class EnrolmentPushProcessor extends WorkerHost {
     super();
   }
 
+  /**
+   * The job runs inside its own tenant store — what CorrelationIdMiddleware
+   * gives a request. The values used to be set on a process-global fallback,
+   * so two jobs interleaving on one worker read and wrote as each other's
+   * organisation; each job now carries its own for the whole of its work.
+   */
   async process(job: Job<IEnrolmentPushJobPayload>): Promise<void> {
+    return runWithTenantContext(
+      {
+        label: `enrolment-push:${job.name}#${job.id ?? '?'}`,
+        organisationId: job.data.organisationId,
+        // No sentinel: app.current_user and audit actorUserId are uuids, and a
+        // job nobody requested has no acting user. Empty is the honest value.
+        userId: job.data.requestedByUserId,
+      },
+      () => this.processInContext(job),
+    );
+  }
+
+  private async processInContext(
+    job: Job<IEnrolmentPushJobPayload>,
+  ): Promise<void> {
     if (job.name !== ENROLMENT_PUSH_JOB_SEND) {
       return;
     }
 
-    const { pushId, organisationId, requestedByUserId } = job.data;
-    setCurrentOrganisationId(organisationId);
-    setCurrentUserId(requestedByUserId ?? 'system-enrolment-push');
-    setLastKnownUserIdForGuc(requestedByUserId ?? 'system-enrolment-push');
+    const { pushId } = job.data;
 
     const record = await this.repo.findOne({ where: { id: pushId } });
     if (!record) {

@@ -42,7 +42,6 @@ import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CreateStandardDto } from './dto/create-standard.dto.js';
 import { StandardResponseDto } from './dto/standard-response.dto.js';
@@ -102,7 +101,6 @@ export class StandardsController {
     @Body() dto: CreateStandardDto,
   ): Promise<StandardResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.standardsService
       .create(user, dto)
       .then((standard) => this.toResponseDto(standard));
@@ -129,7 +127,6 @@ export class StandardsController {
     @Query() query: PaginationQueryDto,
   ): Promise<PaginatedResult<StandardResponseDto>> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.standardsService.findAll(user, query).then(
       (result) =>
         new PaginatedResult(
@@ -160,7 +157,6 @@ export class StandardsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<StandardResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.standardsService
       .findOne(user, id)
       .then((standard) => this.toResponseDto(standard));
@@ -196,7 +192,6 @@ export class StandardsController {
     @Body() dto: UpdateStandardDto,
   ): Promise<StandardResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.standardsService
       .update(user, id, dto)
       .then((standard) => this.toResponseDto(standard));
@@ -233,7 +228,6 @@ export class StandardsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     await this.standardsService.remove(user, id);
   }
 }

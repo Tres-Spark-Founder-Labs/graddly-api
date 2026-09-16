@@ -3,7 +3,6 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 
 import {
   getRlsBootstrap,
-  resetSynchronousTenantFallback,
   runWithCorrelationId,
   withRlsBootstrap,
 } from '../common/context/correlation-id-context.js';
@@ -50,7 +49,6 @@ describe('LearnerMetricsService — display-name hydration', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    resetSynchronousTenantFallback();
     flagDuringRead = [];
 
     userRepo.find.mockImplementation(() => {

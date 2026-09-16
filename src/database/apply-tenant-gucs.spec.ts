@@ -1,8 +1,6 @@
 import {
-  enterCorrelationContext,
-  getTenantRequestContext,
-  resetSynchronousTenantFallback,
   runWithCorrelationId,
+  runWithTenantContext,
   setCurrentOrganisationId,
   setCurrentUserId,
   withRlsBootstrap,
@@ -11,11 +9,7 @@ import * as validateEnv from '../config/validate-env.js';
 
 import {
   applyTenantGucs,
-  clearLastKnownOrganisationIdForGuc,
-  clearLastKnownUserIdForGuc,
   setGucQueryRunner,
-  setLastKnownOrganisationIdForGuc,
-  setLastKnownUserIdForGuc,
   TENANT_GUC_SQL,
 } from './apply-tenant-gucs.js';
 
@@ -31,14 +25,6 @@ function minimalEnv(tenantDbContextEnabled: boolean) {
   /* eslint-enable @typescript-eslint/naming-convention */
 }
 
-describe('tenant request context map', () => {
-  it('stores user id when using enterCorrelationContext', () => {
-    enterCorrelationContext('cid-enter');
-    setCurrentUserId('user-enter');
-    expect(getTenantRequestContext()?.currentUserId).toBe('user-enter');
-  });
-});
-
 describe('applyTenantGucs', () => {
   const queryRunner = {
     query: jest.fn().mockResolvedValue(undefined),
@@ -52,8 +38,6 @@ describe('applyTenantGucs', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
-    clearLastKnownUserIdForGuc();
-    clearLastKnownOrganisationIdForGuc();
   });
 
   it('does nothing when TENANT_DB_CONTEXT_ENABLED is false', async () => {
@@ -65,13 +49,44 @@ describe('applyTenantGucs', () => {
     expect(queryRunner.query).not.toHaveBeenCalled();
   });
 
-  it('falls back to last-known org and user ids when ALS is empty', async () => {
+  /**
+   * The store, and nothing else. There is no fallback to fall back to: a
+   * store with neither value sends '' for both, and so does no store at all.
+   * '' matches no policy, so the statement sees no tenant rather than the
+   * last one some other request or job wrote.
+   */
+  it('sends empty org and user when the store carries neither', async () => {
     jest.spyOn(validateEnv, 'getEnv').mockReturnValue(minimalEnv(true));
-    resetSynchronousTenantFallback();
-    enterCorrelationContext('fallback-test');
-    setLastKnownOrganisationIdForGuc('770e8400-e29b-41d4-a716-446655440002');
-    setLastKnownUserIdForGuc('880e8400-e29b-41d4-a716-446655440003');
+    await runWithCorrelationId('no-tenant', () =>
+      applyTenantGucs(queryRunner as never),
+    );
+    expect(queryRunner.query).toHaveBeenCalledWith(TENANT_GUC_SQL, [
+      '',
+      '',
+      '0',
+    ]);
+  });
+
+  it('sends empty org and user with no store at all', async () => {
+    jest.spyOn(validateEnv, 'getEnv').mockReturnValue(minimalEnv(true));
     await applyTenantGucs(queryRunner as never);
+    expect(queryRunner.query).toHaveBeenCalledWith(TENANT_GUC_SQL, [
+      '',
+      '',
+      '0',
+    ]);
+  });
+
+  it('sends the values a job entered its store with', async () => {
+    jest.spyOn(validateEnv, 'getEnv').mockReturnValue(minimalEnv(true));
+    await runWithTenantContext(
+      {
+        label: 'pdf:generate#1',
+        organisationId: '770e8400-e29b-41d4-a716-446655440002',
+        userId: '880e8400-e29b-41d4-a716-446655440003',
+      },
+      () => applyTenantGucs(queryRunner as never),
+    );
     expect(queryRunner.query).toHaveBeenCalledWith(TENANT_GUC_SQL, [
       '770e8400-e29b-41d4-a716-446655440002',
       '880e8400-e29b-41d4-a716-446655440003',
@@ -108,7 +123,6 @@ describe('withRlsBootstrap — the GUC each statement sends', () => {
 
   beforeEach(() => {
     jest.spyOn(validateEnv, 'getEnv').mockReturnValue(minimalEnv(true));
-    resetSynchronousTenantFallback();
   });
 
   afterEach(() => {

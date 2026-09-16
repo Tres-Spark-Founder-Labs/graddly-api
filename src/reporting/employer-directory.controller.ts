@@ -19,7 +19,6 @@ import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { EmployerDirectoryEntryResponseDto } from './dto/employer-directory-entry-response.dto.js';
 import { ListEmployerDirectoryQueryDto } from './dto/list-reporting-query.dto.js';
@@ -76,7 +75,6 @@ export class EmployerDirectoryController {
     @Query() query: ListEmployerDirectoryQueryDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.employerDirectoryService.list(user.organisationId!, query);
   }
 }

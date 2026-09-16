@@ -28,7 +28,6 @@ import { setCurrentUserId } from '../../common/context/correlation-id-context.js
 import { ErrorResponseDto } from '../../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../../common/interceptors/response-message.decorator.js';
 import { LearnerAccessible } from '../../common/learner-scope/learner-accessible.decorator.js';
-import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
 import { ListMessageThreadsQueryDto } from '../dto/list-message-threads-query.dto.js';
 import { MessageThreadResponseDto } from '../dto/message-thread-response.dto.js';
 import { MessagingUnreadCountResponseDto } from '../dto/messaging-unread-count-response.dto.js';
@@ -82,7 +81,6 @@ export class MessageThreadsController {
   })
   getUnreadCount(@CurrentUser() user: AuthenticatedUser) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.threadsService.getUnreadCount(user);
   }
 
@@ -113,7 +111,6 @@ export class MessageThreadsController {
     @Query() query: ListMessageThreadsQueryDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.threadsService.list(user, query);
   }
 
@@ -143,7 +140,6 @@ export class MessageThreadsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.threadsService.findOne(user, id);
   }
 
@@ -173,7 +169,6 @@ export class MessageThreadsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     await this.threadsService.markRead(user, id);
     return null;
   }

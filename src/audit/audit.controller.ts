@@ -23,7 +23,6 @@ import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import {
   AuditExportService,
@@ -95,7 +94,6 @@ export class AuditController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<PaginatedResult<AuditLogEntryDto> | string> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
 
     const result = await this.auditExportService.export(user, query);
 

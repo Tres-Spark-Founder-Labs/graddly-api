@@ -7,7 +7,6 @@ import {
 import { Request } from 'express';
 
 import { setCurrentOrganisationId } from '../../common/context/correlation-id-context.js';
-import { setLastKnownOrganisationIdForGuc } from '../../database/apply-tenant-gucs.js';
 import { ActiveOrganisationResolver } from '../active-organisation.resolver.js';
 
 import type { AuthenticatedUser } from '../interfaces/authenticated-user.interface.js';
@@ -33,7 +32,6 @@ export class ActiveOrganisationGuard implements CanActivate {
     }
 
     setCurrentOrganisationId(user.organisationId);
-    setLastKnownOrganisationIdForGuc(user.organisationId);
     return true;
   }
 }

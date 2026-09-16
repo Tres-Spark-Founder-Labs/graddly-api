@@ -30,7 +30,6 @@ import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CreateSurveyCampaignDto } from './dto/create-survey-campaign.dto.js';
 import { CreateSurveyTemplateDto } from './dto/create-survey-template.dto.js';
@@ -74,7 +73,6 @@ export class SurveysController {
     @Body() dto: CreateSurveyTemplateDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.createTemplate(user, dto);
   }
 
@@ -84,7 +82,6 @@ export class SurveysController {
   @ApiOkResponse({ description: 'Templates, newest first' })
   async listTemplates(@CurrentUser() user: AuthenticatedUser) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     await this.service.assertProvider(user);
     return this.service.listTemplates(user);
   }
@@ -116,7 +113,6 @@ export class SurveysController {
     @Body() dto: CreateSurveyCampaignDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.createCampaign(user, dto);
   }
 
@@ -126,7 +122,6 @@ export class SurveysController {
   @ApiOkResponse({ description: 'Campaigns, newest first' })
   async listCampaigns(@CurrentUser() user: AuthenticatedUser) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     await this.service.assertProvider(user);
 
     const campaigns = await this.service.listCampaigns(user);
@@ -169,7 +164,6 @@ export class SurveysController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     await this.service.assertProvider(user);
     return this.service.getResults(user, id);
   }

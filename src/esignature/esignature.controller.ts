@@ -31,7 +31,6 @@ import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CreateSignatureRecordDto } from './dto/create-signature-record.dto.js';
 import {
@@ -82,7 +81,6 @@ export class EsignatureController {
     @Req() req: Request,
   ): Promise<SignatureRecordResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     const userAgent = req.get('user-agent') ?? undefined;
     return this.esignatureService.createRecord(user, dto, clientIp, userAgent);
   }
@@ -103,7 +101,6 @@ export class EsignatureController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<SignatureRecordResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.esignatureService.findOne(user, id);
   }
 
@@ -124,7 +121,6 @@ export class EsignatureController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<SignSignatureRecordResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.esignatureService.completeSigning(user, id);
   }
 }

@@ -24,7 +24,6 @@ import {
   ValidationErrorResponseDto,
 } from '../../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
 import { TransferPreferencesResponseDto } from '../dto/transfer-preferences-response.dto.js';
 import { UpsertTransferPreferencesDto } from '../dto/upsert-transfer-preferences.dto.js';
 import { LevyTransferPreferenceService } from '../services/levy-transfer-preference.service.js';
@@ -85,7 +84,6 @@ export class TransferPreferencesController {
     @Body() dto: UpsertTransferPreferencesDto,
   ): Promise<TransferPreferencesResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.transferPreferenceService.upsert(user.organisationId!, dto);
   }
 
@@ -111,7 +109,6 @@ export class TransferPreferencesController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TransferPreferencesResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.transferPreferenceService.get(user.organisationId!);
   }
 }

@@ -5,10 +5,6 @@ import {
   setCurrentOrganisationId,
   setCurrentUserId,
 } from '../../common/context/correlation-id-context.js';
-import {
-  setLastKnownOrganisationIdForGuc,
-  setLastKnownUserIdForGuc,
-} from '../../database/apply-tenant-gucs.js';
 
 import type { AuthenticatedUser } from '../interfaces/authenticated-user.interface.js';
 
@@ -26,11 +22,9 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     const authUser = user as unknown as AuthenticatedUser;
     if (authUser.id) {
       setCurrentUserId(authUser.id);
-      setLastKnownUserIdForGuc(authUser.id);
     }
     if (authUser.organisationId) {
       setCurrentOrganisationId(authUser.organisationId);
-      setLastKnownOrganisationIdForGuc(authUser.organisationId);
     }
 
     return user;

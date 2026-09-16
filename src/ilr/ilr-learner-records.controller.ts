@@ -36,7 +36,6 @@ import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { BuildIlrLearnerRecordDto } from './dto/build-ilr-learner-record.dto.js';
 import { IlrLearnerRecordResponseDto } from './dto/ilr-learner-record-response.dto.js';
@@ -96,7 +95,6 @@ export class IlrLearnerRecordsController {
     @Body() dto: BuildIlrLearnerRecordDto,
   ): Promise<IlrLearnerRecordResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.learnerRecordsService.build(user, dto);
   }
 
@@ -157,7 +155,6 @@ export class IlrLearnerRecordsController {
     @Body() dto: UpdateIlrLearnerRecordDto,
   ): Promise<IlrLearnerRecordResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.learnerRecordsService.update(user, id, dto);
   }
 
@@ -179,7 +176,6 @@ export class IlrLearnerRecordsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<IlrLearnerRecordResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.learnerRecordsService.validate(user, id);
   }
 
@@ -238,7 +234,6 @@ export class IlrLearnerRecordsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<IlrSubmissionResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.submissionService.submit(user, id);
   }
 
@@ -278,7 +273,6 @@ export class IlrLearnerRecordsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<IlrSubmissionResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.submissionService.amend(user, id);
   }
 

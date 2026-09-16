@@ -8,12 +8,8 @@ import {
   QUEUE_COMPLETION_PUSH,
   QUEUE_COMPLETION_PUSH_DLQ,
 } from '../bullmq/bullmq.constants.js';
-import {
-  setCurrentOrganisationId,
-  setCurrentUserId,
-} from '../common/context/correlation-id-context.js';
+import { runWithTenantContext } from '../common/context/correlation-id-context.js';
 import { DAS_CLIENT } from '../das/das-client.constants.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import {
   COMPLETION_PUSH_DLQ_JOB_DEAD_LETTER,
@@ -40,15 +36,33 @@ export class CompletionPushProcessor extends WorkerHost {
     super();
   }
 
+  /**
+   * The job runs inside its own tenant store — what CorrelationIdMiddleware
+   * gives a request. The values used to be set on a process-global fallback,
+   * so two jobs interleaving on one worker read and wrote as each other's
+   * organisation; each job now carries its own for the whole of its work.
+   */
   async process(job: Job<ICompletionPushJobPayload>): Promise<void> {
+    return runWithTenantContext(
+      {
+        label: `completion-push:${job.name}#${job.id ?? '?'}`,
+        organisationId: job.data.organisationId,
+        // No sentinel: app.current_user and audit actorUserId are uuids, and a
+        // job nobody requested has no acting user. Empty is the honest value.
+        userId: job.data.requestedByUserId,
+      },
+      () => this.processInContext(job),
+    );
+  }
+
+  private async processInContext(
+    job: Job<ICompletionPushJobPayload>,
+  ): Promise<void> {
     if (job.name !== COMPLETION_PUSH_JOB_SEND) {
       return;
     }
 
-    const { pushId, organisationId, requestedByUserId } = job.data;
-    setCurrentOrganisationId(organisationId);
-    setCurrentUserId(requestedByUserId ?? 'system-completion-push');
-    setLastKnownUserIdForGuc(requestedByUserId ?? 'system-completion-push');
+    const { pushId } = job.data;
 
     const record = await this.repo.findOne({ where: { id: pushId } });
     if (!record) {

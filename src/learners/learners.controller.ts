@@ -41,7 +41,6 @@ import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { PdfJobResponseDto } from '../pdf/dto/pdf-job-response.dto.js';
 
 import { BulkAssignTutorDto } from './dto/bulk-assign-tutor.dto.js';
@@ -169,7 +168,6 @@ export class LearnersController {
     @Query() query: ListLearnerDocumentsQueryDto,
   ): Promise<LearnerDocumentsResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.documentsService.listMyDocuments(user, query);
   }
 
@@ -196,7 +194,6 @@ export class LearnersController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<LearnerMeSummaryResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.meSummaryService.getSummary(user);
   }
 
@@ -235,7 +232,6 @@ export class LearnersController {
     @Res({ passthrough: true }) res: Response,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     const result = await this.cohortService.list(user, query);
 
     if (isCsvCohortResult(result)) {
@@ -267,7 +263,6 @@ export class LearnersController {
   @ApiOkResponse({ description: 'Filter options' })
   cohortFilterOptions(@CurrentUser() user: AuthenticatedUser) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.cohortService.getFilterOptions(user);
   }
 
@@ -303,7 +298,6 @@ export class LearnersController {
     @Query() query: ListLearnerCohortQueryDto,
   ): Promise<PdfJobResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.cohortService.exportPdf(user, query);
   }
 
@@ -332,7 +326,6 @@ export class LearnersController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TutorCaseloadResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.tutorCaseloadService.getCaseload(user);
   }
 
@@ -364,7 +357,6 @@ export class LearnersController {
     @Body() dto: BulkAssignTutorDto,
   ): Promise<{ updated: number }> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.tutorCaseloadService.assignTutorInBulk(
       user,
       dto.enrolmentIds,
@@ -395,7 +387,6 @@ export class LearnersController {
     @Query() query: ListInterventionQueueQueryDto,
   ): Promise<InterventionQueueResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.interventionQueueService.list(user, query);
   }
 
@@ -430,7 +421,6 @@ export class LearnersController {
     @Body() dto: CreateInterventionActionDto,
   ): Promise<InterventionActionResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.interventionActionsService.create(user, enrolmentId, dto);
   }
 
@@ -460,7 +450,6 @@ export class LearnersController {
     @Param('enrolmentId', ParseUUIDPipe) enrolmentId: string,
   ): Promise<LearnerProfileResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.profileService.getProfile(user, enrolmentId);
   }
 
@@ -497,7 +486,6 @@ export class LearnersController {
     @Param('enrolmentId', ParseUUIDPipe) enrolmentId: string,
   ): Promise<LearnerOtjWeeklyResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.profileService.getOtjWeekly(user, enrolmentId);
   }
 }

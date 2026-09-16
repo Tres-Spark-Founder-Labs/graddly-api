@@ -23,7 +23,6 @@ import {
 } from '../../common/dto/error-response.dto.js';
 import { PaginationMetaDto } from '../../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
 import { RecipientProfileResponseDto } from '../dto/recipient-profile-response.dto.js';
 import { SearchRecipientDirectoryDto } from '../dto/search-recipient-directory.dto.js';
 import { LevyRecipientProfileService } from '../services/levy-recipient-profile.service.js';
@@ -94,7 +93,6 @@ export class RecipientDirectoryController {
     @Query() query: SearchRecipientDirectoryDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.recipientProfileService.searchDirectory(
       user.organisationId!,
       query,

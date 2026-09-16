@@ -2,19 +2,15 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
 import { ORGANISATION_ID_HEADER } from '../src/common/constants/organisation-headers.js';
-import {
-  setCurrentOrganisationId,
-  setCurrentUserId,
-} from '../src/common/context/correlation-id-context.js';
 import { DasApiActivityService } from '../src/das/das-api-activity.service.js';
 import { DasApiOperation } from '../src/das/enums/das-api-operation.enum.js';
 import { DasSyncHealth } from '../src/das/enums/das-sync-health.enum.js';
-import { setLastKnownUserIdForGuc } from '../src/database/apply-tenant-gucs.js';
 
 import { createE2eApp } from './helpers/e2e-app.js';
 import { createVerifiedUser } from './helpers/e2e-http.js';
 import { buildOrgPayload } from './helpers/e2e-organisation.js';
 import { expectSuccessEnvelope } from './helpers/e2e-response-contracts.js';
+import { enterTenantContext } from './helpers/tenant-context.js';
 
 import type { App } from 'supertest/types';
 
@@ -73,9 +69,11 @@ describe('DAS sync observability (e2e)', () => {
     userId: string,
     over: Partial<Parameters<DasApiActivityService['record']>[0]> = {},
   ) => {
-    setCurrentOrganisationId(organisationId);
-    setCurrentUserId(userId);
-    setLastKnownUserIdForGuc(userId);
+    enterTenantContext({
+      label: 'e2e:das-sync-observability',
+      organisationId: organisationId,
+      userId: userId,
+    });
 
     const service = app.get(DasApiActivityService);
     await service.record({

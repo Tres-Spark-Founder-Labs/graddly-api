@@ -36,7 +36,6 @@ import {
 } from '../../common/dto/error-response.dto.js';
 import { PaginationMetaDto } from '../../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
 import { CreateMatchApplicationDto } from '../dto/create-match-application.dto.js';
 import { ListMatchApplicationsQueryDto } from '../dto/list-match-applications-query.dto.js';
 import { MatchApplicationResponseDto } from '../dto/match-application-response.dto.js';
@@ -104,7 +103,6 @@ export class MatchApplicationsController {
     @Body() dto: CreateMatchApplicationDto,
   ): Promise<MatchApplicationResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.matchApplicationService.create(user, dto);
   }
 
@@ -131,7 +129,6 @@ export class MatchApplicationsController {
     @Query() query: ListMatchApplicationsQueryDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.matchApplicationService.list(user.organisationId!, query);
   }
 
@@ -171,7 +168,6 @@ export class MatchApplicationsController {
     @Body() dto: UpdateMatchApplicationDto,
   ): Promise<MatchApplicationResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.matchApplicationService.updateStatus(user, id, dto);
   }
 }

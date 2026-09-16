@@ -31,7 +31,6 @@ import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CreateIlrMappingConfigDto } from './dto/create-ilr-mapping-config.dto.js';
 import { IlrMappingConfigResponseDto } from './dto/ilr-mapping-config-response.dto.js';
@@ -121,7 +120,6 @@ export class IlrMappingConfigsController {
     @Body() dto: CreateIlrMappingConfigDto,
   ): Promise<IlrMappingConfigResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.createDraft(user, dto);
   }
 
@@ -149,7 +147,6 @@ export class IlrMappingConfigsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<IlrMappingConfigResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.publish(user, id);
   }
 }

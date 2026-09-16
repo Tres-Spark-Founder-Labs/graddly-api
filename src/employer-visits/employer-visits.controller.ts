@@ -31,7 +31,6 @@ import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CreateEmployerVisitDto } from './dto/create-employer-visit.dto.js';
 import {
@@ -92,7 +91,6 @@ export class EmployerVisitsController {
     @Body() dto: CreateEmployerVisitDto,
   ): Promise<EmployerVisitResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     const created = await this.service.create(user, dto);
     /**
      * Re-read rather than returning the saved entity.
@@ -127,7 +125,6 @@ export class EmployerVisitsController {
     employerOrganisationId: string,
   ): Promise<NextVisitSuggestionResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     const result = await this.service.suggestNextVisitDate(
       user,
       employerOrganisationId,
@@ -154,7 +151,6 @@ export class EmployerVisitsController {
     @Query() query: ListEmployerVisitsQueryDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     const result = await this.service.list(user, query);
     return new PaginatedResult(
       result.items.map((visit) =>
@@ -187,7 +183,6 @@ export class EmployerVisitsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<EmployerVisitResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     const { visit, learners } = await this.service.findOne(user, id);
     return toEmployerVisitResponse(visit, learners);
   }

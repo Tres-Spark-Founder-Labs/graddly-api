@@ -3,15 +3,11 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 
 import { ORGANISATION_ID_HEADER } from '../src/common/constants/organisation-headers.js';
-import {
-  setCurrentOrganisationId,
-  setCurrentUserId,
-} from '../src/common/context/correlation-id-context.js';
-import { setLastKnownUserIdForGuc } from '../src/database/apply-tenant-gucs.js';
 
 import { createE2eApp } from './helpers/e2e-app.js';
 import { createVerifiedUser } from './helpers/e2e-http.js';
 import { buildOrgPayload } from './helpers/e2e-organisation.js';
+import { enterTenantContext } from './helpers/tenant-context.js';
 
 import type { App } from 'supertest/types';
 
@@ -84,9 +80,11 @@ describe('Manual levy data round trip (e2e)', () => {
     // specs do is what actually scopes the read; without it every one of these
     // tables returns zero rows, which looks exactly like "the write never
     // happened".
-    setCurrentOrganisationId(organisationId);
-    setCurrentUserId(userId);
-    setLastKnownUserIdForGuc(userId);
+    enterTenantContext({
+      label: 'e2e:das-manual-roundtrip',
+      organisationId: organisationId,
+      userId: userId,
+    });
     return dataSource.query(sql, params);
   };
 

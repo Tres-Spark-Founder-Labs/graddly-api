@@ -33,7 +33,6 @@ import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { PdfJobResponseDto } from '../pdf/dto/pdf-job-response.dto.js';
 
 import { CommitmentAuditTrailService } from './commitment-audit-trail.service.js';
@@ -127,7 +126,6 @@ export class CommitmentsController {
     @Query() query: ListCommitmentBoardQueryDto,
   ): Promise<CommitmentBoardResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.boardService.getBoard(user, query);
   }
 
@@ -148,7 +146,6 @@ export class CommitmentsController {
     @Body() dto: CreateCommitmentStatementDto,
   ): Promise<CommitmentStatementResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.statementsService.create(user, dto);
   }
 
@@ -198,7 +195,6 @@ export class CommitmentsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<CommitmentSignedDocumentResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.boardService.getSignedDocumentUrl(user, id);
   }
 
@@ -228,7 +224,6 @@ export class CommitmentsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<PdfJobResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.auditTrailService.requestExport(user, id);
   }
 
@@ -255,7 +250,6 @@ export class CommitmentsController {
     @Param('groupId', ParseUUIDPipe) groupId: string,
   ): Promise<CommitmentVersionHistoryResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.boardService.getVersionHistory(user, groupId);
   }
 
@@ -279,7 +273,6 @@ export class CommitmentsController {
     @Body() dto: CreateCommitmentStatementDto,
   ): Promise<CommitmentStatementResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.statementsService.createVersion(user, groupId, dto);
   }
 
@@ -320,7 +313,6 @@ export class CommitmentsController {
     @Body() dto: UpdateCommitmentStatementDto,
   ): Promise<CommitmentStatementResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.statementsService.update(user, id, dto);
   }
 
@@ -343,7 +335,6 @@ export class CommitmentsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<CommitmentStatementResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.statementsService.publish(user, id);
   }
 
@@ -364,7 +355,6 @@ export class CommitmentsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<CommitmentStatementResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.statementsService.cancel(user, id);
   }
 
@@ -391,7 +381,6 @@ export class CommitmentsController {
     @Req() req: Request,
   ): Promise<SignCommitmentResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     const userAgent = req.headers['user-agent'];
     return this.coSignService.sign(
       user,

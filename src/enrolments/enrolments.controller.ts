@@ -44,7 +44,6 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 import { parsePortalType } from '../common/utils/parse-portal-type.util.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { BreakInLearningService } from './break-in-learning.service.js';
 import { BreakInLearningResponseDto } from './dto/break-in-learning-response.dto.js';
@@ -153,7 +152,6 @@ export class EnrolmentsController {
     @Body() dto: RecordBreakInLearningDto,
   ): Promise<BreakInLearningResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.breakInLearningService.start(user, id, dto);
   }
 
@@ -177,7 +175,6 @@ export class EnrolmentsController {
     @Body() dto: EndBreakInLearningDto,
   ): Promise<BreakInLearningResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.breakInLearningService.end(user, id, dto);
   }
 
@@ -202,7 +199,6 @@ export class EnrolmentsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<BreakInLearningResponseDto[]> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.breakInLearningService.list(user, id);
   }
 
@@ -236,7 +232,6 @@ export class EnrolmentsController {
     @Body() dto: CreateEnrolmentDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.enrolmentsService.create(user, dto);
   }
 
@@ -268,7 +263,6 @@ export class EnrolmentsController {
     @Headers(PORTAL_TYPE_HEADER) rawPortalType?: string,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.enrolmentsService.findAll(
       user,
       query,
@@ -310,7 +304,6 @@ export class EnrolmentsController {
     @Query() query: LookupCounterpartOrganisationQueryDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.enrolmentsService.lookupCounterpartOrganisationByUkprn(
       user,
       query,
@@ -346,7 +339,6 @@ export class EnrolmentsController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<LinkedProviderResponseDto[]> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.enrolmentsService.listLinkedProviders(user);
   }
 
@@ -374,7 +366,6 @@ export class EnrolmentsController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<ParticipantUserOptionDto[]> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.enrolmentsService.listEmployerManagerOptions(user);
   }
 
@@ -404,7 +395,6 @@ export class EnrolmentsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.enrolmentJourneyService.getJourney(user, id);
   }
 
@@ -438,7 +428,6 @@ export class EnrolmentsController {
     @Body() dto: UpdateEnrolmentJourneyDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.enrolmentJourneyService.updateJourney(user, id, dto);
   }
 
@@ -468,7 +457,6 @@ export class EnrolmentsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.enrolmentsService.getParticipantOptions(user, id);
   }
 
@@ -494,7 +482,6 @@ export class EnrolmentsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.enrolmentsService.findOne(user, id);
   }
 
@@ -530,7 +517,6 @@ export class EnrolmentsController {
     @Body() dto: UpdateEnrolmentParticipantsDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.enrolmentsService.updateParticipants(user, id, dto);
   }
 
@@ -566,7 +552,6 @@ export class EnrolmentsController {
     @Body() dto: UpdateEnrolmentOrganisationLinksDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.enrolmentsService.updateOrganisationLinks(user, id, dto);
   }
 
@@ -599,7 +584,6 @@ export class EnrolmentsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.enrolmentsService.activate(user, id);
   }
 
@@ -636,7 +620,6 @@ export class EnrolmentsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.enrolmentsService.acceptProvider(user, id);
   }
 
@@ -665,7 +648,6 @@ export class EnrolmentsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.enrolmentsService.complete(user, id);
   }
 
@@ -703,7 +685,6 @@ export class EnrolmentsController {
     @Body() dto: RecordEpaOutcomeDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.enrolmentsService.recordEpaOutcome(user, id, dto);
   }
 
@@ -732,7 +713,6 @@ export class EnrolmentsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.enrolmentsService.cancel(user, id);
   }
 }

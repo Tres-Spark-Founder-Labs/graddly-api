@@ -38,7 +38,6 @@ import {
 } from '../../common/dto/error-response.dto.js';
 import { PaginationMetaDto } from '../../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
 import { CreateTransferFromMatchDto } from '../dto/create-transfer-from-match.dto.js';
 import { LevyTransferDocumentResponseDto } from '../dto/levy-transfer-document-response.dto.js';
 import { LevyTransferResponseDto } from '../dto/levy-transfer-response.dto.js';
@@ -134,7 +133,6 @@ export class TransfersController {
     @Body() dto: CreateTransferFromMatchDto,
   ): Promise<LevyTransferResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.transferService.createFromMatch(user, dto);
   }
 
@@ -164,7 +162,6 @@ export class TransfersController {
     @Query() query: ListTransfersQueryDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.transferService.list(user, query);
   }
 
@@ -189,7 +186,6 @@ export class TransfersController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<LevyTransferResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.transferService.findOne(user, id);
   }
 
@@ -223,7 +219,6 @@ export class TransfersController {
     @Req() req: Request,
   ): Promise<SignTransferResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     const userAgent = req.headers['user-agent'];
     return this.transferService.sign(
       user,
@@ -261,7 +256,6 @@ export class TransfersController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<LevyTransferResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.transferService.submitToDas(user, id);
   }
 
@@ -291,7 +285,6 @@ export class TransfersController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<LevyTransferDocumentResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.transferService.getDocument(user, id);
   }
 
@@ -349,7 +342,6 @@ export class TransfersController {
     @Body() dto: LinkTransferEnrolmentDto,
   ): Promise<TransferEnrolmentResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     const link = await this.fundingService.link({
       transferId: id,
       enrolmentId: dto.enrolmentId,
@@ -384,7 +376,6 @@ export class TransfersController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<TransferEnrolmentResponseDto[]> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     const links = await this.fundingService.listForTransfer(id);
     return links.map(toTransferEnrolmentDto);
   }
@@ -412,7 +403,6 @@ export class TransfersController {
     @Param('enrolmentId', ParseUUIDPipe) enrolmentId: string,
   ): Promise<void> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     await this.fundingService.unlink(id, enrolmentId);
   }
 }

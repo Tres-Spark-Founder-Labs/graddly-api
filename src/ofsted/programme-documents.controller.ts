@@ -33,7 +33,6 @@ import {
   ValidationErrorResponseDto,
 } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CreateProgrammeDocumentDto } from './dto/create-programme-document.dto.js';
 import { ProgrammeDocumentResponseDto } from './dto/programme-document-response.dto.js';
@@ -91,7 +90,6 @@ export class ProgrammeDocumentsController {
     @Param('programmeId', ParseUUIDPipe) programmeId: string,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.documentsService.listForProgramme(user, programmeId);
   }
 
@@ -130,7 +128,6 @@ export class ProgrammeDocumentsController {
     @Body() dto: CreateProgrammeDocumentDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.documentsService.attach(user, programmeId, dto);
   }
 }

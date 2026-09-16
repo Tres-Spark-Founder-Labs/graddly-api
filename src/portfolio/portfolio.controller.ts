@@ -28,7 +28,6 @@ import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { KsbCoverageResponseDto } from './dto/ksb-coverage-response.dto.js';
 import { KsbHeatmapResponseDto } from './dto/ksb-heatmap-response.dto.js';
@@ -97,7 +96,6 @@ export class PortfolioController {
     @Body() dto: UpsertKsbCoverageDto,
   ): Promise<KsbCoverageResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.heatmapService.upsertCoverage(
       user,
       enrolmentId,

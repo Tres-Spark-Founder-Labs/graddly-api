@@ -1,13 +1,8 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
-import {
-  setCurrentOrganisationId,
-  setCurrentUserId,
-} from '../../src/common/context/correlation-id-context.js';
 import { DasHttpClient } from '../../src/das/das-http.client.js';
 import { DasLevySyncService } from '../../src/das/das-levy-sync.service.js';
-import { setLastKnownUserIdForGuc } from '../../src/database/apply-tenant-gucs.js';
 import { PdfJobStatus } from '../../src/pdf/enums/pdf-job-status.enum.js';
 import { PdfJobTemplate } from '../../src/pdf/enums/pdf-job-template.enum.js';
 import { noopStorageObjects } from '../../src/storage/providers/noop-storage.store.js';
@@ -22,6 +17,7 @@ import {
   createProviderDirectoryContext,
   processPdfJobInApp,
 } from '../helpers/reporting-e2e.js';
+import { enterTenantContext } from '../helpers/tenant-context.js';
 
 import type { App } from 'supertest/types';
 
@@ -55,9 +51,11 @@ describe('LevyRoiReportController (e2e)', () => {
     });
 
     const syncService = app.get(DasLevySyncService);
-    setCurrentOrganisationId(ctx.employerOrgId);
-    setCurrentUserId(ctx.owner.userId);
-    setLastKnownUserIdForGuc(ctx.owner.userId);
+    enterTenantContext({
+      label: 'e2e:levy-roi',
+      organisationId: ctx.employerOrgId,
+      userId: ctx.owner.userId,
+    });
     await syncService.syncOrganisation(ctx.employerOrgId, ctx.owner.userId);
 
     const res = await request(app.getHttpServer())

@@ -1,9 +1,11 @@
+import { Logger } from '@nestjs/common';
+
 import {
+  getContextLabel,
+  getCorrelationId,
   getCurrentOrganisationId,
   getCurrentUserId,
   getRlsBootstrap,
-  getSynchronousTenantFallback,
-  getTenantRequestContext,
 } from '../common/context/correlation-id-context.js';
 import { getEnv } from '../config/validate-env.js';
 
@@ -25,61 +27,63 @@ export type GucQueryFn = (
 
 let runGucQuery: GucQueryFn | null = null;
 
-/** Last-resort user id when ALS is lost in pool callbacks (set from controllers/guards). */
-let lastKnownUserIdForGuc = '';
-
-/** Last-resort org id when ALS is lost in pool callbacks (set from guards). */
-let lastKnownOrganisationIdForGuc = '';
-
-export function setLastKnownUserIdForGuc(userId: string): void {
-  lastKnownUserIdForGuc = userId;
-}
-
-export function clearLastKnownUserIdForGuc(): void {
-  lastKnownUserIdForGuc = '';
-}
-
-export function setLastKnownOrganisationIdForGuc(organisationId: string): void {
-  lastKnownOrganisationIdForGuc = organisationId;
-}
-
-export function clearLastKnownOrganisationIdForGuc(): void {
-  lastKnownOrganisationIdForGuc = '';
-}
-
 /** Wired from {@link patchPostgresQueryRunnerForTenantGucs} to avoid recursive query patching. */
 export function setGucQueryRunner(runner: GucQueryFn): void {
   runGucQuery = runner;
 }
 
+const logger = new Logger('TenantGucs');
+
+/**
+ * Labels already warned about. A route that legitimately has no organisation
+ * — the auth funnel, /organisations for a user with no membership — says so
+ * once per process, not once per statement.
+ */
+const warnedMissing = new Set<string>();
+
+function warnMissingOnce(kind: 'organisation' | 'user'): void {
+  const correlationId = getCorrelationId();
+  const label =
+    getContextLabel() ??
+    (correlationId ? `correlation ${correlationId}` : 'no tenant context');
+  const key = `${kind}:${label}`;
+  if (warnedMissing.has(key)) {
+    return;
+  }
+  warnedMissing.add(key);
+  logger.warn(
+    `No ${kind} in the tenant context for ${label}: ` +
+      `app.current_${kind === 'organisation' ? 'org' : 'user'} is sent empty, ` +
+      'so policies keyed on it match nothing.',
+  );
+}
+
+/**
+ * The store, and nothing else.
+ *
+ * This used to fall through `??` to a process-global fallback and then to
+ * `lastKnownOrganisationIdForGuc` / `lastKnownUserIdForGuc`, each written by
+ * every request's guards and every job. A request whose store carried no
+ * organisation — a token without one, a route behind JwtAuthGuard alone — or
+ * a worker job, which had no store at all, therefore sent whichever tenant had
+ * written last, and every row policy evaluated correctly against it.
+ *
+ * Now a missing value is sent as '', which `app_current_org()` never matches:
+ * the request fails closed rather than borrowing, and the warning names the
+ * route or job so the paths that genuinely need an organisation surface
+ * without taking the service down. Throwing would have turned a silent data
+ * fault into an outage on routes that were working by accident.
+ */
 function resolveTenantGucValues(): [string, string, string] {
-  const tenant = getTenantRequestContext();
-  const fallback = getSynchronousTenantFallback();
-  const orgId =
-    getCurrentOrganisationId() ??
-    tenant?.currentOrganisationId ??
-    fallback.currentOrganisationId ??
-    lastKnownOrganisationIdForGuc ??
-    '';
-  const userId =
-    getCurrentUserId() ??
-    tenant?.currentUserId ??
-    fallback.currentUserId ??
-    lastKnownUserIdForGuc ??
-    '';
-  /**
-   * The store only — never the process-global fallback.
-   *
-   * This used to OR in `tenant?.rlsBootstrap` and `fallback.rlsBootstrap`,
-   * and the fallback is one object for the whole process, written by every
-   * window that opened. So while any window was open anywhere — another
-   * user's request, a cron — every statement from every concurrent request
-   * resolved `app.rls_bootstrap = '1'`, and no store saying `false` could
-   * override an OR. The flag now lives only in the store `withRlsBootstrap`
-   * runs its callback in, and outside any store it is off.
-   */
-  const bootstrap = getRlsBootstrap() ? '1' : '0';
-  return [orgId, userId, bootstrap];
+  const orgId = getCurrentOrganisationId() ?? '';
+  const userId = getCurrentUserId() ?? '';
+  if (!orgId) {
+    warnMissingOnce('organisation');
+  }
+  if (!userId) {
+    warnMissingOnce('user');
+  }
+  return [orgId, userId, getRlsBootstrap() ? '1' : '0'];
 }
 
 /** Sets session GUCs used by Postgres RLS policies on the query runner connection. */

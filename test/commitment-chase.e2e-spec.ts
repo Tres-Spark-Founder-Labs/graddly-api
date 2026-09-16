@@ -7,11 +7,6 @@ import { CommitmentChaseDispatch } from '../src/commitments/entities/commitment-
 import { CommitmentSignature } from '../src/commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatementStatus } from '../src/commitments/enums/commitment-statement-status.enum.js';
 import { ORGANISATION_ID_HEADER } from '../src/common/constants/organisation-headers.js';
-import {
-  setCurrentOrganisationId,
-  setCurrentUserId,
-} from '../src/common/context/correlation-id-context.js';
-import { setLastKnownUserIdForGuc } from '../src/database/apply-tenant-gucs.js';
 import { EmailDispatchService } from '../src/email/email-dispatch.service.js';
 import { PdfJobTemplate } from '../src/pdf/enums/pdf-job-template.enum.js';
 
@@ -19,6 +14,7 @@ import { createE2eApp } from './helpers/e2e-app.js';
 import { createVerifiedUser } from './helpers/e2e-http.js';
 import { buildOrgPayload } from './helpers/e2e-organisation.js';
 import { processPdfJobInApp } from './helpers/process-pdf-job.js';
+import { enterTenantContext } from './helpers/tenant-context.js';
 
 import type { App } from 'supertest/types';
 import type { Repository } from 'typeorm';
@@ -145,9 +141,11 @@ describe('Commitment chase (e2e)', () => {
       statementId,
     });
 
-    setCurrentOrganisationId(orgId);
-    setCurrentUserId(owner.userId);
-    setLastKnownUserIdForGuc(owner.userId);
+    enterTenantContext({
+      label: 'e2e:commitment-chase',
+      organisationId: orgId,
+      userId: owner.userId,
+    });
 
     const signatures = await signatureRepo.find({
       where: { statementId, organisationId: orgId },

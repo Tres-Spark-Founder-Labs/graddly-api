@@ -36,7 +36,6 @@ import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { SkipResponseEnvelope } from '../common/interceptors/skip-response-envelope.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { GenerateSarReportDto } from './dto/generate-sar-report.dto.js';
 import { SarReportResponseDto } from './dto/sar-report-response.dto.js';
@@ -96,7 +95,6 @@ export class SarReportsController {
     @Body() dto: GenerateSarReportDto,
   ): Promise<SarReportResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.generate(user, dto);
   }
 
@@ -123,7 +121,6 @@ export class SarReportsController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<SarReportResponseDto[]> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.findAll(user);
   }
 
@@ -144,7 +141,6 @@ export class SarReportsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<SarReportResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.findOne(user, id);
   }
 
@@ -183,7 +179,6 @@ export class SarReportsController {
     @Body() dto: UpdateSarReportDto,
   ): Promise<SarReportResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.update(user, id, dto);
   }
 
@@ -216,7 +211,6 @@ export class SarReportsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<SarReportResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.lock(user, id);
   }
 
@@ -249,7 +243,6 @@ export class SarReportsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<StreamableFile> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
 
     const content = await this.service.getExportContent(user, id);
     const buffer = await this.docx.render(content);

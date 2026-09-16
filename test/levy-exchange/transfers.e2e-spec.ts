@@ -4,12 +4,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 
 import { ORGANISATION_ID_HEADER } from '../../src/common/constants/organisation-headers.js';
-import { resetSynchronousTenantFallback } from '../../src/common/context/correlation-id-context.js';
 import { DAS_CLIENT } from '../../src/das/das-client.constants.js';
-import {
-  clearLastKnownOrganisationIdForGuc,
-  clearLastKnownUserIdForGuc,
-} from '../../src/database/apply-tenant-gucs.js';
 import { LevyTransferDocument } from '../../src/levy-exchange/entities/levy-transfer-document.entity.js';
 import { LevyTransferParty } from '../../src/levy-exchange/enums/levy-transfer-party.enum.js';
 import { LevyTransferStatus } from '../../src/levy-exchange/enums/levy-transfer-status.enum.js';
@@ -59,27 +54,20 @@ const BASE = '/api/v1/levy-exchange/transfers';
  *
  *   1. The app's own database role is asserted to be neither superuser nor
  *      BYPASSRLS, from inside the suite, rather than trusted by name.
- *   2. Every request goes through `http()`, which first clears the
- *      process-global tenant state the harness (`applyTenantContext`) and
- *      earlier requests leave behind. A query that lost its request context
- *      would otherwise run as whichever organisation was set last — a pass
- *      for the wrong reason, the very failure this suite had.
+ *   2. There is no process-global tenant state for a request to inherit. The
+ *      harness (`applyTenantContext`) enters a store on the test's own async
+ *      chain, and each request gets its own from CorrelationIdMiddleware. A
+ *      query that lost its request context now sends '' and sees nothing,
+ *      rather than running as whichever organisation was set last — a pass
+ *      for the wrong reason, the very failure this suite had. `http()` is
+ *      kept as the one way to send a request so that stays the case.
  *   3. The DAS consent is mocked on whichever client the app resolved, so
  *      submit is exercised in manual mode too.
  */
 describe('Levy Exchange transfers (e2e)', () => {
   let app: INestApplication<App>;
 
-  const clearProcessTenantState = () => {
-    resetSynchronousTenantFallback();
-    clearLastKnownOrganisationIdForGuc();
-    clearLastKnownUserIdForGuc();
-  };
-
-  const http = () => {
-    clearProcessTenantState();
-    return request(app.getHttpServer());
-  };
+  const http = () => request(app.getHttpServer());
 
   beforeAll(async () => {
     app = await createE2eApp();

@@ -44,7 +44,6 @@ import {
 import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { PdfJobResponseDto } from '../pdf/dto/pdf-job-response.dto.js';
 
 import { CreateQipActionDto } from './dto/create-qip-action.dto.js';
@@ -115,7 +114,6 @@ export class QipActionsController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<PdfJobResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.exportPdf(user);
   }
 
@@ -154,7 +152,6 @@ export class QipActionsController {
     @Body() dto: CreateQipActionDto,
   ): Promise<QipActionResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.create(user, dto);
   }
 
@@ -184,7 +181,6 @@ export class QipActionsController {
     @Query() query: ListQipActionsQueryDto,
   ): Promise<PaginatedResult<QipActionResponseDto>> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.findAll(user, query);
   }
 
@@ -209,7 +205,6 @@ export class QipActionsController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<QipActionsSummaryDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.getSummary(user);
   }
 
@@ -234,7 +229,6 @@ export class QipActionsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<QipActionResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.findOne(user, id);
   }
 
@@ -283,7 +277,6 @@ export class QipActionsController {
     @Body() dto: UpdateQipActionProgressDto,
   ): Promise<QipActionResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.updateProgress(user, id, dto);
   }
 
@@ -325,7 +318,6 @@ export class QipActionsController {
     @Body() dto: UpdateQipActionDto,
   ): Promise<QipActionResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.update(user, id, dto);
   }
 
@@ -345,7 +337,6 @@ export class QipActionsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     await this.service.remove(user, id);
   }
 }

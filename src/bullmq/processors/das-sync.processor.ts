@@ -3,10 +3,7 @@ import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Job, Queue } from 'bullmq';
 
-import {
-  setCurrentOrganisationId,
-  setCurrentUserId,
-} from '../../common/context/correlation-id-context.js';
+import { runWithTenantContext } from '../../common/context/correlation-id-context.js';
 import { isDasManualMode } from '../../das/das-client.factory.js';
 import { DAS_DLQ_JOB_DEAD_LETTER } from '../../das/das-dlq.constants.js';
 import { DasFundingSyncService } from '../../das/das-funding-sync.service.js';
@@ -15,7 +12,6 @@ import {
   DAS_JOB_SYNC_ORGANISATION,
 } from '../../das/das-job.constants.js';
 import { DasLevySyncService } from '../../das/das-levy-sync.service.js';
-import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
 import { QUEUE_DAS_SYNC, QUEUE_DAS_SYNC_DLQ } from '../bullmq.constants.js';
 
 import type { IDasSyncJobPayload } from '../../das/das-job.payload.js';
@@ -33,7 +29,26 @@ export class DasSyncProcessor extends WorkerHost {
     super();
   }
 
+  /**
+   * The job runs inside its own tenant store — what CorrelationIdMiddleware
+   * gives a request. The values used to be set on a process-global fallback,
+   * so two jobs interleaving on one worker read and wrote as each other's
+   * organisation; each job now carries its own for the whole of its work.
+   */
   async process(job: Job<IDasSyncJobPayload>): Promise<void> {
+    return runWithTenantContext(
+      {
+        label: `das-sync:${job.name}#${job.id ?? '?'}`,
+        organisationId: job.data.organisationId,
+        // No sentinel: app.current_user and audit actorUserId are uuids, and a
+        // job nobody requested has no acting user. Empty is the honest value.
+        userId: job.data.requestedByUserId,
+      },
+      () => this.processInContext(job),
+    );
+  }
+
+  private async processInContext(job: Job<IDasSyncJobPayload>): Promise<void> {
     if (
       job.name !== DAS_JOB_SYNC_ORGANISATION &&
       job.name !== DAS_JOB_SYNC_FUNDING_PAYMENTS
@@ -70,9 +85,6 @@ export class DasSyncProcessor extends WorkerHost {
     }
 
     const { organisationId, requestedByUserId } = job.data;
-    setCurrentOrganisationId(organisationId);
-    setCurrentUserId(requestedByUserId ?? 'system-das-sync');
-    setLastKnownUserIdForGuc(requestedByUserId ?? 'system-das-sync');
 
     try {
       if (job.name === DAS_JOB_SYNC_FUNDING_PAYMENTS) {

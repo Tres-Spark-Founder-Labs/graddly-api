@@ -3,11 +3,6 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import request from 'supertest';
 
 import { ORGANISATION_ID_HEADER } from '../src/common/constants/organisation-headers.js';
-import {
-  setCurrentOrganisationId,
-  setCurrentUserId,
-} from '../src/common/context/correlation-id-context.js';
-import { setLastKnownUserIdForGuc } from '../src/database/apply-tenant-gucs.js';
 import { ReviewReminderDispatch } from '../src/reviews/entities/review-reminder-dispatch.entity.js';
 import { Review } from '../src/reviews/entities/review.entity.js';
 import { ReviewReminderKind } from '../src/reviews/enums/review-reminder-kind.enum.js';
@@ -16,6 +11,7 @@ import { ReviewsReminderService } from '../src/reviews/reviews-reminder.service.
 import { createE2eApp } from './helpers/e2e-app.js';
 import { createVerifiedUser } from './helpers/e2e-http.js';
 import { buildOrgPayload } from './helpers/e2e-organisation.js';
+import { enterTenantContext } from './helpers/tenant-context.js';
 
 import type { App } from 'supertest/types';
 import type { Repository } from 'typeorm';
@@ -140,9 +136,11 @@ describe('Review reminders (e2e)', () => {
       .expect(201);
     const reviewId = (reviewRes.body as { data: { id: string } }).data.id;
 
-    setCurrentOrganisationId(orgId);
-    setCurrentUserId(owner.userId);
-    setLastKnownUserIdForGuc(owner.userId);
+    enterTenantContext({
+      label: 'e2e:review-reminders',
+      organisationId: orgId,
+      userId: owner.userId,
+    });
 
     await reviewRepo.update(reviewId, {
       scheduledAt: new Date(Date.now() + 48 * 60 * 60 * 1000),

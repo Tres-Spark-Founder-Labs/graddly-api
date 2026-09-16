@@ -8,7 +8,6 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 
 import {
   getRlsBootstrap,
-  resetSynchronousTenantFallback,
   runWithCorrelationId,
 } from '../common/context/correlation-id-context.js';
 import { DAS_CLIENT } from '../das/das-client.constants.js';
@@ -753,7 +752,6 @@ describe('LevyTransferService', () => {
       runWithCorrelationId({ correlationId: 'transfer-spec' }, fn);
 
     beforeEach(() => {
-      resetSynchronousTenantFallback();
       transferFindOne.mockResolvedValue(signedTransfer());
       donorLinkFindOne.mockResolvedValue({
         id: 'link-1',

@@ -24,7 +24,6 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { OrganisationRole } from '../organisations/organisation-role.enum.js';
 
 import { DasManualService } from './das-manual.service.js';
@@ -53,17 +52,12 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
  *
  * ── EVERY WRITE NAMES WHO MADE IT ───────────────────────────────────────────
  *
- * Each handler sets both tenant-context values before calling the service:
- *
- *   setCurrentUserId          the AsyncLocalStorage value the audit subscriber
- *                             reads for `actorUserId`
- *   setLastKnownUserIdForGuc  the fallback used when ALS is lost in a pool
- *                             callback — without it the RLS GUC resolves to an
- *                             empty string, and the write either fails the
- *                             policy or lands attributed to nobody
- *
- * Both, matching `das.controller.ts`. Setting only the first is the failure
- * that looks fine until a write happens on a pooled connection.
+ * Each handler sets the acting user on the request's tenant store before
+ * calling the service — the AsyncLocalStorage value the audit subscriber reads
+ * for `actorUserId` and the GUC resolver sends as `app.current_user`. That
+ * store is the only place the value lives: there used to be a second,
+ * process-global copy to set as well, and it is gone (see the "why there is no
+ * fallback" note in correlation-id-context.ts).
  */
 @ApiTags('DAS manual entry')
 @ApiBearerAuth()
@@ -73,10 +67,9 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
 export class DasManualController {
   constructor(private readonly service: DasManualService) {}
 
-  /** Sets both context values. Called at the top of every write handler. */
+  /** Sets the acting user on the store. Called at the top of every write handler. */
   private attribute(user: AuthenticatedUser): void {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
   }
 
   @Post('levy-balance')

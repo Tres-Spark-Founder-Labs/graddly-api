@@ -18,7 +18,6 @@ import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { EifCriterionDefinitionDto } from './dto/eif-criterion-response.dto.js';
 import {
@@ -115,7 +114,6 @@ export class EifScoresController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<EifScoresPayloadDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.eifScoreService.getScores(user);
   }
 
@@ -145,7 +143,6 @@ export class EifScoresController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<EifScoreTrendResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.snapshotService.getTrend(user.organisationId!);
   }
 }

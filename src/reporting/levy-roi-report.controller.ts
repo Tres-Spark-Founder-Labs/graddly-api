@@ -34,7 +34,6 @@ import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { SkipResponseEnvelope } from '../common/interceptors/skip-response-envelope.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { PdfJobResponseDto } from '../pdf/dto/pdf-job-response.dto.js';
 
 import {
@@ -111,7 +110,6 @@ export class LevyRoiReportController {
   })
   getSummary(@CurrentUser() user: AuthenticatedUser) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.levyRoiReportService.getSummary(user.organisationId!);
   }
 
@@ -139,7 +137,6 @@ export class LevyRoiReportController {
     @Query() query: ListLevyRoiBreakdownQueryDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.levyRoiReportService.getBreakdown(
       user.organisationId!,
       query.groupBy,
@@ -165,7 +162,6 @@ export class LevyRoiReportController {
   })
   exportPdf(@CurrentUser() user: AuthenticatedUser) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.levyRoiReportService.exportPdf(user);
   }
 
@@ -202,7 +198,6 @@ export class LevyRoiReportController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<string> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
 
     const csv = await this.levyRoiReportService.exportComparisonCsv(
       user.organisationId!,
@@ -237,7 +232,6 @@ export class LevyRoiReportController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<PdfJobResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.levyRoiReportService.exportComparisonPdf(user);
   }
 
@@ -262,7 +256,6 @@ export class LevyRoiReportController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<ReportSubscriberDto[]> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.subscriptionsService.list(user.organisationId!);
   }
 
@@ -301,7 +294,6 @@ export class LevyRoiReportController {
     @Body() dto: SetReportSubscribersDto,
   ): Promise<ReportSubscriberDto[]> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.subscriptionsService.replace(
       user.organisationId!,
       dto.userIds,

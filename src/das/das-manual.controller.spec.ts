@@ -1,22 +1,12 @@
 import { Test } from '@nestjs/testing';
 
-/**
- * Mocked so the GUC call is observable. `setLastKnownUserIdForGuc` writes to a
- * module-private variable with no exported reader, so a spy is the only way to
- * assert it ran.
- */
-jest.mock('../database/apply-tenant-gucs.js', () => ({
-  setLastKnownUserIdForGuc: jest.fn(),
-}));
-
 import { ActiveOrganisationGuard } from '../auth/guards/active-organisation.guard.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import {
-  getSynchronousTenantFallback,
-  resetSynchronousTenantFallback,
+  getCurrentUserId,
+  runWithCorrelationId,
 } from '../common/context/correlation-id-context.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { DasManualController } from './das-manual.controller.js';
 import { DasManualService } from './das-manual.service.js';
@@ -42,14 +32,10 @@ describe('DasManualController — actor attribution', () => {
   /**
    * The user id visible in the tenant context at the instant the service ran.
    *
-   * Read from `getSynchronousTenantFallback()` rather than `getCurrentUserId()`
-   * because the latter reads *only* the AsyncLocalStorage store, and a unit
-   * test has no request, so no store exists. `setCurrentUserId` writes to both;
-   * the fallback is the half observable here.
-   *
-   * That asymmetry is not an artefact of the test — it is exactly why
-   * `setLastKnownUserIdForGuc` exists, and why setting only the ALS value would
-   * leave writes unattributed on a pooled connection.
+   * Read from `getCurrentUserId()`, which reads only the AsyncLocalStorage
+   * store — the one place the value lives. Each call below therefore runs
+   * inside a store, as a request does under CorrelationIdMiddleware; outside
+   * one the setter is a no-op and there would be nothing to observe.
    */
   let seenUserId: string | null;
 
@@ -73,12 +59,11 @@ describe('DasManualController — actor attribution', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    resetSynchronousTenantFallback();
     seenUserId = null;
 
     // Every service method records the ambient user id at call time.
     capture.mockImplementation(() => {
-      seenUserId = getSynchronousTenantFallback().currentUserId ?? null;
+      seenUserId = getCurrentUserId() ?? null;
     });
     service.setLevyBalance.mockImplementation(() => {
       capture();
@@ -182,26 +167,27 @@ describe('DasManualController — actor attribution', () => {
   it.each(writes)(
     '%s attributes the write to the calling user',
     async (_route, call) => {
-      await call();
+      await runWithCorrelationId('request', call);
 
-      // The value AuditLogSubscriber reads for actorUserId.
+      // The value AuditLogSubscriber reads for actorUserId, and the one the
+      // GUC resolver sends as app.current_user.
       expect(seenUserId).toBe('user-42');
-
-      // And the RLS fallback, without which the write can land unattributed
-      // when ALS is lost in a pool callback.
-      expect(setLastKnownUserIdForGuc).toHaveBeenCalledWith('user-42');
     },
   );
 
   it('does not attribute to whoever wrote last', async () => {
-    await controller.setLevyBalance(user, { balance: '1.00' });
+    await runWithCorrelationId('request-1', () =>
+      controller.setLevyBalance(user, { balance: '1.00' }),
+    );
 
     const other = {
       id: 'user-99',
       organisationId: 'org-1',
       roles: ['owner'],
     } as unknown as AuthenticatedUser;
-    await controller.setLevyBalance(other, { balance: '2.00' });
+    await runWithCorrelationId('request-2', () =>
+      controller.setLevyBalance(other, { balance: '2.00' }),
+    );
 
     // A stale context would leave the second write signed by the first user —
     // the failure mode where every row in a busy hour carries one name.

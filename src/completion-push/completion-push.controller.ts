@@ -32,7 +32,6 @@ import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CompletionPushService } from './completion-push.service.js';
 import { EnrolmentCompletionPushResponseDto } from './dto/enrolment-completion-push-response.dto.js';
@@ -87,7 +86,6 @@ export class CompletionPushController {
     @Query() query: PaginationQueryDto,
   ): Promise<PaginatedResult<EnrolmentCompletionPushResponseDto>> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.listFailed(user, query);
   }
 
@@ -112,7 +110,6 @@ export class CompletionPushController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<EnrolmentCompletionPushResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.getOne(user, id);
   }
 
@@ -128,7 +125,6 @@ export class CompletionPushController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     await this.service.retryFailed(user, id);
   }
 }

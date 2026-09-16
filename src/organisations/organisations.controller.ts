@@ -39,7 +39,6 @@ import {
   ValidationErrorResponseDto,
 } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CreateOrganisationDto } from './dto/create-organisation.dto.js';
 import { OrganisationResponseDto } from './dto/organisation-response.dto.js';
@@ -89,7 +88,6 @@ export class OrganisationsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.organisationsService.create(dto, user.id);
   }
 
@@ -169,7 +167,6 @@ export class OrganisationsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.organisationsService.update(id, dto, user.organisationId!);
   }
 
@@ -194,7 +191,6 @@ export class OrganisationsController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     await this.organisationsService.remove(id, user.organisationId!);
   }
 }

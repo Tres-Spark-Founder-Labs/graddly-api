@@ -36,7 +36,6 @@ import {
   ValidationErrorResponseDto,
 } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CreateEvidencePackJobDto } from './dto/create-evidence-pack-job.dto.js';
 import { EvidencePackJobResponseDto } from './dto/evidence-pack-job-response.dto.js';
@@ -100,7 +99,6 @@ export class EvidencePackJobsController {
     @Body() dto: CreateEvidencePackJobDto,
   ): Promise<EvidencePackJobResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.jobsService.create(user, dto);
   }
 
@@ -130,7 +128,6 @@ export class EvidencePackJobsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<EvidencePackJobResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.jobsService.findOne(user, id);
   }
 }

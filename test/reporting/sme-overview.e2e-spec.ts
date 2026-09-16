@@ -1,19 +1,15 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
-import {
-  setCurrentOrganisationId,
-  setCurrentUserId,
-} from '../../src/common/context/correlation-id-context.js';
 import { DasFundingSyncService } from '../../src/das/das-funding-sync.service.js';
 import { DasHttpClient } from '../../src/das/das-http.client.js';
-import { setLastKnownUserIdForGuc } from '../../src/database/apply-tenant-gucs.js';
 import { createE2eApp } from '../helpers/e2e-app.js';
 import { expectSuccessEnvelope } from '../helpers/e2e-response-contracts.js';
 import {
   createEmployerReportingContext,
   createFlowSmeContext,
 } from '../helpers/reporting-e2e.js';
+import { enterTenantContext } from '../helpers/tenant-context.js';
 
 import type { App } from 'supertest/types';
 
@@ -80,9 +76,11 @@ describe('SmeOverviewController (e2e)', () => {
     ]);
 
     const fundingSync = app.get(DasFundingSyncService);
-    setCurrentOrganisationId(ctx.flowOrgId);
-    setCurrentUserId(ctx.owner.userId);
-    setLastKnownUserIdForGuc(ctx.owner.userId);
+    enterTenantContext({
+      label: 'e2e:sme-overview',
+      organisationId: ctx.flowOrgId,
+      userId: ctx.owner.userId,
+    });
     await fundingSync.syncOrganisation(ctx.flowOrgId, ctx.owner.userId);
 
     const res = await request(app.getHttpServer())

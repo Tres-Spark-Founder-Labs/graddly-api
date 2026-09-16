@@ -2,15 +2,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import request from 'supertest';
 
 import { ORGANISATION_ID_HEADER } from '../../src/common/constants/organisation-headers.js';
-import {
-  setCurrentOrganisationId,
-  setCurrentUserId,
-} from '../../src/common/context/correlation-id-context.js';
 import { DasHttpClient } from '../../src/das/das-http.client.js';
-import {
-  setLastKnownOrganisationIdForGuc,
-  setLastKnownUserIdForGuc,
-} from '../../src/database/apply-tenant-gucs.js';
 import { DasDonorLink } from '../../src/levy-exchange/entities/das-donor-link.entity.js';
 import { DasDonorOAuthToken } from '../../src/levy-exchange/entities/das-donor-oauth-token.entity.js';
 import { DasLevyTranche } from '../../src/levy-exchange/entities/das-levy-tranche.entity.js';
@@ -21,6 +13,7 @@ import { TokenEncryptionService } from '../../src/levy-exchange/services/token-e
 import { createVerifiedUser, type IVerifiedUserFixture } from './e2e-http.js';
 import { buildOrgPayload } from './e2e-organisation.js';
 import { expectSuccessEnvelope } from './e2e-response-contracts.js';
+import { enterTenantContext } from './tenant-context.js';
 
 import type { INestApplication } from '@nestjs/common';
 import type { App } from 'supertest/types';
@@ -120,11 +113,17 @@ export async function seedDonorLink(
   return { linkId, body: res.body };
 }
 
+/**
+ * Enters this organisation's tenant store for the rest of the caller's async
+ * chain — for seeding through repositories, which has no request to carry
+ * the store. See `enterTenantContext`.
+ */
 export function applyTenantContext(ctx: ILexOrgContext): void {
-  setCurrentOrganisationId(ctx.orgId);
-  setCurrentUserId(ctx.user.userId);
-  setLastKnownUserIdForGuc(ctx.user.userId);
-  setLastKnownOrganisationIdForGuc(ctx.orgId);
+  enterTenantContext({
+    label: `e2e:levy-exchange:${ctx.orgId}`,
+    organisationId: ctx.orgId,
+    userId: ctx.user.userId,
+  });
 }
 
 export async function seedLinkedDonor(

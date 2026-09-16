@@ -37,7 +37,6 @@ import { PaginationMetaDto } from '../../common/dto/pagination-meta.dto.js';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 import { ResponseMessage } from '../../common/interceptors/response-message.decorator.js';
 import { LearnerAccessible } from '../../common/learner-scope/learner-accessible.decorator.js';
-import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
 import { CreateMessageDto } from '../dto/create-message.dto.js';
 import { MessageResponseDto } from '../dto/message-response.dto.js';
 import { MessagesService } from '../messages.service.js';
@@ -97,7 +96,6 @@ export class MessagesController {
     @Query() query: PaginationQueryDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.messagesService.list(user, threadId, query);
   }
 
@@ -138,7 +136,6 @@ export class MessagesController {
     @Body() dto: CreateMessageDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.messagesService.create(user, threadId, dto);
   }
 }

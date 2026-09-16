@@ -36,7 +36,6 @@ import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { PdfJobResponseDto } from '../pdf/dto/pdf-job-response.dto.js';
 
 import { BulkScheduleFromEnrolmentsDto } from './dto/bulk-schedule-from-enrolments.dto.js';
@@ -108,7 +107,6 @@ export class ReviewsController {
     @Body() dto: CreateReviewDto,
   ): Promise<ReviewResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.reviewsService.create(user, dto);
   }
 
@@ -129,7 +127,6 @@ export class ReviewsController {
     @Body() dto: BulkScheduleReviewsDto,
   ): Promise<BulkScheduleReviewsResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.reviewsService.bulkSchedule(user, dto.items);
   }
 
@@ -165,7 +162,6 @@ export class ReviewsController {
     @Body() dto: BulkScheduleFromEnrolmentsDto,
   ): Promise<BulkScheduleReviewsResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.reviewsService.bulkScheduleFromEnrolments(user, dto);
   }
 
@@ -259,7 +255,6 @@ export class ReviewsController {
     @Body() dto: UpdateReviewDto,
   ): Promise<ReviewResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.reviewsService.update(user, id, dto);
   }
 
@@ -281,7 +276,6 @@ export class ReviewsController {
     @Body() dto: UpsertReviewRecordDto,
   ): Promise<ReviewRecordResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.recordsService.upsert(user, id, dto);
   }
 
@@ -355,7 +349,6 @@ export class ReviewsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<PdfJobResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.snapshotService.requestSnapshot(user, id);
   }
 
@@ -383,7 +376,6 @@ export class ReviewsController {
     @Req() req: Request,
   ): Promise<SignReviewResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     const userAgent = req.headers['user-agent'];
     return this.coSignService.sign(
       user,

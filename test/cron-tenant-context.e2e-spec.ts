@@ -33,6 +33,18 @@ import type { App } from 'supertest/types';
  *
  * The service-level tests run through the Nest app, whose own connection is
  * also `graddly_app` (`.env.test`), so they exercise the real thing.
+ *
+ * WHAT THIS SUITE CANNOT SEE:
+ *
+ * It runs one job at a time. It passed 4/4 while `resolveTenantGucValues`
+ * still fell through to a process-global fallback — the defect where two
+ * jobs interleaving on one worker, or a request with no organisation beside
+ * one with, read and wrote as each other's tenant. Interleaving is the whole
+ * of that defect, and a suite that runs jobs in sequence has nothing to
+ * interleave, so it passed for the wrong reason. The interleaving is proved
+ * at the value each statement sends in
+ * `src/database/tenant-guc-org-resolution.spec.ts`; this suite proves the
+ * per-job store reaches the database as `graddly_app`, one job at a time.
  */
 describe('Cron tenant context (e2e)', () => {
   let app: INestApplication<App>;

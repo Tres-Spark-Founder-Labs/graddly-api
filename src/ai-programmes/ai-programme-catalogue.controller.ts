@@ -25,7 +25,6 @@ import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { AiProgrammeCatalogueService } from './ai-programme-catalogue.service.js';
 import {
@@ -83,7 +82,6 @@ export class AiProgrammeCatalogueController {
   })
   list(@CurrentUser() user: AuthenticatedUser) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.catalogueService.listCatalogue(user.organisationId!);
   }
 
@@ -113,7 +111,6 @@ export class AiProgrammeCatalogueController {
     @Param('programmeId', ParseUUIDPipe) programmeId: string,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.catalogueService.getCatalogueDetail(
       user.organisationId!,
       programmeId,

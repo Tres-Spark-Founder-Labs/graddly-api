@@ -8,11 +8,7 @@ import {
   QUEUE_ILR_SUBMIT,
   QUEUE_ILR_SUBMIT_DLQ,
 } from '../bullmq/bullmq.constants.js';
-import {
-  setCurrentOrganisationId,
-  setCurrentUserId,
-} from '../common/context/correlation-id-context.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
+import { runWithTenantContext } from '../common/context/correlation-id-context.js';
 import { EnrolmentPushService } from '../enrolment-push/enrolment-push.service.js';
 import { EnrolmentPushTrigger } from '../enrolment-push/enums/enrolment-push-trigger.enum.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
@@ -53,7 +49,26 @@ export class IlrSubmitProcessor extends WorkerHost {
     super();
   }
 
+  /**
+   * The job runs inside its own tenant store — what CorrelationIdMiddleware
+   * gives a request. The values used to be set on a process-global fallback,
+   * so two jobs interleaving on one worker read and wrote as each other's
+   * organisation; each job now carries its own for the whole of its work.
+   */
   async process(job: Job<IIlrSubmitJobPayload>): Promise<void> {
+    return runWithTenantContext(
+      {
+        label: `ilr-submit:${job.name}#${job.id ?? '?'}`,
+        organisationId: job.data.organisationId,
+        userId: job.data.requestedByUserId,
+      },
+      () => this.processInContext(job),
+    );
+  }
+
+  private async processInContext(
+    job: Job<IIlrSubmitJobPayload>,
+  ): Promise<void> {
     if (job.name !== ILR_SUBMIT_JOB_PROCESS) {
       this.logger.warn(
         `Unknown job name "${job.name}" on ${QUEUE_ILR_SUBMIT} (job ${job.id})`,
@@ -62,9 +77,6 @@ export class IlrSubmitProcessor extends WorkerHost {
     }
 
     const { submissionId, organisationId, requestedByUserId } = job.data;
-    setCurrentOrganisationId(organisationId);
-    setCurrentUserId(requestedByUserId);
-    setLastKnownUserIdForGuc(requestedByUserId);
 
     const submission = await this.submissionRepo.findOne({
       where: { id: submissionId, organisationId, isDeleted: false },

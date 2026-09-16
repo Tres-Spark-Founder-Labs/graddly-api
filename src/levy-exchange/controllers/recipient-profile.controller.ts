@@ -24,7 +24,6 @@ import {
   ValidationErrorResponseDto,
 } from '../../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
 import { RecipientProfileResponseDto } from '../dto/recipient-profile-response.dto.js';
 import { UpsertRecipientProfileDto } from '../dto/upsert-recipient-profile.dto.js';
 import { LevyRecipientProfileService } from '../services/levy-recipient-profile.service.js';
@@ -84,7 +83,6 @@ export class RecipientProfileController {
     @Body() dto: UpsertRecipientProfileDto,
   ): Promise<RecipientProfileResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.recipientProfileService.upsert(user.organisationId!, dto);
   }
 
@@ -110,7 +108,6 @@ export class RecipientProfileController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<RecipientProfileResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.recipientProfileService.get(user.organisationId!);
   }
 }

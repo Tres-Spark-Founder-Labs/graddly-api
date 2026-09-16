@@ -42,7 +42,6 @@ import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CreateProgrammeDto } from './dto/create-programme.dto.js';
 import { ProgrammeResponseDto } from './dto/programme-response.dto.js';
@@ -97,7 +96,6 @@ export class ProgrammesController {
     @Body() dto: CreateProgrammeDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.programmesService.create(user, dto);
   }
 
@@ -122,7 +120,6 @@ export class ProgrammesController {
     @Query() query: PaginationQueryDto,
   ): Promise<PaginatedResult<ProgrammeResponseDto>> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.programmesService.findAll(user, query);
   }
 
@@ -147,7 +144,6 @@ export class ProgrammesController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.programmesService.findOne(user, id);
   }
 
@@ -181,7 +177,6 @@ export class ProgrammesController {
     @Body() dto: UpdateProgrammeDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.programmesService.update(user, id, dto);
   }
 
@@ -199,7 +194,6 @@ export class ProgrammesController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     await this.programmesService.remove(user, id);
   }
 }

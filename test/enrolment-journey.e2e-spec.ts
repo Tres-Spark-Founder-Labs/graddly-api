@@ -1,11 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
-import {
-  setCurrentOrganisationId,
-  setCurrentUserId,
-} from '../src/common/context/correlation-id-context.js';
-import { setLastKnownUserIdForGuc } from '../src/database/apply-tenant-gucs.js';
 import { Enrolment } from '../src/enrolments/entities/enrolment.entity.js';
 import { OtjPaceAlertLevel } from '../src/otj/enums/otj-pace-alert-level.enum.js';
 import { OtjPaceService } from '../src/otj/otj-pace.service.js';
@@ -18,6 +13,7 @@ import {
   seedProgrammeGraph,
 } from './helpers/programme-graph-e2e.js';
 import { createE2ePgClient } from './helpers/rls-db.js';
+import { enterTenantContext } from './helpers/tenant-context.js';
 
 import type { App } from 'supertest/types';
 
@@ -196,9 +192,11 @@ describe('Enrolment journey + OTJ pace (e2e)', () => {
     }
     expect(enrolmentRow).toBeTruthy();
 
-    setCurrentOrganisationId(enrolmentRow.organisationId);
-    setCurrentUserId(apprentice.userId);
-    setLastKnownUserIdForGuc(apprentice.userId);
+    enterTenantContext({
+      label: 'e2e:enrolment-journey',
+      organisationId: enrolmentRow.organisationId,
+      userId: apprentice.userId,
+    });
     await paceService.evaluateEnrolmentPace(enrolmentRow, {
       asOf: new Date('2025-10-01T00:00:00.000Z'),
     });

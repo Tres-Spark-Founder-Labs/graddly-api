@@ -11,11 +11,7 @@ import { CommitmentSignature } from '../../commitments/entities/commitment-signa
 import { CommitmentStatement } from '../../commitments/entities/commitment-statement.entity.js';
 import { CommitmentSignatureStatus } from '../../commitments/enums/commitment-signature-status.enum.js';
 import { CommitmentStatementStatus } from '../../commitments/enums/commitment-statement-status.enum.js';
-import {
-  setCurrentOrganisationId,
-  setCurrentUserId,
-} from '../../common/context/correlation-id-context.js';
-import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
+import { runWithTenantContext } from '../../common/context/correlation-id-context.js';
 import { ListLearnerCohortQueryDto } from '../../learners/dto/list-learner-cohort-query.dto.js';
 import { LearnerCohortService } from '../../learners/learner-cohort.service.js';
 import { LevyTransferDocument } from '../../levy-exchange/entities/levy-transfer-document.entity.js';
@@ -91,7 +87,24 @@ export class PdfGenerationProcessor extends WorkerHost {
     super();
   }
 
+  /**
+   * The job runs inside its own tenant store — what CorrelationIdMiddleware
+   * gives a request. The values used to be set on a process-global fallback,
+   * so two jobs interleaving on one worker read and wrote as each other's
+   * organisation; each job now carries its own for the whole of its work.
+   */
   async process(job: Job<IPdfJobPayload>): Promise<void> {
+    return runWithTenantContext(
+      {
+        label: `pdf:${job.name}#${job.id ?? '?'}`,
+        organisationId: job.data.organisationId,
+        userId: job.data.userId,
+      },
+      () => this.processInContext(job),
+    );
+  }
+
+  private async processInContext(job: Job<IPdfJobPayload>): Promise<void> {
     if (job.name !== PDF_JOB_GENERATE) {
       this.logger.warn(
         `Unknown job name "${job.name}" on ${QUEUE_PDF} queue (job ${job.id})`,
@@ -108,9 +121,6 @@ export class PdfGenerationProcessor extends WorkerHost {
       statementId,
       transferId,
     } = job.data;
-    setCurrentUserId(userId);
-    setCurrentOrganisationId(organisationId);
-    setLastKnownUserIdForGuc(userId);
 
     await this.jobRepo.update(jobId, { status: PdfJobStatus.PROCESSING });
 

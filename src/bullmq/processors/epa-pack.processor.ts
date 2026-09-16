@@ -4,11 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Job } from 'bullmq';
 import { Repository } from 'typeorm';
 
-import {
-  setCurrentOrganisationId,
-  setCurrentUserId,
-} from '../../common/context/correlation-id-context.js';
-import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
+import { runWithTenantContext } from '../../common/context/correlation-id-context.js';
 import { EpaPackJob } from '../../portfolio/entities/epa-pack-job.entity.js';
 import { EpaPackJobStatus } from '../../portfolio/enums/epa-pack-job-status.enum.js';
 import { EpaPackBuilderService } from '../../portfolio/epa-pack-builder.service.js';
@@ -34,7 +30,24 @@ export class EpaPackProcessor extends WorkerHost {
     super();
   }
 
+  /**
+   * The job runs inside its own tenant store — what CorrelationIdMiddleware
+   * gives a request. The values used to be set on a process-global fallback,
+   * so two jobs interleaving on one worker read and wrote as each other's
+   * organisation; each job now carries its own for the whole of its work.
+   */
   async process(job: Job<IEpaPackJobPayload>): Promise<void> {
+    return runWithTenantContext(
+      {
+        label: `epa-pack:${job.name}#${job.id ?? '?'}`,
+        organisationId: job.data.organisationId,
+        userId: job.data.userId,
+      },
+      () => this.processInContext(job),
+    );
+  }
+
+  private async processInContext(job: Job<IEpaPackJobPayload>): Promise<void> {
     if (job.name !== EPA_PACK_JOB_BUILD) {
       this.logger.warn(
         `Unknown job name "${job.name}" on ${QUEUE_EPA_PACK} (job ${job.id})`,
@@ -43,9 +56,6 @@ export class EpaPackProcessor extends WorkerHost {
     }
 
     const { jobId, organisationId, userId, enrolmentId } = job.data;
-    setCurrentUserId(userId);
-    setCurrentOrganisationId(organisationId);
-    setLastKnownUserIdForGuc(userId);
 
     await this.jobRepo.update(jobId, {
       status: EpaPackJobStatus.PROCESSING,

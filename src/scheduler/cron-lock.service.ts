@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { runWithTenantContext } from '../common/context/correlation-id-context.js';
 import { RedisService } from '../redis/redis.service.js';
 
 export interface ICronLockRunResult<T> {
@@ -29,8 +30,18 @@ export class CronLockService {
     fn: () => Promise<T>,
     options?: { ttlSeconds?: number },
   ): Promise<ICronLockRunResult<T>> {
+    /**
+     * The cron's own tenant store, carrying no organisation: a sweep reads
+     * across tenants inside withRlsBootstrap and enters a per-organisation
+     * store (runWithTenantContext) for anything scoped. Without this a cron
+     * had no store at all and its setters wrote a process-global fallback
+     * that every concurrent job and request could read.
+     */
+    const run = (): Promise<T> =>
+      runWithTenantContext({ label: `cron:${jobName}` }, fn);
+
     if (!this.config.get<boolean>('app.cron.lockEnabled', true)) {
-      const result = await fn();
+      const result = await run();
       return { ran: true, result };
     }
 
@@ -48,7 +59,7 @@ export class CronLockService {
     }
 
     try {
-      const result = await fn();
+      const result = await run();
       return { ran: true, result };
     } finally {
       await this.redis.releaseLockIfOwner(key, this.instanceId);

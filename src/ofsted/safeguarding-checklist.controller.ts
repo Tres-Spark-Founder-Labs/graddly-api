@@ -23,7 +23,6 @@ import {
   ValidationErrorResponseDto,
 } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { PatchSafeguardingChecklistItemDto } from './dto/patch-safeguarding-checklist-item.dto.js';
 import { SafeguardingChecklistItemResponseDto } from './dto/safeguarding-checklist-item-response.dto.js';
@@ -79,7 +78,6 @@ export class SafeguardingChecklistController {
   })
   list(@CurrentUser() user: AuthenticatedUser) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.safeguardingService.list(user);
   }
 
@@ -114,7 +112,6 @@ export class SafeguardingChecklistController {
     @Body() dto: PatchSafeguardingChecklistItemDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.safeguardingService.markComplete(user, slug, dto);
   }
 }

@@ -4,15 +4,7 @@ import { Injectable, NestMiddleware } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
 import { NextFunction, Request, Response } from 'express';
 
-import {
-  clearLastKnownOrganisationIdForGuc,
-  clearLastKnownUserIdForGuc,
-} from '../../database/apply-tenant-gucs.js';
-import {
-  clearTenantRequestContext,
-  enterCorrelationContext,
-  resetSynchronousTenantFallback,
-} from '../context/correlation-id-context.js';
+import { enterCorrelationContext } from '../context/correlation-id-context.js';
 
 const MAX_INCOMING_ID_LENGTH = 128;
 
@@ -47,17 +39,16 @@ export class CorrelationIdMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction): void {
     const correlationId = resolveCorrelationId(req);
     res.setHeader('X-Request-Id', correlationId);
-    resetSynchronousTenantFallback();
-    enterCorrelationContext(correlationId);
+    // The request's own store, labelled with its route for tenant warnings.
+    // Nothing is cleared on finish: the store ends with the request's async
+    // chain, and there is no process-global tenant state left to reset — the
+    // clear that used to run here could land after the next request had
+    // started, which was one of the ways one request's tenant reached another.
+    enterCorrelationContext({
+      correlationId,
+      label: `${req.method} ${req.originalUrl.split('?')[0]}`,
+    });
     Sentry.getIsolationScope().setTag('correlation_id', correlationId);
-    const clearRequestTenantState = (): void => {
-      resetSynchronousTenantFallback();
-      clearLastKnownUserIdForGuc();
-      clearLastKnownOrganisationIdForGuc();
-      clearTenantRequestContext(correlationId);
-    };
-    res.on('finish', clearRequestTenantState);
-    res.on('close', clearRequestTenantState);
     next();
   }
 }

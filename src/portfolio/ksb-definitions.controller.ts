@@ -32,7 +32,6 @@ import { ORGANISATION_ID_HEADER } from '../common/constants/organisation-headers
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CreateKsbDefinitionDto } from './dto/create-ksb-definition.dto.js';
 import { KsbDefinitionResponseDto } from './dto/ksb-definition-response.dto.js';
@@ -80,7 +79,6 @@ export class KsbDefinitionsController {
     @Body() dto: CreateKsbDefinitionDto,
   ): Promise<KsbDefinitionResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.createForStandard(user, standardId, dto);
   }
 
@@ -123,7 +121,6 @@ export class KsbDefinitionsController {
     @Body() dto: UpdateKsbDefinitionDto,
   ): Promise<KsbDefinitionResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.update(user, id, dto);
   }
 
@@ -137,7 +134,6 @@ export class KsbDefinitionsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     await this.service.remove(user, id);
   }
 }

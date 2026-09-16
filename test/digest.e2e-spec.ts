@@ -4,11 +4,6 @@ import request from 'supertest';
 
 import { QUEUE_EMAIL } from '../src/bullmq/bullmq.constants.js';
 import { ORGANISATION_ID_HEADER } from '../src/common/constants/organisation-headers.js';
-import {
-  setCurrentOrganisationId,
-  setCurrentUserId,
-} from '../src/common/context/correlation-id-context.js';
-import { setLastKnownUserIdForGuc } from '../src/database/apply-tenant-gucs.js';
 import { OtjDigestService } from '../src/notifications/otj-digest.service.js';
 import { OtjActivityCategory } from '../src/otj/enums/otj-activity-category.enum.js';
 import { OtjLogStatus } from '../src/otj/enums/otj-log-status.enum.js';
@@ -16,6 +11,7 @@ import { OtjLogStatus } from '../src/otj/enums/otj-log-status.enum.js';
 import { createE2eApp } from './helpers/e2e-app.js';
 import { createVerifiedUser } from './helpers/e2e-http.js';
 import { buildOrgPayload } from './helpers/e2e-organisation.js';
+import { enterTenantContext } from './helpers/tenant-context.js';
 
 import type { Queue } from 'bullmq';
 import type { App } from 'supertest/types';
@@ -127,9 +123,11 @@ describe('OTJ digest (e2e)', () => {
       .send({ status: OtjLogStatus.SUBMITTED })
       .expect(200);
 
-    setCurrentOrganisationId(orgId);
-    setCurrentUserId(manager.userId);
-    setLastKnownUserIdForGuc(manager.userId);
+    enterTenantContext({
+      label: 'e2e:digest',
+      organisationId: orgId,
+      userId: manager.userId,
+    });
 
     const countsBefore = await emailQueue.getJobCounts(
       'waiting',

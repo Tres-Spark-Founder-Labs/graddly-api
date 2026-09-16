@@ -23,7 +23,6 @@ import {
 } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import {
   CreatePresignedDownloadDto,
@@ -84,7 +83,6 @@ export class StorageController {
     @Body() dto: CreatePresignedUploadDto,
   ): Promise<PresignedUploadResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.storageService.createUploadUrl(user.organisationId!, dto);
   }
 
@@ -109,7 +107,6 @@ export class StorageController {
     @Body() dto: CreatePresignedDownloadDto,
   ): Promise<PresignedDownloadResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.storageService.createDownloadUrl(user.organisationId!, dto);
   }
 }

@@ -45,7 +45,6 @@ import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { BulkOtjActionResponseDto } from './dto/bulk-otj-action-response.dto.js';
 import {
@@ -154,7 +153,6 @@ export class OtjLogEntriesController {
     @Body() dto: CreateOtjLogEntryDto,
   ): Promise<OtjLogEntryResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.create(user, dto);
   }
 
@@ -184,7 +182,6 @@ export class OtjLogEntriesController {
     @Query() query: ListOtjLogEntriesQueryDto,
   ): Promise<PaginatedResult<OtjLogEntryResponseDto>> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.findAll(user, query);
   }
 
@@ -217,7 +214,6 @@ export class OtjLogEntriesController {
     @Body() dto: BulkOtjApproveDto,
   ): Promise<BulkOtjActionResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.bulkApprove(user, dto.ids);
   }
 
@@ -250,7 +246,6 @@ export class OtjLogEntriesController {
     @Body() dto: BulkOtjRejectDto,
   ): Promise<BulkOtjActionResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.bulkReject(user, dto.ids, dto.reason);
   }
 
@@ -275,7 +270,6 @@ export class OtjLogEntriesController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<OtjLogEntryResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.findOne(user, id);
   }
 
@@ -312,7 +306,6 @@ export class OtjLogEntriesController {
     @Body() dto: FlagOtjLogEntryDto,
   ): Promise<OtjLogEntryResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.flag(user, id, dto);
   }
 
@@ -332,7 +325,6 @@ export class OtjLogEntriesController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<OtjLogEntryResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.unflag(user, id);
   }
 
@@ -372,7 +364,6 @@ export class OtjLogEntriesController {
     @Body() dto: UpdateOtjLogEntryDto,
   ): Promise<OtjLogEntryResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.update(user, id, dto);
   }
 
@@ -391,7 +382,6 @@ export class OtjLogEntriesController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     await this.service.remove(user, id);
   }
 }

@@ -2,6 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 
+import { runWithTenantContext } from '../../common/context/correlation-id-context.js';
 import { OtjDigestService } from '../../notifications/otj-digest.service.js';
 import { DIGEST_JOB_WEEKLY_OTJ, QUEUE_DIGEST } from '../bullmq.constants.js';
 
@@ -15,7 +16,25 @@ export class DigestProcessor extends WorkerHost {
     super();
   }
 
+  /**
+   * The job runs inside its own tenant store — what CorrelationIdMiddleware
+   * gives a request. The values used to be set on a process-global fallback,
+   * so two jobs interleaving on one worker read and wrote as each other's
+   * organisation; each job now carries its own for the whole of its work.
+   */
   async process(job: Job<IWeeklyOtjDigestJobPayload>): Promise<void> {
+    return runWithTenantContext(
+      {
+        label: `digest:${job.name}#${job.id ?? '?'}`,
+        organisationId: job.data.organisationId,
+      },
+      () => this.processInContext(job),
+    );
+  }
+
+  private async processInContext(
+    job: Job<IWeeklyOtjDigestJobPayload>,
+  ): Promise<void> {
     switch (job.name) {
       // The job name string stays "weekly-otj-digest" for wire compatibility:
       // it is persisted in Redis, so renaming it would strand jobs already

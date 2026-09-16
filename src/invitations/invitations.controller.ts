@@ -47,7 +47,6 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 import { parsePortalType } from '../common/utils/parse-portal-type.util.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
 
 import { AcceptInvitationResultDto } from './dto/accept-invitation-result.dto.js';
@@ -112,7 +111,6 @@ export class InvitationsController {
     @Body() dto: AcceptInvitationDto,
   ): Promise<AcceptInvitationResultDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.invitationsService.accept(user, dto);
   }
 
@@ -149,7 +147,6 @@ export class InvitationsController {
     @Query() query: PaginationQueryDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.invitationsService.list(user, query);
   }
 
@@ -200,7 +197,6 @@ export class InvitationsController {
     @Headers(PORTAL_TYPE_HEADER) rawPortalType?: string,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.invitationsService.create(
       user,
       dto,
@@ -252,7 +248,6 @@ export class InvitationsController {
     @Headers(PORTAL_TYPE_HEADER) rawPortalType?: string,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.invitationsService.resend(
       user,
       id,
@@ -287,7 +282,6 @@ export class InvitationsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     await this.invitationsService.revoke(user, id);
   }
 }

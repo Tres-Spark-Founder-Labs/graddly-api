@@ -28,7 +28,6 @@ import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { DasApiActivityService } from './das-api-activity.service.js';
 import { isDasManualMode } from './das-client.factory.js';
@@ -110,7 +109,6 @@ export class DasController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<DasSyncStatusResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.syncStatusService.getStatus(user.organisationId!);
   }
 
@@ -138,7 +136,6 @@ export class DasController {
     @Query() query: ListDasActivityQueryDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     const result = await this.activityService.list(user.organisationId!, query);
     return new PaginatedResult(
       result.items.map(
@@ -197,7 +194,6 @@ export class DasController {
     }
 
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     const queued = await this.dispatch.enqueueSync({
       organisationId: user.organisationId!,
       requestedByUserId: user.id,
@@ -223,7 +219,6 @@ export class DasController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<DasLevyBalanceResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.levySyncService.getLatestForOrganisation(user.organisationId!);
   }
 
@@ -246,7 +241,6 @@ export class DasController {
     @Query('horizonMonths') horizonMonths?: string,
   ): Promise<DasLevyForecastResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     const parsed = Number(horizonMonths ?? 12);
     return this.levyForecastService.forecastForOrganisation(
       user.organisationId!,
@@ -279,7 +273,6 @@ export class DasController {
     @Query() query: ListDasFundingPaymentsQueryDto,
   ) {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     const result = await this.fundingSyncService.listPayments(
       user.organisationId!,
       query,

@@ -304,10 +304,18 @@ against the helper:
   that window is a content question — no different from a sequence of reads
   inside one — and is the real remainder.
 
-**Reported, not changed:** `resolveTenantGucValues` still resolves the
+**Fixed, same shape:** `resolveTenantGucValues` used to resolve the
 organisation and user with `??` through the same process-global fallback and
-the `lastKnown*` globals, so a store that lacks them can take another request's
-values. Same class of defect as the flag, outside this change.
+the `lastKnown*` globals, so a store that lacked them took another request's
+values — and a worker job, which had no store at all, took whichever job wrote
+last. Those globals are deleted. The resolver reads the store and nothing else;
+a store without an organisation sends `''`, which `app_current_org()` never
+matches, so the request fails closed and a once-per-route warning names it.
+Every BullMQ processor and every cron (through `CronLockService.runExclusive`)
+enters its own store with `runWithTenantContext`.
+`src/database/tenant-guc-org-resolution.spec.ts` is the acceptance check and
+`src/common/context/tenant-store-mechanism.spec.ts` fails if a process-global
+tenant value is reintroduced.
 
 Where this rule comes up next:
 `MessageThreadsService.listSummariesForEnrolment` does a column-scoped

@@ -36,7 +36,6 @@ import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { PresignedUploadResponseDto } from '../storage/dto/create-presigned-upload.dto.js';
 
 import { CreateKsEvidenceItemDto } from './dto/create-ks-evidence-item.dto.js';
@@ -94,7 +93,6 @@ export class KsEvidenceItemsController {
     @Body() dto: CreateKsEvidenceUploadUrlDto,
   ): Promise<PresignedUploadResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.createUploadUrl(user, dto);
   }
 
@@ -116,7 +114,6 @@ export class KsEvidenceItemsController {
     @Body() dto: CreateKsEvidenceItemDto,
   ): Promise<KsEvidenceItemResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.create(user, dto);
   }
 
@@ -182,7 +179,6 @@ export class KsEvidenceItemsController {
     @Body() dto: UpdateKsEvidenceItemDto,
   ): Promise<KsEvidenceItemResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.update(user, id, dto);
   }
 
@@ -204,7 +200,6 @@ export class KsEvidenceItemsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<KsEvidenceItemResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.submit(user, id);
   }
 
@@ -227,7 +222,6 @@ export class KsEvidenceItemsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<KsEvidenceItemResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.review(user, id);
   }
 
@@ -248,7 +242,6 @@ export class KsEvidenceItemsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<KsEvidenceItemResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.accept(user, id);
   }
 
@@ -272,7 +265,6 @@ export class KsEvidenceItemsController {
     @Body() dto: ReturnKsEvidenceItemDto,
   ): Promise<KsEvidenceItemResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.service.returnToDraft(user, id, dto.reason);
   }
 
@@ -287,7 +279,6 @@ export class KsEvidenceItemsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     await this.service.remove(user, id);
   }
 }

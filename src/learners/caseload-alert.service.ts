@@ -3,11 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
 import {
-  setCurrentOrganisationId,
-  setCurrentUserId,
+  runWithTenantContext,
   withRlsBootstrap,
 } from '../common/context/correlation-id-context.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
@@ -119,53 +117,58 @@ export class CaseloadAlertService {
      * returns nothing — the sweep would then cheerfully report zero at-risk
      * tutors everywhere.
      */
-    setCurrentOrganisationId(organisationId);
     const actingUserId = managers[0].user.id;
-    setCurrentUserId(actingUserId);
-    setLastKnownUserIdForGuc(actingUserId);
-
-    const caseload = await this.caseloadService.getCaseload({
-      id: actingUserId,
-      organisationId,
-    } as never);
-
-    const breaching = caseload.tutors.filter(
-      (tutor) => tutor.exceedsAtRiskThreshold,
-    );
-    if (breaching.length === 0) {
-      return 0;
-    }
-
-    const body = breaching
-      .map(
-        (tutor) =>
-          `${tutor.tutorName}: ${tutor.atRiskCount} at-risk of ${tutor.learnerCount}`,
-      )
-      .join('; ');
-
-    let sent = 0;
-    for (const manager of managers) {
-      await this.notificationsService.createForUser({
-        userId: manager.user.id,
+    return runWithTenantContext(
+      {
+        label: `caseload-alert:${organisationId}`,
         organisationId,
-        type: NotificationType.CASELOAD_AT_RISK,
-        title:
-          breaching.length === 1
-            ? 'A tutor is over the at-risk caseload threshold'
-            : `${breaching.length} tutors are over the at-risk caseload threshold`,
-        body: `More than ${caseload.atRiskThreshold} at-risk learners — ${body}.`,
-        metadata: {
-          threshold: caseload.atRiskThreshold,
-          tutors: breaching.map((tutor) => ({
-            tutorUserId: tutor.tutorUserId,
-            tutorName: tutor.tutorName,
-            atRiskCount: tutor.atRiskCount,
-          })),
-        },
-      });
-      sent += 1;
-    }
+        userId: actingUserId,
+      },
+      async () => {
+        const caseload = await this.caseloadService.getCaseload({
+          id: actingUserId,
+          organisationId,
+        } as never);
 
-    return sent;
+        const breaching = caseload.tutors.filter(
+          (tutor) => tutor.exceedsAtRiskThreshold,
+        );
+        if (breaching.length === 0) {
+          return 0;
+        }
+
+        const body = breaching
+          .map(
+            (tutor) =>
+              `${tutor.tutorName}: ${tutor.atRiskCount} at-risk of ${tutor.learnerCount}`,
+          )
+          .join('; ');
+
+        let sent = 0;
+        for (const manager of managers) {
+          await this.notificationsService.createForUser({
+            userId: manager.user.id,
+            organisationId,
+            type: NotificationType.CASELOAD_AT_RISK,
+            title:
+              breaching.length === 1
+                ? 'A tutor is over the at-risk caseload threshold'
+                : `${breaching.length} tutors are over the at-risk caseload threshold`,
+            body: `More than ${caseload.atRiskThreshold} at-risk learners — ${body}.`,
+            metadata: {
+              threshold: caseload.atRiskThreshold,
+              tutors: breaching.map((tutor) => ({
+                tutorUserId: tutor.tutorUserId,
+                tutorName: tutor.tutorName,
+                atRiskCount: tutor.atRiskCount,
+              })),
+            },
+          });
+          sent += 1;
+        }
+
+        return sent;
+      },
+    );
   }
 }

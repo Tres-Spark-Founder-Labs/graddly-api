@@ -6,11 +6,7 @@ import { Job } from 'bullmq';
 import { Repository } from 'typeorm';
 
 import { QUEUE_WITHDRAWAL_PUSH } from '../bullmq/bullmq.constants.js';
-import {
-  setCurrentOrganisationId,
-  setCurrentUserId,
-} from '../common/context/correlation-id-context.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
+import { runWithTenantContext } from '../common/context/correlation-id-context.js';
 
 import { WithdrawalCompletionPush } from './entities/withdrawal-completion-push.entity.js';
 import { WithdrawalPushStatus } from './enums/withdrawal-push-status.enum.js';
@@ -29,14 +25,32 @@ export class WithdrawalPushProcessor extends WorkerHost {
     super();
   }
 
+  /**
+   * The job runs inside its own tenant store — what CorrelationIdMiddleware
+   * gives a request. The values used to be set on a process-global fallback,
+   * so two jobs interleaving on one worker read and wrote as each other's
+   * organisation; each job now carries its own for the whole of its work.
+   */
   async process(job: Job<IWithdrawalPushJobPayload>): Promise<void> {
+    return runWithTenantContext(
+      {
+        label: `withdrawal-push:${job.name}#${job.id ?? '?'}`,
+        organisationId: job.data.organisationId,
+        // No sentinel: app.current_user and audit actorUserId are uuids, and a
+        // job nobody requested has no acting user. Empty is the honest value.
+        userId: job.data.requestedByUserId,
+      },
+      () => this.processInContext(job),
+    );
+  }
+
+  private async processInContext(
+    job: Job<IWithdrawalPushJobPayload>,
+  ): Promise<void> {
     if (job.name !== WITHDRAWAL_PUSH_JOB_SEND) {
       return;
     }
-    const { pushId, organisationId, requestedByUserId } = job.data;
-    setCurrentOrganisationId(organisationId);
-    setCurrentUserId(requestedByUserId ?? 'system-withdrawal-push');
-    setLastKnownUserIdForGuc(requestedByUserId ?? 'system-withdrawal-push');
+    const { pushId } = job.data;
 
     const record = await this.repo.findOne({ where: { id: pushId } });
     if (!record) {

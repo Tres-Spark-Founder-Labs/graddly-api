@@ -33,7 +33,6 @@ import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { SkipResponseEnvelope } from '../common/interceptors/skip-response-envelope.decorator.js';
 import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CreatePdfJobDto } from './dto/create-pdf-job.dto.js';
 import { PdfJobResponseDto } from './dto/pdf-job-response.dto.js';
@@ -83,7 +82,6 @@ export class PdfController {
     @Body() dto: CreatePdfJobDto,
   ): Promise<PdfJobResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.pdfJobsService.create(user, dto);
   }
 
@@ -120,7 +118,6 @@ export class PdfController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<PdfJobResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.pdfJobsService.findOne(user, id);
   }
 
@@ -137,7 +134,6 @@ export class PdfController {
   })
   async hello(@CurrentUser() user: AuthenticatedUser): Promise<StreamableFile> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     const buffer = await this.pdfService.renderHelloPdf();
     return new StreamableFile(buffer, {
       type: 'application/pdf',

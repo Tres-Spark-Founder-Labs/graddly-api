@@ -24,7 +24,6 @@ import {
   ValidationErrorResponseDto,
 } from '../../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
 import { SearchMatchesResponseDto } from '../dto/search-matches-response.dto.js';
 import { SearchMatchesDto } from '../dto/search-matches.dto.js';
 import { LevyMatchingService } from '../services/levy-matching.service.js';
@@ -86,7 +85,6 @@ export class MatchingController {
     @Body() dto: SearchMatchesDto,
   ): Promise<SearchMatchesResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.matchingService.searchMatches(user.organisationId!, dto);
   }
 }

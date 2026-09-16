@@ -38,7 +38,6 @@ import {
   ValidationErrorResponseDto,
 } from '../../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
 import { CreateDonorLinkDto } from '../dto/create-donor-link.dto.js';
 import { DonorLinkConsentStartResponseDto } from '../dto/donor-link-consent-start-response.dto.js';
 import { DonorLinkResponseDto } from '../dto/donor-link-response.dto.js';
@@ -97,7 +96,6 @@ export class DonorLinksController {
     @Body() dto: CreateDonorLinkDto,
   ): Promise<DonorLinkResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.donorLinkService.create(user.organisationId!, dto);
   }
 
@@ -122,7 +120,6 @@ export class DonorLinksController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<DonorLinkResponseDto[]> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.donorLinkService.findAll(user.organisationId!);
   }
 
@@ -147,7 +144,6 @@ export class DonorLinksController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<DonorLinkResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.donorLinkService.findOne(user.organisationId!, id);
   }
 
@@ -174,7 +170,6 @@ export class DonorLinksController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     await this.donorLinkService.remove(user.organisationId!, id);
   }
 
@@ -208,7 +203,6 @@ export class DonorLinksController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<DonorLinkResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.donorLinkService.syncDonorLink(user.organisationId!, id);
   }
 
@@ -246,7 +240,6 @@ export class DonorLinksController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<DonorLinkConsentStartResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.donorLinkService.startConsent(
       user.organisationId!,
       user.id,

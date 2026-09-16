@@ -19,7 +19,6 @@ import { ORGANISATION_ID_HEADER } from '../../common/constants/organisation-head
 import { setCurrentUserId } from '../../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../../common/interceptors/response-message.decorator.js';
-import { setLastKnownUserIdForGuc } from '../../database/apply-tenant-gucs.js';
 import { LevyExpiryCalendarEntryDto } from '../dto/levy-expiry-calendar-entry.dto.js';
 import { LevySurplusResponseDto } from '../dto/levy-surplus-response.dto.js';
 import { LevySurplusService } from '../services/levy-surplus.service.js';
@@ -71,7 +70,6 @@ export class SurplusController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<LevySurplusResponseDto[]> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.surplusService.getSurplus(user.organisationId!);
   }
 
@@ -96,7 +94,6 @@ export class SurplusController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<LevyExpiryCalendarEntryDto[]> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.surplusService.getExpiryCalendar(user.organisationId!);
   }
 
@@ -128,7 +125,6 @@ export class SurplusController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<LevySurplusResponseDto[]> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.surplusService.recompute(user.organisationId!);
   }
 }

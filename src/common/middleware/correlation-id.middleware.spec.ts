@@ -5,6 +5,12 @@ jest.mock('@sentry/nestjs', () => ({
 import * as Sentry from '@sentry/nestjs';
 
 import {
+  getContextLabel,
+  getCorrelationId,
+  getCurrentOrganisationId,
+} from '../context/correlation-id-context.js';
+
+import {
   CorrelationIdMiddleware,
   resolveCorrelationId,
 } from './correlation-id.middleware.js';
@@ -30,7 +36,11 @@ function headersFrom(options: {
 }
 
 function makeReq(options: Parameters<typeof headersFrom>[0]): Request {
-  return { headers: headersFrom(options) } as Request;
+  return {
+    headers: headersFrom(options),
+    method: 'GET',
+    originalUrl: '/api/v1/learners?page=2',
+  } as Request;
 }
 
 describe('resolveCorrelationId', () => {
@@ -131,5 +141,36 @@ describe('CorrelationIdMiddleware', () => {
 
     expect(setHeader).toHaveBeenCalledWith('X-Request-Id', 'client-id');
     expect(setTag).toHaveBeenCalledWith('correlation_id', 'client-id');
+  });
+
+  /**
+   * The store the request runs in: labelled with its route, query string
+   * dropped, so a tenant warning names the route — and carrying no
+   * organisation, which the guards set later. Nothing from a previous request
+   * is on it; there is no process-global copy for one to be read from.
+   */
+  it('enters a store labelled with the route and no organisation', () => {
+    const middleware = new CorrelationIdMiddleware();
+    const res = { setHeader: jest.fn() } as unknown as Response;
+    let seen: {
+      correlationId?: string;
+      label?: string;
+      organisationId?: string;
+    } = {};
+    const next = jest.fn(() => {
+      seen = {
+        correlationId: getCorrelationId(),
+        label: getContextLabel(),
+        organisationId: getCurrentOrganisationId(),
+      };
+    }) as NextFunction;
+
+    middleware.use(makeReq({ requestId: 'client-id' }), res, next);
+
+    expect(seen).toEqual({
+      correlationId: 'client-id',
+      label: 'GET /api/v1/learners',
+      organisationId: undefined,
+    });
   });
 });

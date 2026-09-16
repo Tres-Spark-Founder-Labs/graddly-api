@@ -34,7 +34,6 @@ import {
 } from '../common/dto/error-response.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 
 import { CreateEpaPackJobDto } from './dto/create-epa-pack-job.dto.js';
 import { EpaPackJobResponseDto } from './dto/epa-pack-job-response.dto.js';
@@ -97,7 +96,6 @@ export class EpaPackJobsController {
     @Body() dto: CreateEpaPackJobDto,
   ): Promise<EpaPackJobResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.jobsService.create(user, dto);
   }
 
@@ -128,7 +126,6 @@ export class EpaPackJobsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<EpaPackJobResponseDto> {
     setCurrentUserId(user.id);
-    setLastKnownUserIdForGuc(user.id);
     return this.jobsService.findOne(user, id);
   }
 }

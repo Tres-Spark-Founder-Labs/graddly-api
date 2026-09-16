@@ -5,11 +5,9 @@ import { Repository } from 'typeorm';
 
 import { Apprentice } from '../apprentices/entities/apprentice.entity.js';
 import {
-  setCurrentOrganisationId,
-  setCurrentUserId,
+  runWithTenantContext,
   withRlsBootstrap,
 } from '../common/context/correlation-id-context.js';
-import { setLastKnownUserIdForGuc } from '../database/apply-tenant-gucs.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
@@ -120,118 +118,123 @@ export class OtjPaceService {
      * context is what the RLS policies need, and that is always present.
      */
     const actorUserId = enrolment.apprenticeUserId ?? '';
-    setCurrentOrganisationId(enrolment.organisationId);
-    setCurrentUserId(actorUserId || undefined);
-    setLastKnownUserIdForGuc(actorUserId);
+    return runWithTenantContext(
+      {
+        label: `otj-pace:${enrolment.id}`,
+        organisationId: enrolment.organisationId,
+        userId: actorUserId || undefined,
+      },
+      async () => {
+        /**
+         * P0-A — the approved-minutes sum used to live here as a private
+         * `sumApprovedMinutes`, alongside a second copy in
+         * `OtjProgressMetricsService`. Both are gone; `OtjSummaryService` owns it.
+         *
+         * The organisation filter went with it, deliberately. It was redundant
+         * (an enrolment belongs to one organisation, so filtering the entries by
+         * organisation as well narrows nothing) and actively wrong for any caller
+         * whose active organisation is not the one that stamped the rows — the
+         * exact defect that produced 0% averages on the employer's provider
+         * comparison.
+         */
+        const snapshot = await this.otjSummary.paceForEnrolment(enrolment, {
+          asOf: options.asOf,
+        });
 
-    /**
-     * P0-A — the approved-minutes sum used to live here as a private
-     * `sumApprovedMinutes`, alongside a second copy in
-     * `OtjProgressMetricsService`. Both are gone; `OtjSummaryService` owns it.
-     *
-     * The organisation filter went with it, deliberately. It was redundant
-     * (an enrolment belongs to one organisation, so filtering the entries by
-     * organisation as well narrows nothing) and actively wrong for any caller
-     * whose active organisation is not the one that stamped the rows — the
-     * exact defect that produced 0% averages on the employer's provider
-     * comparison.
-     */
-    const snapshot = await this.otjSummary.paceForEnrolment(enrolment, {
-      asOf: options.asOf,
-    });
+        const nextLevel = snapshot.alertLevel;
+        const previousLevel = enrolment.otjPaceAlertLevel;
+        let notified = false;
 
-    const nextLevel = snapshot.alertLevel;
-    const previousLevel = enrolment.otjPaceAlertLevel;
-    let notified = false;
+        /**
+         * The percentage is recorded on every evaluation, not only when the band
+         * changes: an apprentice sliding from 16% to 45% behind stays `at_risk`
+         * the whole way, and a stale number would understate a worsening case.
+         *
+         * The enrolment is otherwise only written when the band changes, so this
+         * needs its own reason to save — tracked rather than saving
+         * unconditionally, which would rewrite every active enrolment nightly for
+         * no change.
+         */
+        const previousPercent =
+          enrolment.otjBehindPercent === null ||
+          enrolment.otjBehindPercent === undefined
+            ? null
+            : Number(enrolment.otjBehindPercent);
+        const percentChanged = previousPercent !== snapshot.behindPercent;
+        enrolment.otjBehindPercent = snapshot.behindPercent;
 
-    /**
-     * The percentage is recorded on every evaluation, not only when the band
-     * changes: an apprentice sliding from 16% to 45% behind stays `at_risk`
-     * the whole way, and a stale number would understate a worsening case.
-     *
-     * The enrolment is otherwise only written when the band changes, so this
-     * needs its own reason to save — tracked rather than saving
-     * unconditionally, which would rewrite every active enrolment nightly for
-     * no change.
-     */
-    const previousPercent =
-      enrolment.otjBehindPercent === null ||
-      enrolment.otjBehindPercent === undefined
-        ? null
-        : Number(enrolment.otjBehindPercent);
-    const percentChanged = previousPercent !== snapshot.behindPercent;
-    enrolment.otjBehindPercent = snapshot.behindPercent;
+        if (nextLevel !== previousLevel) {
+          enrolment.otjPaceAlertLevel = nextLevel;
+          enrolment.otjPaceAlertedAt = new Date();
+          if (
+            nextLevel === OtjPaceAlertLevel.AT_RISK ||
+            nextLevel === OtjPaceAlertLevel.OFF_TRACK
+          ) {
+            await this.notifyPaceAlert(
+              enrolment,
+              nextLevel,
+              snapshot.behindPercent,
+              snapshot.requiredWeeklyHours,
+            );
+            notified = true;
+          }
+          await this.enrolmentRepo.save(enrolment);
+        } else if (
+          nextLevel &&
+          (nextLevel === OtjPaceAlertLevel.AT_RISK ||
+            nextLevel === OtjPaceAlertLevel.OFF_TRACK) &&
+          this.shouldRecurWeekly(enrolment.otjPaceAlertedAt)
+        ) {
+          /**
+           * Security hardening pass, item 7 — notify FIRST, stamp only on success.
+           *
+           * This block used to write `otjPaceAlertedAt` and save it *before*
+           * attempting the alert. `notifyPaceAlert` can legitimately reach nobody
+           * — an enrolment with no apprentice user linked returns early — so a
+           * failed alert still recorded that one had been sent.
+           *
+           * That is worse than a plain no-op, and it is the exact shape of the
+           * commitment-chase bug: `shouldRecurWeekly` reads this same timestamp,
+           * so the false stamp pushed the next attempt out by a full week. The
+           * bug erased the evidence of itself and closed the door behind it.
+           *
+           * The learner keeps their old `otjPaceAlertedAt` when delivery fails,
+           * which leaves them eligible for tomorrow's run.
+           */
+          const delivered = await this.notifyPaceAlert(
+            enrolment,
+            nextLevel,
+            snapshot.behindPercent,
+            snapshot.requiredWeeklyHours,
+          );
 
-    if (nextLevel !== previousLevel) {
-      enrolment.otjPaceAlertLevel = nextLevel;
-      enrolment.otjPaceAlertedAt = new Date();
-      if (
-        nextLevel === OtjPaceAlertLevel.AT_RISK ||
-        nextLevel === OtjPaceAlertLevel.OFF_TRACK
-      ) {
-        await this.notifyPaceAlert(
-          enrolment,
-          nextLevel,
-          snapshot.behindPercent,
-          snapshot.requiredWeeklyHours,
-        );
-        notified = true;
-      }
-      await this.enrolmentRepo.save(enrolment);
-    } else if (
-      nextLevel &&
-      (nextLevel === OtjPaceAlertLevel.AT_RISK ||
-        nextLevel === OtjPaceAlertLevel.OFF_TRACK) &&
-      this.shouldRecurWeekly(enrolment.otjPaceAlertedAt)
-    ) {
-      /**
-       * Security hardening pass, item 7 — notify FIRST, stamp only on success.
-       *
-       * This block used to write `otjPaceAlertedAt` and save it *before*
-       * attempting the alert. `notifyPaceAlert` can legitimately reach nobody
-       * — an enrolment with no apprentice user linked returns early — so a
-       * failed alert still recorded that one had been sent.
-       *
-       * That is worse than a plain no-op, and it is the exact shape of the
-       * commitment-chase bug: `shouldRecurWeekly` reads this same timestamp,
-       * so the false stamp pushed the next attempt out by a full week. The
-       * bug erased the evidence of itself and closed the door behind it.
-       *
-       * The learner keeps their old `otjPaceAlertedAt` when delivery fails,
-       * which leaves them eligible for tomorrow's run.
-       */
-      const delivered = await this.notifyPaceAlert(
-        enrolment,
-        nextLevel,
-        snapshot.behindPercent,
-        snapshot.requiredWeeklyHours,
-      );
-
-      if (delivered) {
-        enrolment.otjPaceAlertedAt = new Date();
-        await this.enrolmentRepo.save(enrolment);
-        notified = true;
-      } else {
-        this.logger.warn(
-          `OTJ pace alert reached nobody for enrolment ${enrolment.id}; leaving it eligible for the next run`,
-        );
-        // The percentage still moved and is worth persisting.
-        if (percentChanged) {
+          if (delivered) {
+            enrolment.otjPaceAlertedAt = new Date();
+            await this.enrolmentRepo.save(enrolment);
+            notified = true;
+          } else {
+            this.logger.warn(
+              `OTJ pace alert reached nobody for enrolment ${enrolment.id}; leaving it eligible for the next run`,
+            );
+            // The percentage still moved and is worth persisting.
+            if (percentChanged) {
+              await this.enrolmentRepo.save(enrolment);
+            }
+          }
+        } else if (percentChanged) {
+          // Band unchanged and no alert due, but the number moved — persist it so
+          // the roster badge reflects how far behind they actually are today.
           await this.enrolmentRepo.save(enrolment);
         }
-      }
-    } else if (percentChanged) {
-      // Band unchanged and no alert due, but the number moved — persist it so
-      // the roster badge reflects how far behind they actually are today.
-      await this.enrolmentRepo.save(enrolment);
-    }
 
-    await this.syncLogEntryFlags(
-      enrolment.id,
-      enrolment.organisationId,
-      nextLevel,
+        await this.syncLogEntryFlags(
+          enrolment.id,
+          enrolment.organisationId,
+          nextLevel,
+        );
+        return notified;
+      },
     );
-    return notified;
   }
 
   private shouldRecurWeekly(lastAlertedAt: Date | null): boolean {

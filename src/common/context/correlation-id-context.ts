@@ -17,6 +17,8 @@ export interface ICorrelationIdStore {
    */
   currentActorName?: string;
   currentActorRole?: string;
+  /** What this context is for — "GET /api/v1/learners/…" or "pdf:generate#42" — named in tenant warnings. */
+  label?: string;
   /**
    * When true, RLS bootstrap policies apply. Set only by
    * {@link withRlsBootstrap}, which runs a callback in a store derived from
@@ -28,60 +30,55 @@ export interface ICorrelationIdStore {
 
 const storage = new AsyncLocalStorage<ICorrelationIdStore>();
 
-export interface ITenantRequestContext {
-  currentOrganisationId?: string;
-  currentUserId?: string;
+/**
+ * ── WHY THERE IS NO FALLBACK ────────────────────────────────────────────────
+ *
+ * This module used to keep `synchronousTenantFallback` — one object for the
+ * whole process, written by every setter below — and the GUC resolver read it
+ * whenever the store had no organisation. So a request whose token carried no
+ * organisation, or a worker job (which had no store at all), sent whichever
+ * organisation another request or job had written last, and every row policy
+ * then evaluated correctly against the wrong tenant. The same shape as the
+ * bootstrap-flag leak, on the value every policy compares against.
+ *
+ * Gone, not deprecated: the store is the only place a tenant value lives.
+ * Outside a store the setters are no-ops and the resolver sends '' — which
+ * matches no policy, so a path that has not entered a context fails closed
+ * and says so in the log. A job enters one with {@link runWithTenantContext};
+ * a request has one from CorrelationIdMiddleware.
+ * `rls-bootstrap-mechanism.spec.ts` fails if module-level tenant state comes
+ * back here or in apply-tenant-gucs.ts.
+ */
+export interface ITenantContextInit {
+  /** Named in warnings when a query runs without an organisation or user. */
+  label: string;
+  organisationId?: string;
+  userId?: string;
+  correlationId?: string;
 }
 
-const tenantByCorrelationId = new Map<string, ITenantRequestContext>();
-
-/** Fallback when TypeORM/pg runs outside the ALS continuation (e.g. pool callbacks). */
-let synchronousTenantFallback: ITenantRequestContext = {};
-
-export function resetSynchronousTenantFallback(): void {
-  synchronousTenantFallback = {};
+/**
+ * Runs `fn` in a fresh store carrying this job's tenant values — what
+ * CorrelationIdMiddleware does for a request, for a BullMQ job or a cron.
+ * Two jobs interleaving on one worker each keep their own store.
+ */
+export function runWithTenantContext<T>(
+  init: ITenantContextInit,
+  fn: () => T,
+): T {
+  return storage.run(
+    {
+      correlationId: init.correlationId ?? `${init.label}-${randomUUID()}`,
+      label: init.label,
+      currentOrganisationId: init.organisationId,
+      currentUserId: init.userId,
+    },
+    fn,
+  );
 }
 
-export function getSynchronousTenantFallback(): ITenantRequestContext {
-  return synchronousTenantFallback;
-}
-
-export function setTenantRequestContext(partial: ITenantRequestContext): void {
-  synchronousTenantFallback = {
-    ...synchronousTenantFallback,
-    ...partial,
-  };
-  const correlationId = getCorrelationId();
-  if (!correlationId) {
-    return;
-  }
-  const previous = tenantByCorrelationId.get(correlationId) ?? {};
-  tenantByCorrelationId.set(correlationId, { ...previous, ...partial });
-}
-
-export function getTenantRequestContext(): ITenantRequestContext | undefined {
-  const store = storage.getStore();
-  if (store) {
-    return {
-      currentOrganisationId: store.currentOrganisationId,
-      currentUserId: store.currentUserId,
-    };
-  }
-  const correlationId = getCorrelationId();
-  const fromMap = correlationId
-    ? tenantByCorrelationId.get(correlationId)
-    : undefined;
-  if (fromMap) {
-    return fromMap;
-  }
-  if (Object.keys(synchronousTenantFallback).length > 0) {
-    return synchronousTenantFallback;
-  }
-  return undefined;
-}
-
-export function clearTenantRequestContext(correlationId: string): void {
-  tenantByCorrelationId.delete(correlationId);
+export function getContextLabel(): string | undefined {
+  return storage.getStore()?.label;
 }
 
 export function getCorrelationId(): string | undefined {
@@ -92,12 +89,12 @@ export function getCurrentOrganisationId(): string | undefined {
   return storage.getStore()?.currentOrganisationId;
 }
 
+/** Store only. A no-op outside a store — see "why there is no fallback". */
 export function setCurrentOrganisationId(id: string | undefined): void {
   const store = storage.getStore();
   if (store) {
     store.currentOrganisationId = id;
   }
-  setTenantRequestContext({ currentOrganisationId: id });
 }
 
 /**
@@ -134,12 +131,12 @@ export function getCurrentUserId(): string | undefined {
   return storage.getStore()?.currentUserId;
 }
 
+/** Store only. A no-op outside a store — see "why there is no fallback". */
 export function setCurrentUserId(id: string | undefined): void {
   const store = storage.getStore();
   if (store) {
     store.currentUserId = id;
   }
-  setTenantRequestContext({ currentUserId: id });
 }
 
 export function getRlsBootstrap(): boolean {

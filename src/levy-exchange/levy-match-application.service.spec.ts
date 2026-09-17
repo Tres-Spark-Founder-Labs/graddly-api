@@ -6,9 +6,15 @@ import {
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import {
+  getRlsBootstrap,
+  runWithCorrelationId,
+} from '../common/context/correlation-id-context.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
+import { Organisation } from '../organisations/entities/organisation.entity.js';
 
+import { MatchApplicationRoleFilter } from './dto/list-match-applications-query.dto.js';
 import { LevyMatchApplication } from './entities/levy-match-application.entity.js';
 import { LevyMatchApplicationStatus } from './enums/levy-match-application-status.enum.js';
 import { LevyMatchApplicationService } from './services/levy-match-application.service.js';
@@ -30,6 +36,8 @@ describe('LevyMatchApplicationService', () => {
   const qbTake = jest.fn();
 
   const getEntityOrThrow = jest.fn();
+  const anonymousMatchingByOrganisation = jest.fn();
+  const organisationFind = jest.fn();
   const createForUser = jest.fn();
   const membershipFind = jest.fn();
 
@@ -74,8 +82,12 @@ describe('LevyMatchApplicationService', () => {
           useValue: { find: membershipFind },
         },
         {
+          provide: getRepositoryToken(Organisation),
+          useValue: { find: organisationFind },
+        },
+        {
           provide: LevyTransferPreferenceService,
-          useValue: { getEntityOrThrow },
+          useValue: { getEntityOrThrow, anonymousMatchingByOrganisation },
         },
         {
           provide: NotificationsService,
@@ -88,6 +100,8 @@ describe('LevyMatchApplicationService', () => {
     jest.clearAllMocks();
     membershipFind.mockResolvedValue([]);
     createForUser.mockResolvedValue(undefined);
+    anonymousMatchingByOrganisation.mockResolvedValue(new Map());
+    organisationFind.mockResolvedValue([]);
   });
 
   it('creates pending application when donor requires review', async () => {
@@ -230,5 +244,106 @@ describe('LevyMatchApplicationService', () => {
         status: LevyMatchApplicationStatus.CONFIRMED,
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  /**
+   * F4.2.3 AC3 — the donor as the match search showed it: its name, or
+   * "Matched donor" when anonymous. An application is still the matching
+   * stage, so the rule holds whatever the status. The name sits behind a
+   * member-only policy and is read under the bootstrap flag, only for donors
+   * that chose to be named.
+   */
+  describe('how the donor is presented on an application', () => {
+    const applicationRow = (
+      id: string,
+      donorOrganisationId: string,
+      status = LevyMatchApplicationStatus.PENDING,
+    ) => ({
+      id,
+      donorOrganisationId,
+      recipientOrganisationId: 'recipient-org',
+      requestedAmount: '15000.00',
+      status,
+      matchScore: null,
+      scoreBreakdown: null,
+      createdAt: new Date('2026-01-01'),
+      updatedAt: new Date('2026-01-01'),
+    });
+
+    const inRequest = <T>(fn: () => Promise<T>): Promise<T> =>
+      runWithCorrelationId({ correlationId: 'match-apps-spec' }, fn);
+
+    it('names a named donor, anonymises an anonymous one, and says nothing without preferences', async () => {
+      qbGetManyAndCount.mockResolvedValue([
+        [
+          applicationRow('app-named', 'donor-named'),
+          applicationRow(
+            'app-anonymous',
+            'donor-anonymous',
+            LevyMatchApplicationStatus.CONFIRMED,
+          ),
+          applicationRow('app-unknown', 'donor-without-preferences'),
+        ],
+        3,
+      ]);
+      anonymousMatchingByOrganisation.mockResolvedValue(
+        new Map([
+          ['donor-named', false],
+          ['donor-anonymous', true],
+        ]),
+      );
+      const flagDuringRead: boolean[] = [];
+      organisationFind.mockImplementation(() => {
+        flagDuringRead.push(getRlsBootstrap());
+        return Promise.resolve([{ id: 'donor-named', name: 'Acme Ltd' }]);
+      });
+
+      await inRequest(async () => {
+        const result = await service.list('recipient-org', {
+          role: MatchApplicationRoleFilter.RECIPIENT,
+          page: 1,
+          perPage: 20,
+        });
+
+        expect(
+          result.items.map((item) => [item.id, item.donorDisplayName]),
+        ).toEqual([
+          ['app-named', 'Acme Ltd'],
+          ['app-anonymous', 'Matched donor'],
+          ['app-unknown', null],
+        ]);
+        expect(flagDuringRead).toEqual([true]);
+        expect(getRlsBootstrap()).toBe(false);
+      });
+
+      // Only the named donor's label is read, and only the label.
+      expect(organisationFind).toHaveBeenCalledTimes(1);
+      const [options] = organisationFind.mock.calls[0] as [
+        { where: { id: { value: string[] } }; select: string[] },
+      ];
+      expect(options.select).toEqual(['id', 'name']);
+      expect(options.where.id.value).toEqual(['donor-named']);
+    });
+
+    it('never reads the name of a donor that matches anonymously', async () => {
+      applicationFindOne.mockResolvedValue(
+        applicationRow('app-1', 'donor-anonymous'),
+      );
+      applicationSave.mockImplementation((value: LevyMatchApplication) =>
+        Promise.resolve(value),
+      );
+      anonymousMatchingByOrganisation.mockResolvedValue(
+        new Map([['donor-anonymous', true]]),
+      );
+
+      const result = await service.updateStatus(
+        { ...donorUser, organisationId: 'donor-anonymous' },
+        'app-1',
+        { status: LevyMatchApplicationStatus.CONFIRMED },
+      );
+
+      expect(result.donorDisplayName).toBe('Matched donor');
+      expect(organisationFind).not.toHaveBeenCalled();
+    });
   });
 });

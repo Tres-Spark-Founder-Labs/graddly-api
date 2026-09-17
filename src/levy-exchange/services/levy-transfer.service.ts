@@ -194,9 +194,15 @@ export class LevyTransferService {
 
     const [rows, total] = await qb.getManyAndCount();
     const slotsByTransfer = await this.loadSlots(rows.map((row) => row.id));
+    const donorNames = await this.donorOrganisationNames(rows);
     return new PaginatedResult(
       rows.map((row) =>
-        this.toResponse(row, user, slotsByTransfer.get(row.id) ?? []),
+        this.toResponse(
+          row,
+          user,
+          slotsByTransfer.get(row.id) ?? [],
+          donorNames,
+        ),
       ),
       buildPaginationMeta({ total, page, perPage }),
     );
@@ -594,6 +600,43 @@ export class LevyTransferService {
     });
   }
 
+  /**
+   * The donor's name for each transfer, for either party's view of it.
+   *
+   * `organisations_select` admits members only (1780500000006), so the
+   * recipient cannot read the donor's row under its own policy — proved as
+   * `graddly_app`: the recipient sees the transfer row and not the donor's
+   * organisation row. No policy change, because a policy admits the row
+   * (UKPRN, address, contact) and the need is the label.
+   *
+   * So this is the counterparty case of the rule on `withRlsBootstrap`, as
+   * `recipientUkprn` is: `select ['id', 'name']` and nothing else; ids taken
+   * only from transfers the caller has already read under its own
+   * `levy_transfers` policy; a window holding this read and no other. The
+   * name is what the relationship entitles the recipient to — the agreement
+   * both parties sign prints it (F4.2.4 AC2).
+   */
+  private async donorOrganisationNames(
+    transfers: LevyTransfer[],
+  ): Promise<Map<string, string>> {
+    const ids = [...new Set(transfers.map((t) => t.donorOrganisationId))];
+    if (ids.length === 0) {
+      return new Map();
+    }
+    return withRlsBootstrap(async () => {
+      const organisations = await this.organisationRepo.find({
+        where: { id: In(ids), isDeleted: false },
+        select: ['id', 'name'],
+      });
+      return new Map(
+        organisations.map((organisation) => [
+          organisation.id,
+          organisation.name,
+        ]),
+      );
+    });
+  }
+
   private async copyPdfToRecipientOrg(
     transfer: LevyTransfer,
     donorSignedPdfKey: string,
@@ -731,10 +774,13 @@ export class LevyTransferService {
     transfer: LevyTransfer,
     user: AuthenticatedUser,
     slots: LevyTransferSignature[],
+    donorNames: Map<string, string>,
   ): LevyTransferResponseDto {
     return {
       id: transfer.id,
       donorOrganisationId: transfer.donorOrganisationId,
+      donorOrganisationName:
+        donorNames.get(transfer.donorOrganisationId) ?? null,
       recipientOrganisationId: transfer.recipientOrganisationId,
       matchApplicationId: transfer.matchApplicationId,
       amount: transfer.amount,
@@ -767,7 +813,8 @@ export class LevyTransferService {
     const slots = await this.signatureRepo.find({
       where: { transferId: transfer.id, isDeleted: false },
     });
-    return this.toResponse(transfer, user, slots);
+    const donorNames = await this.donorOrganisationNames([transfer]);
+    return this.toResponse(transfer, user, slots, donorNames);
   }
 
   /** Every slot for a page of transfers, in one query, grouped by transfer. */

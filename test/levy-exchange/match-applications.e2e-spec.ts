@@ -67,6 +67,21 @@ describe('Levy Exchange match applications (e2e)', () => {
     expectMatchApplicationResource((createRes.body as { data: unknown }).data);
     const applicationId = (createRes.body as { data: { id: string } }).data.id;
 
+    // F4.2.3 AC3: this donor's preferences are not anonymous, so the SME sees
+    // its name — read past the member-only organisations policy as a label.
+    const recipientListRes = await request(app.getHttpServer())
+      .get('/api/v1/levy-exchange/match-applications')
+      .query({ role: 'recipient', page: 1, perPage: 10 })
+      .set(recipientCtx.authHeaders)
+      .expect(200);
+    expect(
+      (
+        recipientListRes.body as {
+          data: { id: string; donorDisplayName: string | null }[];
+        }
+      ).data.find((row) => row.id === applicationId)?.donorDisplayName,
+    ).toBe(donorCtx.orgName);
+
     const listRes = await request(app.getHttpServer())
       .get('/api/v1/levy-exchange/match-applications')
       .query({ role: 'donor', page: 1, perPage: 10 })

@@ -58,6 +58,7 @@ describe('LevyTransferService', () => {
 
   const matchFindOne = jest.fn();
   const organisationFindOne = jest.fn();
+  const organisationFind = jest.fn();
   const donorLinkFindOne = jest.fn();
   const donorTokenFindOne = jest.fn();
   const pdfJobFindOne = jest.fn();
@@ -121,7 +122,7 @@ describe('LevyTransferService', () => {
         },
         {
           provide: getRepositoryToken(Organisation),
-          useValue: { findOne: organisationFindOne },
+          useValue: { findOne: organisationFindOne, find: organisationFind },
         },
         {
           provide: getRepositoryToken(DasDonorLink),
@@ -180,6 +181,7 @@ describe('LevyTransferService', () => {
     service = moduleRef.get(LevyTransferService);
     jest.clearAllMocks();
     signatureFind.mockResolvedValue([]);
+    organisationFind.mockResolvedValue([]);
   });
 
   describe('list', () => {
@@ -808,6 +810,114 @@ describe('LevyTransferService', () => {
         service.submitToDas(user, 'transfer-1'),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(createLevyTransferConsent).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * The donor's name on the transfer DTO, for either party.
+   *
+   * `organisations_select` admits members only, so the recipient cannot read
+   * the donor's row under its own policy; the name is hydrated under the
+   * bootstrap flag. These pin the rule's conditions at this call site: the
+   * label and nothing else, ids only from transfers already read, the flag
+   * on for that read alone, and no window when there is nothing to name.
+   */
+  describe("the donor's name, read in a bootstrap window", () => {
+    const transferRow = (id: string, donorOrganisationId: string) => ({
+      id,
+      donorOrganisationId,
+      recipientOrganisationId: 'recipient-org',
+      matchApplicationId: 'match-1',
+      amount: '5000.00',
+      programmeDetails: null,
+      esfaTransferReference: null,
+      status: LevyTransferStatus.DRAFT,
+      startDate: null,
+      confirmedAt: null,
+      expiryDate: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+
+    const recipient = { ...user, organisationId: 'recipient-org' };
+
+    const inRequest = <T>(fn: () => Promise<T>): Promise<T> =>
+      runWithCorrelationId({ correlationId: 'transfer-names-spec' }, fn);
+
+    it('names the donor on a page of transfers in one window, then closes it', async () => {
+      qbGetManyAndCount.mockResolvedValue([
+        [
+          transferRow('transfer-1', 'donor-a'),
+          transferRow('transfer-2', 'donor-b'),
+          transferRow('transfer-3', 'donor-a'),
+        ],
+        3,
+      ]);
+      const flagDuringRead: boolean[] = [];
+      organisationFind.mockImplementation(() => {
+        flagDuringRead.push(getRlsBootstrap());
+        return Promise.resolve([
+          { id: 'donor-a', name: 'Acme Construction Ltd' },
+          { id: 'donor-b', name: 'Borough Builders plc' },
+        ]);
+      });
+
+      await inRequest(async () => {
+        const result = await service.list(recipient, {
+          role: TransferRoleFilter.RECIPIENT,
+          page: 1,
+          perPage: 20,
+        });
+
+        expect(flagDuringRead).toEqual([true]);
+        expect(getRlsBootstrap()).toBe(false);
+        expect(
+          result.items.map((item) => [item.id, item.donorOrganisationName]),
+        ).toEqual([
+          ['transfer-1', 'Acme Construction Ltd'],
+          ['transfer-2', 'Borough Builders plc'],
+          ['transfer-3', 'Acme Construction Ltd'],
+        ]);
+      });
+
+      expect(organisationFind).toHaveBeenCalledTimes(1);
+      const [options] = organisationFind.mock.calls[0] as [
+        { where: { id: { value: string[] } }; select: string[] },
+      ];
+      expect(options.select).toEqual(['id', 'name']);
+      expect(options.where.id.value).toEqual(['donor-a', 'donor-b']);
+    });
+
+    it('names the donor on one transfer for the recipient', async () => {
+      transferFindOne.mockResolvedValue(transferRow('transfer-1', 'donor-a'));
+      organisationFind.mockResolvedValue([
+        { id: 'donor-a', name: 'Acme Construction Ltd' },
+      ]);
+
+      const result = await service.findOne(recipient, 'transfer-1');
+
+      expect(result.donorOrganisationName).toBe('Acme Construction Ltd');
+    });
+
+    it('says null, not a placeholder, when the donor organisation is gone', async () => {
+      transferFindOne.mockResolvedValue(transferRow('transfer-1', 'donor-a'));
+      organisationFind.mockResolvedValue([]);
+
+      const result = await service.findOne(recipient, 'transfer-1');
+
+      expect(result.donorOrganisationName).toBeNull();
+    });
+
+    it('opens no window for an empty page or a transfer the caller cannot read', async () => {
+      qbGetManyAndCount.mockResolvedValue([[], 0]);
+      await service.list(recipient, { page: 1, perPage: 20 });
+
+      transferFindOne.mockResolvedValue(null);
+      await expect(
+        service.findOne(recipient, 'missing'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+
+      expect(organisationFind).not.toHaveBeenCalled();
     });
   });
 });

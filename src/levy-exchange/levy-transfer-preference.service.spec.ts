@@ -2,6 +2,11 @@ import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import {
+  getRlsBootstrap,
+  runWithCorrelationId,
+} from '../common/context/correlation-id-context.js';
+
 import { LevyTransferPreference } from './entities/levy-transfer-preference.entity.js';
 import { LevyTransferPreferenceService } from './services/levy-transfer-preference.service.js';
 
@@ -97,5 +102,46 @@ describe('LevyTransferPreferenceService', () => {
     await expect(service.getEntityOrThrow('org-1')).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  /**
+   * The anonymity flag for an SME's applications: a counterparty read past an
+   * owner-only policy. Pinned here — the one column and the key, the flag on
+   * for that read alone, no read when there are no donors.
+   */
+  describe('anonymousMatchingByOrganisation', () => {
+    it('reads the flag and the key only, in a window it closes', async () => {
+      const flagDuringRead: boolean[] = [];
+      preferenceFind.mockImplementation(() => {
+        flagDuringRead.push(getRlsBootstrap());
+        return Promise.resolve([
+          { organisationId: 'donor-a', anonymousMatching: true },
+          { organisationId: 'donor-b', anonymousMatching: false },
+        ]);
+      });
+
+      await runWithCorrelationId('preference-spec', async () => {
+        const result = await service.anonymousMatchingByOrganisation([
+          'donor-a',
+          'donor-b',
+        ]);
+        expect([...result]).toEqual([
+          ['donor-a', true],
+          ['donor-b', false],
+        ]);
+        expect(flagDuringRead).toEqual([true]);
+        expect(getRlsBootstrap()).toBe(false);
+      });
+
+      const [options] = preferenceFind.mock.calls[0] as [{ select: string[] }];
+      expect(options.select).toEqual(['organisationId', 'anonymousMatching']);
+    });
+
+    it('reads nothing for no donors', async () => {
+      await expect(
+        service.anonymousMatchingByOrganisation([]),
+      ).resolves.toEqual(new Map());
+      expect(preferenceFind).not.toHaveBeenCalled();
+    });
   });
 });

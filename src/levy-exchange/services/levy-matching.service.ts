@@ -10,6 +10,7 @@ import { SearchMatchesDto } from '../dto/search-matches.dto.js';
 import { LevyRecipientProfile } from '../entities/levy-recipient-profile.entity.js';
 import { LevyTransferPreference } from '../entities/levy-transfer-preference.entity.js';
 import { LevyWaitingPoolEntry } from '../entities/levy-waiting-pool-entry.entity.js';
+import { ANONYMOUS_DONOR_DISPLAY_NAME } from '../levy-donor-display-name.js';
 
 import { LevyRecipientProfileService } from './levy-recipient-profile.service.js';
 import { LevySurplusService } from './levy-surplus.service.js';
@@ -89,8 +90,9 @@ export class LevyMatchingService {
       candidates.push({
         donorOrganisationId: preference.organisationId,
         donorDisplayName: preference.anonymousMatching
-          ? 'Matched donor'
-          : (orgNameById.get(preference.organisationId) ?? 'Matched donor'),
+          ? ANONYMOUS_DONOR_DISPLAY_NAME
+          : (orgNameById.get(preference.organisationId) ??
+            ANONYMOUS_DONOR_DISPLAY_NAME),
         matchScore: numericScore.toFixed(2),
         scoreBreakdown,
         availableSurplus: surplus.availableSurplus,

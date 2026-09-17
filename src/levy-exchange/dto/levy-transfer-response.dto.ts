@@ -28,6 +28,28 @@ export class LevyTransferResponseDto {
   @ApiProperty({ format: 'uuid' })
   donorOrganisationId!: string;
 
+  /**
+   * Who the transfer is from, for either party.
+   *
+   * Not an anonymity decision. Anonymity is a matching-stage display rule
+   * (F4.2.3 AC3, "Matched donor" if anonymous), applied by the match search.
+   * A transfer can only be created from a CONFIRMED match
+   * (`LevyTransferService.createFromMatch`), and the agreement generated at
+   * that moment already names the donor — F4.2.4 AC2's "signatory details",
+   * printed as `donorOrganisationName` by the PDF processor and downloadable
+   * by the recipient from draft onwards. This field is that same name.
+   *
+   * Null only when the donor's organisation row no longer exists.
+   */
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description:
+      'The donor organisation’s name. The parties to a transfer are ' +
+      'known to each other; null only when the organisation no longer exists.',
+  })
+  donorOrganisationName!: string | null;
+
   @ApiProperty({ format: 'uuid' })
   recipientOrganisationId!: string;
 

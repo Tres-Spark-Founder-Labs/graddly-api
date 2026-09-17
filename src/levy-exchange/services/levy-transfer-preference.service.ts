@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
+import { withRlsBootstrap } from '../../common/context/correlation-id-context.js';
 import { TransferPreferencesResponseDto } from '../dto/transfer-preferences-response.dto.js';
 import { UpsertTransferPreferencesDto } from '../dto/upsert-transfer-preferences.dto.js';
 import { LevyTransferPreference } from '../entities/levy-transfer-preference.entity.js';
@@ -59,6 +60,40 @@ export class LevyTransferPreferenceService {
     return this.preferenceRepo.find({
       where: { isDeleted: false },
     });
+  }
+
+  /**
+   * Whether each of these donors matches anonymously (F4.2.3 AC3), for an
+   * SME's view of the applications it has sent. Donors with no active
+   * preferences are absent from the map.
+   *
+   * A counterparty read. `levy_transfer_preferences_select` admits only the
+   * owning organisation, so an SME cannot read a donor's preferences under its
+   * own policy — the match search reads them because POST /matches/search
+   * runs under route-level bootstrap; GET /match-applications does not. Read
+   * under the rule on `withRlsBootstrap`: `select` the one flag and the key,
+   * never the donor's sectors, regions or per-recipient cap; ids supplied by
+   * the caller only from applications it has already read under its own
+   * policy; a window holding this read and no other.
+   */
+  async anonymousMatchingByOrganisation(
+    organisationIds: string[],
+  ): Promise<Map<string, boolean>> {
+    if (organisationIds.length === 0) {
+      return new Map();
+    }
+    const preferences = await withRlsBootstrap(() =>
+      this.preferenceRepo.find({
+        where: { organisationId: In(organisationIds), isDeleted: false },
+        select: ['organisationId', 'anonymousMatching'],
+      }),
+    );
+    return new Map(
+      preferences.map((preference) => [
+        preference.organisationId,
+        preference.anonymousMatching,
+      ]),
+    );
   }
 
   async getEntityOrThrow(

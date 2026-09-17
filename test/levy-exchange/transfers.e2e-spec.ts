@@ -216,6 +216,10 @@ describe('Levy Exchange transfers (e2e)', () => {
         status: LevyTransferStatus.PENDING_SIGNATURES,
         nextParty: LevyTransferParty.DONOR,
         actionRequired: false,
+        // Who the transfer is from. organisations_select admits members only,
+        // so under graddly_app this arrives only through the service's
+        // label-only bootstrap read.
+        donorOrganisationName: donorCtx.orgName,
       });
 
       const donorKey = `orgs/${donorCtx.orgId}/${StorageObjectCategory.SIGNATURE}/donor/signature.png`;

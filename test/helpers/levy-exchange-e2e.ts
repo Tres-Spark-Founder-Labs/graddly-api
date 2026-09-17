@@ -36,6 +36,8 @@ ensureLevyExchangeE2eEnv();
 export interface ILexOrgContext {
   user: IVerifiedUserFixture;
   orgId: string;
+  /** The name the organisation was created with, for asserting what a counterparty sees. */
+  orgName: string;
   accessToken: string;
   authHeaders: Record<string, string>;
 }
@@ -73,10 +75,11 @@ export async function createLexOrgContext(
     email: `lex-${label}-${suffix}@example.com`,
   });
 
+  const orgName = `Lex ${label} ${suffix}`;
   const orgRes = await request(app.getHttpServer())
     .post('/api/v1/organisations')
     .set('Authorization', `Bearer ${user.accessToken}`)
-    .send(buildOrgPayload(`Lex ${label} ${suffix}`))
+    .send(buildOrgPayload(orgName))
     .expect(201);
 
   const orgId = (orgRes.body as { data: { id: string } }).data.id;
@@ -89,6 +92,7 @@ export async function createLexOrgContext(
   return {
     user,
     orgId,
+    orgName,
     accessToken: user.accessToken,
     authHeaders,
   };

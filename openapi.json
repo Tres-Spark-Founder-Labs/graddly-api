@@ -31533,6 +31533,11 @@
             "type": "string",
             "format": "uuid"
           },
+          "donorDisplayName": {
+            "type": "string",
+            "nullable": true,
+            "description": "The donor’s name, or \"Matched donor\" when it matches anonymously (F4.2.3 AC3). Null when the API cannot say which applies."
+          },
           "recipientOrganisationId": {
             "type": "string",
             "format": "uuid"
@@ -31569,6 +31574,7 @@
         "required": [
           "id",
           "donorOrganisationId",
+          "donorDisplayName",
           "recipientOrganisationId",
           "requestedAmount",
           "status",
@@ -31652,6 +31658,11 @@
             "type": "string",
             "format": "uuid"
           },
+          "donorOrganisationName": {
+            "type": "string",
+            "nullable": true,
+            "description": "The donor organisation’s name. The parties to a transfer are known to each other; null only when the organisation no longer exists."
+          },
           "recipientOrganisationId": {
             "type": "string",
             "format": "uuid"
@@ -31727,6 +31738,7 @@
         "required": [
           "id",
           "donorOrganisationId",
+          "donorOrganisationName",
           "recipientOrganisationId",
           "amount",
           "status",

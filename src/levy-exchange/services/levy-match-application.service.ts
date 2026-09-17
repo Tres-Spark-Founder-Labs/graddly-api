@@ -5,13 +5,15 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
+import { withRlsBootstrap } from '../../common/context/correlation-id-context.js';
 import { buildPaginationMeta } from '../../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../../common/pagination/paginated-result.js';
 import { NotificationType } from '../../notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../../notifications/notifications.service.js';
 import { OrganisationMembership } from '../../organisations/entities/organisation-membership.entity.js';
+import { Organisation } from '../../organisations/entities/organisation.entity.js';
 import { MembershipStatus } from '../../organisations/membership-status.enum.js';
 import { OrganisationRole } from '../../organisations/organisation-role.enum.js';
 import { CreateMatchApplicationDto } from '../dto/create-match-application.dto.js';
@@ -23,6 +25,7 @@ import { MatchApplicationResponseDto } from '../dto/match-application-response.d
 import { UpdateMatchApplicationDto } from '../dto/update-match-application.dto.js';
 import { LevyMatchApplication } from '../entities/levy-match-application.entity.js';
 import { LevyMatchApplicationStatus } from '../enums/levy-match-application-status.enum.js';
+import { ANONYMOUS_DONOR_DISPLAY_NAME } from '../levy-donor-display-name.js';
 
 import { LevyTransferPreferenceService } from './levy-transfer-preference.service.js';
 
@@ -35,6 +38,8 @@ export class LevyMatchApplicationService {
     private readonly applicationRepo: Repository<LevyMatchApplication>,
     @InjectRepository(OrganisationMembership)
     private readonly membershipRepo: Repository<OrganisationMembership>,
+    @InjectRepository(Organisation)
+    private readonly organisationRepo: Repository<Organisation>,
     private readonly transferPreferenceService: LevyTransferPreferenceService,
     private readonly notificationsService: NotificationsService,
   ) {}
@@ -92,7 +97,7 @@ export class LevyMatchApplicationService {
       );
     }
 
-    return this.toResponse(saved);
+    return this.toResponse(saved, await this.donorDisplayNames([saved]));
   }
 
   async list(
@@ -130,8 +135,9 @@ export class LevyMatchApplicationService {
       .take(perPage);
 
     const [rows, total] = await qb.getManyAndCount();
+    const donorNames = await this.donorDisplayNames(rows);
     return new PaginatedResult(
-      rows.map((row) => this.toResponse(row)),
+      rows.map((row) => this.toResponse(row, donorNames)),
       buildPaginationMeta({ total, page, perPage }),
     );
   }
@@ -183,7 +189,62 @@ export class LevyMatchApplicationService {
       );
     }
 
-    return this.toResponse(saved);
+    return this.toResponse(saved, await this.donorDisplayNames([saved]));
+  }
+
+  /**
+   * How each application's donor is presented: F4.2.3 AC3, the same rule the
+   * match search applies, for every status — an application is still the
+   * matching stage, and no agreement naming the parties exists yet.
+   *
+   *   anonymous matching     "Matched donor", and the name is never read
+   *   named matching         the organisation's name
+   *   no active preferences  nothing: whether the donor wanted anonymity
+   *                          cannot be known, so its name is not disclosed
+   *
+   * Both facts sit behind policies that admit only the donor's own members
+   * (`levy_transfer_preferences_select`, `organisations_select`), so each is
+   * a counterparty read under the rule on `withRlsBootstrap`, in its own
+   * window: the anonymity flag and nothing else of the donor's preferences
+   * (`anonymousMatchingByOrganisation`), then `select ['id', 'name']` only
+   * for donors that chose to be named. Ids come only from applications the
+   * caller has already read under its own `levy_match_applications` policy.
+   * It is the label the search already showed this SME.
+   */
+  private async donorDisplayNames(
+    applications: LevyMatchApplication[],
+  ): Promise<Map<string, string>> {
+    const donorIds = [
+      ...new Set(applications.map((a) => a.donorOrganisationId)),
+    ];
+    const anonymity =
+      await this.transferPreferenceService.anonymousMatchingByOrganisation(
+        donorIds,
+      );
+
+    const displayNames = new Map<string, string>();
+    const namedDonorIds: string[] = [];
+    for (const [organisationId, anonymousMatching] of anonymity) {
+      if (anonymousMatching) {
+        displayNames.set(organisationId, ANONYMOUS_DONOR_DISPLAY_NAME);
+      } else {
+        namedDonorIds.push(organisationId);
+      }
+    }
+    if (namedDonorIds.length === 0) {
+      return displayNames;
+    }
+
+    const organisations = await withRlsBootstrap(() =>
+      this.organisationRepo.find({
+        where: { id: In(namedDonorIds), isDeleted: false },
+        select: ['id', 'name'],
+      }),
+    );
+    for (const organisation of organisations) {
+      displayNames.set(organisation.id, organisation.name);
+    }
+    return displayNames;
   }
 
   private async notifyParties(
@@ -254,10 +315,13 @@ export class LevyMatchApplicationService {
 
   private toResponse(
     application: LevyMatchApplication,
+    donorDisplayNames: Map<string, string>,
   ): MatchApplicationResponseDto {
     return {
       id: application.id,
       donorOrganisationId: application.donorOrganisationId,
+      donorDisplayName:
+        donorDisplayNames.get(application.donorOrganisationId) ?? null,
       recipientOrganisationId: application.recipientOrganisationId,
       requestedAmount: application.requestedAmount,
       status: application.status,

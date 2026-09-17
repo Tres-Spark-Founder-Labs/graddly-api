@@ -23084,6 +23084,24 @@
           "organisations"
         ]
       },
+      "MfaChallengeResponseDto": {
+        "type": "object",
+        "properties": {
+          "mfaRequired": {
+            "type": "boolean",
+            "example": true
+          },
+          "challengeToken": {
+            "type": "string",
+            "example": "550e8400-e29b-41d4-a716-446655440000",
+            "description": "Short-lived token identifying this login attempt. Submit it with a TOTP or recovery code to POST /auth/mfa/verify to complete login."
+          }
+        },
+        "required": [
+          "mfaRequired",
+          "challengeToken"
+        ]
+      },
       "SignupDto": {
         "type": "object",
         "properties": {
@@ -23328,24 +23346,6 @@
             "example": "Europe/London"
           }
         }
-      },
-      "MfaChallengeResponseDto": {
-        "type": "object",
-        "properties": {
-          "mfaRequired": {
-            "type": "boolean",
-            "example": true
-          },
-          "challengeToken": {
-            "type": "string",
-            "example": "550e8400-e29b-41d4-a716-446655440000",
-            "description": "Short-lived token identifying this login attempt. Submit it with a TOTP or recovery code to POST /auth/mfa/verify to complete login."
-          }
-        },
-        "required": [
-          "mfaRequired",
-          "challengeToken"
-        ]
       },
       "MfaEnrollResponseDto": {
         "type": "object",
@@ -26500,6 +26500,65 @@
           }
         }
       },
+      "PdfJobResponseDto": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "processing",
+              "completed",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "template": {
+            "enum": [
+              "hello",
+              "review_snapshot",
+              "commitment_snapshot",
+              "levy_transfer_agreement",
+              "levy_roi_report",
+              "commitment_audit_trail",
+              "provider_comparison",
+              "qip_plan",
+              "learner_cohort"
+            ],
+            "type": "string"
+          },
+          "outputKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "errorMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "completedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "downloadUrl": {
+            "type": "string"
+          },
+          "downloadExpiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId",
+          "status",
+          "template",
+          "createdAt"
+        ]
+      },
       "UpdateQipActionProgressDto": {
         "type": "object",
         "properties": {
@@ -26868,65 +26927,6 @@
         },
         "required": [
           "sections"
-        ]
-      },
-      "PdfJobResponseDto": {
-        "type": "object",
-        "properties": {
-          "jobId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "status": {
-            "enum": [
-              "queued",
-              "processing",
-              "completed",
-              "failed"
-            ],
-            "type": "string"
-          },
-          "template": {
-            "enum": [
-              "hello",
-              "review_snapshot",
-              "commitment_snapshot",
-              "levy_transfer_agreement",
-              "levy_roi_report",
-              "commitment_audit_trail",
-              "provider_comparison",
-              "qip_plan",
-              "learner_cohort"
-            ],
-            "type": "string"
-          },
-          "outputKey": {
-            "type": "string",
-            "nullable": true
-          },
-          "errorMessage": {
-            "type": "string",
-            "nullable": true
-          },
-          "createdAt": {
-            "type": "string"
-          },
-          "completedAt": {
-            "type": "string",
-            "nullable": true
-          },
-          "downloadUrl": {
-            "type": "string"
-          },
-          "downloadExpiresAt": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "jobId",
-          "status",
-          "template",
-          "createdAt"
         ]
       },
       "CreatePdfJobDto": {
@@ -31821,6 +31821,44 @@
           "party",
           "status",
           "signedPdfKey"
+        ]
+      },
+      "TransferEnrolmentResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "transferId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "enrolmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "donorOrganisationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attributedAmount": {
+            "type": "string",
+            "nullable": true,
+            "example": "21000.00",
+            "description": "Amount attributed to this enrolment; null when the transfer was not apportioned."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "transferId",
+          "enrolmentId",
+          "donorOrganisationId",
+          "createdAt"
         ]
       },
       "CreateTransferFromMatchDto": {

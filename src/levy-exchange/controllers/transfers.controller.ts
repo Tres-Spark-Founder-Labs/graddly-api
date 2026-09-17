@@ -77,6 +77,7 @@ function toTransferEnrolmentDto(
   LevyTransferResponseDto,
   LevyTransferDocumentResponseDto,
   SignTransferResponseDto,
+  TransferEnrolmentResponseDto,
   CreateTransferFromMatchDto,
   SignTransferDto,
   ListTransfersQueryDto,

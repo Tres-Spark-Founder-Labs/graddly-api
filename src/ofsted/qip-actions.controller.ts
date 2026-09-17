@@ -63,6 +63,9 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
   QipActionsSummaryDto,
   CreateQipActionDto,
   UpdateQipActionDto,
+  // Referenced via getSchemaPath() on the PDF route; registered until now
+  // only because other controllers declare it.
+  PdfJobResponseDto,
 )
 @Controller({ path: 'qip-actions', version: '1' })
 @UseGuards(JwtAuthGuard, ActiveOrganisationGuard)

@@ -75,6 +75,10 @@ type MeResult = Omit<
   MeResponseDto,
   ActiveOrganisationMeDto,
   OrganisationListItemDto,
+  // Referenced via getSchemaPath() on the login route. It was registered
+  // only because mfa.controller.ts declares it; a $ref must not depend on
+  // another controller staying in the build.
+  MfaChallengeResponseDto,
 )
 @Controller('auth')
 export class AuthController {

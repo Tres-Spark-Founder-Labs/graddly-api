@@ -113,6 +113,9 @@ function isCsvCohortResult(
   LearnerMeSummaryOtjPaceDto,
   ListInterventionQueueQueryDto,
   TutorCaseloadResponseDto,
+  // Referenced via getSchemaPath() on the PDF routes; registered until now
+  // only because other controllers declare it.
+  PdfJobResponseDto,
 )
 @Controller({ path: 'learners', version: '1' })
 @UseGuards(JwtAuthGuard, ActiveOrganisationGuard)

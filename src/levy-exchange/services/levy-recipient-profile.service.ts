@@ -8,6 +8,7 @@ import { RecipientProfileResponseDto } from '../dto/recipient-profile-response.d
 import { SearchRecipientDirectoryDto } from '../dto/search-recipient-directory.dto.js';
 import { UpsertRecipientProfileDto } from '../dto/upsert-recipient-profile.dto.js';
 import { LevyRecipientProfile } from '../entities/levy-recipient-profile.entity.js';
+import { normaliseOpenVocabularyValue } from '../levy-vocabulary.js';
 
 @Injectable()
 export class LevyRecipientProfileService {
@@ -24,11 +25,14 @@ export class LevyRecipientProfileService {
       where: { organisationId, isDeleted: false },
     });
 
+    // Open fields normalised exactly as the donor's preferences are; closed
+    // fields arrive validated against the vocabulary and are stored as sent.
+    // levy-vocabulary.ts has the reason for the difference.
     if (existing) {
-      existing.sector = dto.sector.trim();
-      existing.region = dto.region.trim();
-      existing.employeeCountBand = dto.employeeCountBand.trim();
-      existing.programmeType = dto.programmeType.trim();
+      existing.sector = normaliseOpenVocabularyValue(dto.sector);
+      existing.region = dto.region;
+      existing.employeeCountBand = dto.employeeCountBand;
+      existing.programmeType = normaliseOpenVocabularyValue(dto.programmeType);
       existing.transferAmountRequired = dto.transferAmountRequired;
       existing.hasDasAccount = dto.hasDasAccount;
       // Optional on the DTO: an update that omits it must not silently
@@ -41,10 +45,10 @@ export class LevyRecipientProfileService {
 
     const created = this.profileRepo.create({
       organisationId,
-      sector: dto.sector.trim(),
-      region: dto.region.trim(),
-      employeeCountBand: dto.employeeCountBand.trim(),
-      programmeType: dto.programmeType.trim(),
+      sector: normaliseOpenVocabularyValue(dto.sector),
+      region: dto.region,
+      employeeCountBand: dto.employeeCountBand,
+      programmeType: normaliseOpenVocabularyValue(dto.programmeType),
       transferAmountRequired: dto.transferAmountRequired,
       hasDasAccount: dto.hasDasAccount,
       // Private unless explicitly opted in.

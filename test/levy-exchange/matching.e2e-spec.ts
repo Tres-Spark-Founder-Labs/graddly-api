@@ -47,10 +47,13 @@ describe('Levy Exchange matching (e2e)', () => {
   it('adds recipient to waiting pool when no donors match', async () => {
     const recipientCtx = await createLexOrgContext(app, 'matching-waiting');
     const suffix = Date.now();
+    // Region and employee count band are closed sets now, so isolation comes
+    // from the two open fields: no donor filters on a sector or programme type
+    // nobody else has written.
     await seedRecipientProfile(app, recipientCtx, {
       sector: `isolated-sector-${suffix}`,
-      region: `isolated-region-${suffix}`,
-      employeeCountBand: `isolated-band-${suffix}`,
+      region: 'North West',
+      employeeCountBand: '10-49',
       programmeType: `isolated-programme-${suffix}`,
     });
 

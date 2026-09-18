@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "eligibleEmployeeBands": ["1_9", "10_49", "50_249"],
+  "eligibleEmployeeBands": ["1-9", "10-49", "50-249"],
   "sectorAllowList": ["*"],
   "regionAllowList": ["*"],
   "fundingBands": {
     "default": { "min": 3000, "max": 27000, "currency": "GBP" },
     "bySector": {
-      "construction": { "min": 5000, "max": 27000, "currency": "GBP" },
-      "healthcare": { "min": 4000, "max": 27000, "currency": "GBP" },
-      "digital": { "min": 3500, "max": 27000, "currency": "GBP" }
+      "Construction": { "min": 5000, "max": 27000, "currency": "GBP" },
+      "Health & Social Care": { "min": 4000, "max": 27000, "currency": "GBP" },
+      "Digital & Technology": { "min": 3500, "max": 27000, "currency": "GBP" }
     }
   },
   "nextSteps": {

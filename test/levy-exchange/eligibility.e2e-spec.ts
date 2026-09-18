@@ -22,9 +22,9 @@ describe('Levy eligibility (e2e)', () => {
     const res = await request(app.getHttpServer())
       .post('/api/v1/levy-exchange/eligibility/check')
       .send({
-        employeeCountBand: '10_49',
-        sector: 'construction',
-        region: 'north_west',
+        employeeCountBand: '10-49',
+        sector: 'Construction',
+        region: 'North West',
         hasDasAccount: false,
       })
       .expect(201);
@@ -44,13 +44,38 @@ describe('Levy eligibility (e2e)', () => {
     );
   });
 
+  it('GET /levy-exchange/vocabulary without auth serves closed values and open suggestions apart', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/levy-exchange/vocabulary')
+      .expect(200);
+
+    expectSuccessEnvelope(res.body);
+    const data = (
+      res.body as {
+        data: {
+          closed: { region: string[]; employeeCountBand: string[] };
+          open: { sector: string[]; programmeType: string[] };
+        };
+      }
+    ).data;
+    expect(data.closed.region).toHaveLength(12);
+    expect(data.closed.employeeCountBand).toEqual([
+      '1-9',
+      '10-49',
+      '50-249',
+      '250+',
+    ]);
+    expect(data.open.sector).toContain('Digital & Technology');
+    expect(data.open.programmeType.length).toBeGreaterThan(0);
+  });
+
   it('returns check_with_advisor when DAS account flag is set', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/v1/levy-exchange/eligibility/check')
       .send({
-        employeeCountBand: '10_49',
-        sector: 'construction',
-        region: 'north_west',
+        employeeCountBand: '10-49',
+        sector: 'Construction',
+        region: 'North West',
         hasDasAccount: true,
       })
       .expect(201);

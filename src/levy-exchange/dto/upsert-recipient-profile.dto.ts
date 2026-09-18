@@ -1,44 +1,77 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
+  IsIn,
   IsOptional,
   IsNumberString,
   IsString,
   MaxLength,
 } from 'class-validator';
 
+import {
+  closedVocabularyMessage,
+  LEVY_EMPLOYEE_COUNT_BANDS,
+  LEVY_REGIONS,
+} from '../levy-vocabulary.js';
+
+/**
+ * ── WHY TWO FIELDS ARE VALIDATED AND TWO ARE NOT ────────────────────────────
+ *
+ * Matching compares these four fields to a donor's preferences by exact
+ * equality (`levy-vocabulary.ts` has the full account). `region` and
+ * `employeeCountBand` are closed in the real world — twelve UK regions, four
+ * bands that cover every size — so a value outside the set is a mistake, and
+ * it is rejected here rather than stored to quietly match no donor who
+ * filters. `sector` and `programmeType` are open: no list of sectors is
+ * complete and there are several hundred standards, so closing them on a
+ * handful of values would refuse real answers. They are accepted as given and
+ * normalised on write (trim, collapse whitespace) exactly as the donor's
+ * preferences are. GET /levy-exchange/vocabulary serves both kinds.
+ */
 export class UpsertRecipientProfileDto {
   @ApiProperty({
     maxLength: 100,
-    example: 'construction',
-    description: 'Recipient sector slug used for rule-based matching',
+    example: 'Construction',
+    description:
+      'Open field: any value, normalised on write. Suggestions from GET ' +
+      '/levy-exchange/vocabulary (open.sector).',
   })
   @IsString()
   @MaxLength(100)
   sector!: string;
 
   @ApiProperty({
-    maxLength: 100,
-    example: 'north_west',
-    description: 'Recipient region slug used for rule-based matching',
+    enum: LEVY_REGIONS,
+    example: 'North West',
+    description:
+      'Closed field: one of GET /levy-exchange/vocabulary closed.region.',
   })
-  @IsString()
-  @MaxLength(100)
+  @IsIn(LEVY_REGIONS, {
+    message: closedVocabularyMessage('region', LEVY_REGIONS),
+  })
   region!: string;
 
   @ApiProperty({
-    maxLength: 50,
-    example: '10_49',
-    description: 'Employee count band slug (e.g. 10_49, 50_249)',
+    enum: LEVY_EMPLOYEE_COUNT_BANDS,
+    example: '10-49',
+    description:
+      'Closed field: one of GET /levy-exchange/vocabulary ' +
+      'closed.employeeCountBand.',
   })
-  @IsString()
-  @MaxLength(50)
+  @IsIn(LEVY_EMPLOYEE_COUNT_BANDS, {
+    message: closedVocabularyMessage(
+      'employeeCountBand',
+      LEVY_EMPLOYEE_COUNT_BANDS,
+    ),
+  })
   employeeCountBand!: string;
 
   @ApiProperty({
     maxLength: 100,
-    example: 'standards',
-    description: 'Apprenticeship programme type slug',
+    example: 'ST0415 Software Developer',
+    description:
+      'Open field: any value, normalised on write. Suggestions from GET ' +
+      '/levy-exchange/vocabulary (open.programmeType).',
   })
   @IsString()
   @MaxLength(100)

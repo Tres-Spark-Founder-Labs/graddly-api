@@ -18209,6 +18209,36 @@
         ]
       }
     },
+    "/levy-exchange/vocabulary": {
+      "get": {
+        "description": "Public. The closed fields with their permitted values (validated on the recipient profile PUT, the transfer preference write and the eligibility check) and the open fields with suggestions (any value accepted, normalised on write). Values are display strings, compared exactly.",
+        "operationId": "VocabularyController_get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Closed fields with permitted values; open fields with suggestions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/LevyVocabularyResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "The Levy Exchange vocabulary",
+        "tags": [
+          "Levy Exchange"
+        ]
+      }
+    },
     "/ilr/mapping-configs": {
       "get": {
         "operationId": "IlrMappingConfigsController_findAll",
@@ -31004,21 +31034,39 @@
         "properties": {
           "employeeCountBand": {
             "type": "string",
-            "maxLength": 50,
-            "example": "10_49",
-            "description": "Employee count band slug (1_9, 10_49, 50_249 for SME; 250_plus is levy-paying)"
+            "enum": [
+              "1-9",
+              "10-49",
+              "50-249",
+              "250+"
+            ],
+            "example": "10-49",
+            "description": "Closed field: one of GET /levy-exchange/vocabulary closed.employeeCountBand. 1-9, 10-49 and 50-249 are SME bands; 250+ is levy-paying."
           },
           "sector": {
             "type": "string",
             "maxLength": 100,
-            "example": "construction",
-            "description": "Employer sector slug"
+            "example": "Construction",
+            "description": "Open field: any value. Suggestions from GET /levy-exchange/vocabulary (open.sector); a sector with no configured funding band gets the default."
           },
           "region": {
             "type": "string",
-            "maxLength": 100,
-            "example": "north_west",
-            "description": "Employer region slug"
+            "enum": [
+              "North East",
+              "North West",
+              "Yorkshire and the Humber",
+              "East Midlands",
+              "West Midlands",
+              "East of England",
+              "London",
+              "South East",
+              "South West",
+              "Wales",
+              "Scotland",
+              "Northern Ireland"
+            ],
+            "example": "North West",
+            "description": "Closed field: one of GET /levy-exchange/vocabulary closed.region."
           },
           "hasDasAccount": {
             "type": "boolean",
@@ -31153,26 +31201,44 @@
           "sector": {
             "type": "string",
             "maxLength": 100,
-            "example": "construction",
-            "description": "Recipient sector slug used for rule-based matching"
+            "example": "Construction",
+            "description": "Open field: any value, normalised on write. Suggestions from GET /levy-exchange/vocabulary (open.sector)."
           },
           "region": {
             "type": "string",
-            "maxLength": 100,
-            "example": "north_west",
-            "description": "Recipient region slug used for rule-based matching"
+            "enum": [
+              "North East",
+              "North West",
+              "Yorkshire and the Humber",
+              "East Midlands",
+              "West Midlands",
+              "East of England",
+              "London",
+              "South East",
+              "South West",
+              "Wales",
+              "Scotland",
+              "Northern Ireland"
+            ],
+            "example": "North West",
+            "description": "Closed field: one of GET /levy-exchange/vocabulary closed.region."
           },
           "employeeCountBand": {
             "type": "string",
-            "maxLength": 50,
-            "example": "10_49",
-            "description": "Employee count band slug (e.g. 10_49, 50_249)"
+            "enum": [
+              "1-9",
+              "10-49",
+              "50-249",
+              "250+"
+            ],
+            "example": "10-49",
+            "description": "Closed field: one of GET /levy-exchange/vocabulary closed.employeeCountBand."
           },
           "programmeType": {
             "type": "string",
             "maxLength": 100,
-            "example": "standards",
-            "description": "Apprenticeship programme type slug"
+            "example": "ST0415 Software Developer",
+            "description": "Open field: any value, normalised on write. Suggestions from GET /levy-exchange/vocabulary (open.programmeType)."
           },
           "transferAmountRequired": {
             "type": "string",
@@ -31271,9 +31337,10 @@
         "properties": {
           "sectors": {
             "example": [
-              "construction",
-              "engineering"
+              "Construction",
+              "Engineering & Manufacturing"
             ],
+            "description": "Open field: any values, each normalised on write. Suggestions from GET /levy-exchange/vocabulary (open.sector). Empty accepts every sector.",
             "type": "array",
             "items": {
               "type": "string",
@@ -31281,32 +31348,52 @@
             }
           },
           "regions": {
-            "example": [
-              "north_west",
-              "yorkshire"
-            ],
             "type": "array",
             "items": {
               "type": "string",
-              "maxLength": 100
-            }
+              "enum": [
+                "North East",
+                "North West",
+                "Yorkshire and the Humber",
+                "East Midlands",
+                "West Midlands",
+                "East of England",
+                "London",
+                "South East",
+                "South West",
+                "Wales",
+                "Scotland",
+                "Northern Ireland"
+              ]
+            },
+            "example": [
+              "North West",
+              "Yorkshire and the Humber"
+            ],
+            "description": "Closed field: each one of GET /levy-exchange/vocabulary closed.region. Empty accepts every region."
           },
           "sizeBands": {
-            "example": [
-              "10_49",
-              "50_249"
-            ],
             "type": "array",
             "items": {
               "type": "string",
-              "maxLength": 50
-            }
+              "enum": [
+                "1-9",
+                "10-49",
+                "50-249",
+                "250+"
+              ]
+            },
+            "example": [
+              "10-49",
+              "50-249"
+            ],
+            "description": "Closed field: each one of GET /levy-exchange/vocabulary closed.employeeCountBand. Empty accepts every size."
           },
           "programmeTypes": {
             "example": [
-              "standards",
-              "frameworks"
+              "ST0415 Software Developer"
             ],
+            "description": "Open field: any values, each normalised on write. Suggestions from GET /levy-exchange/vocabulary (open.programmeType). Empty accepts every programme type.",
             "type": "array",
             "items": {
               "type": "string",
@@ -31975,6 +32062,99 @@
         },
         "required": [
           "enrolmentId"
+        ]
+      },
+      "LevyClosedVocabularyDto": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "example": [
+              "North East",
+              "North West",
+              "Yorkshire and the Humber",
+              "East Midlands",
+              "West Midlands",
+              "East of England",
+              "London",
+              "South East",
+              "South West",
+              "Wales",
+              "Scotland",
+              "Northern Ireland"
+            ],
+            "description": "Permitted values for the recipient profile’s `region`, the donor preference’s `regions` and the eligibility check’s `region`.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "employeeCountBand": {
+            "example": [
+              "1-9",
+              "10-49",
+              "50-249",
+              "250+"
+            ],
+            "description": "Permitted values for the recipient profile’s `employeeCountBand`, the donor preference’s `sizeBands` and the eligibility check’s `employeeCountBand`.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "region",
+          "employeeCountBand"
+        ]
+      },
+      "LevyOpenVocabularyDto": {
+        "type": "object",
+        "properties": {
+          "sector": {
+            "example": [
+              "Construction",
+              "Digital & Technology",
+              "Engineering & Manufacturing",
+              "Financial Services",
+              "Health & Social Care"
+            ],
+            "description": "Suggestions for the recipient profile’s `sector`, the donor preference’s `sectors` and the eligibility check’s `sector`. Any value is accepted.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "programmeType": {
+            "example": [
+              "ST0145 Engineering Technician",
+              "ST0415 Software Developer",
+              "ST0215 Senior Healthcare Support Worker"
+            ],
+            "description": "Suggestions for the recipient profile’s `programmeType` and the donor preference’s `programmeTypes`. Any value is accepted.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "sector",
+          "programmeType"
+        ]
+      },
+      "LevyVocabularyResponseDto": {
+        "type": "object",
+        "properties": {
+          "closed": {
+            "$ref": "#/components/schemas/LevyClosedVocabularyDto"
+          },
+          "open": {
+            "$ref": "#/components/schemas/LevyOpenVocabularyDto"
+          }
+        },
+        "required": [
+          "closed",
+          "open"
         ]
       },
       "IlrMappingConfigResponseDto": {

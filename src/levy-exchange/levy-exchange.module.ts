@@ -23,6 +23,7 @@ import { RecipientProfileController } from './controllers/recipient-profile.cont
 import { SurplusController } from './controllers/surplus.controller.js';
 import { TransferPreferencesController } from './controllers/transfer-preferences.controller.js';
 import { TransfersController } from './controllers/transfers.controller.js';
+import { VocabularyController } from './controllers/vocabulary.controller.js';
 import { DasDonorLink } from './entities/das-donor-link.entity.js';
 import { DasDonorOAuthToken } from './entities/das-donor-oauth-token.entity.js';
 import { DasLevyTranche } from './entities/das-levy-tranche.entity.js';
@@ -91,6 +92,7 @@ import { TokenEncryptionService } from './services/token-encryption.service.js';
     MatchingController,
     MatchApplicationsController,
     TransfersController,
+    VocabularyController,
   ],
   providers: [
     TokenEncryptionService,

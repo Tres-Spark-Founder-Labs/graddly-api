@@ -5,6 +5,7 @@ import {
   type EligibilityFundingBand,
 } from '../config/eligibility-rules.config.js';
 import { LevyEligibilityStatus } from '../enums/levy-eligibility-status.enum.js';
+import { normaliseOpenVocabularyValue } from '../levy-vocabulary.js';
 
 import type { CheckLevyEligibilityDto } from '../dto/check-levy-eligibility.dto.js';
 import type { LevyEligibilityResponseDto } from '../dto/levy-eligibility-response.dto.js';
@@ -64,7 +65,10 @@ export class LevyEligibilityService {
     sector: string,
     rules: ReturnType<typeof loadEligibilityRulesConfig>,
   ): EligibilityFundingBand {
-    return rules.fundingBands.bySector[sector] ?? rules.fundingBands.default;
+    return (
+      rules.fundingBands.bySector[normaliseOpenVocabularyValue(sector)] ??
+      rules.fundingBands.default
+    );
   }
 
   private buildResponse(

@@ -1,33 +1,60 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsIn, IsString, MaxLength } from 'class-validator';
 
+import {
+  closedVocabularyMessage,
+  LEVY_EMPLOYEE_COUNT_BANDS,
+  LEVY_REGIONS,
+} from '../levy-vocabulary.js';
+
+/**
+ * The same vocabulary as the recipient profile, held to the same rule.
+ *
+ * This used to take its own slugs (`10_49`, `north_west`, `technology`), a
+ * third list beside matching's. The eligibility rules compare
+ * `employeeCountBand` exactly and key funding bands by `sector`, so a value
+ * from any other list failed quietly — a slug band came back "not eligible",
+ * an unknown sector got the default funding band. Closed fields are therefore
+ * validated here too, rather than answered wrongly; `sector` stays open and is
+ * normalised before the funding-band lookup.
+ */
 export class CheckLevyEligibilityDto {
   @ApiProperty({
-    maxLength: 50,
-    example: '10_49',
+    enum: LEVY_EMPLOYEE_COUNT_BANDS,
+    example: '10-49',
     description:
-      'Employee count band slug (1_9, 10_49, 50_249 for SME; 250_plus is levy-paying)',
+      'Closed field: one of GET /levy-exchange/vocabulary ' +
+      'closed.employeeCountBand. 1-9, 10-49 and 50-249 are SME bands; 250+ is ' +
+      'levy-paying.',
   })
-  @IsString()
-  @MaxLength(50)
+  @IsIn(LEVY_EMPLOYEE_COUNT_BANDS, {
+    message: closedVocabularyMessage(
+      'employeeCountBand',
+      LEVY_EMPLOYEE_COUNT_BANDS,
+    ),
+  })
   employeeCountBand!: string;
 
   @ApiProperty({
     maxLength: 100,
-    example: 'construction',
-    description: 'Employer sector slug',
+    example: 'Construction',
+    description:
+      'Open field: any value. Suggestions from GET /levy-exchange/vocabulary ' +
+      '(open.sector); a sector with no configured funding band gets the default.',
   })
   @IsString()
   @MaxLength(100)
   sector!: string;
 
   @ApiProperty({
-    maxLength: 100,
-    example: 'north_west',
-    description: 'Employer region slug',
+    enum: LEVY_REGIONS,
+    example: 'North West',
+    description:
+      'Closed field: one of GET /levy-exchange/vocabulary closed.region.',
   })
-  @IsString()
-  @MaxLength(100)
+  @IsIn(LEVY_REGIONS, {
+    message: closedVocabularyMessage('region', LEVY_REGIONS),
+  })
   region!: string;
 
   @ApiProperty({

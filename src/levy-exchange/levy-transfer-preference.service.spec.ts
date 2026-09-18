@@ -53,16 +53,16 @@ describe('LevyTransferPreferenceService', () => {
     );
 
     const result = await service.upsert('org-1', {
-      sectors: ['digital'],
-      regions: ['north_west'],
-      sizeBands: ['10_49'],
+      sectors: ['Digital & Technology'],
+      regions: ['North West'],
+      sizeBands: ['10-49'],
       programmeTypes: ['software_developer'],
       maxPerRecipient: '20000.00',
       openMatching: false,
       anonymousMatching: true,
     });
 
-    expect(result.sectors).toEqual(['digital']);
+    expect(result.sectors).toEqual(['Digital & Technology']);
     expect(result.anonymousMatching).toBe(true);
   });
 
@@ -70,9 +70,9 @@ describe('LevyTransferPreferenceService', () => {
     preferenceFindOne.mockResolvedValue({
       id: 'pref-1',
       organisationId: 'org-1',
-      sectors: ['digital'],
-      regions: ['north_west'],
-      sizeBands: ['10_49'],
+      sectors: ['Digital & Technology'],
+      regions: ['North West'],
+      sizeBands: ['10-49'],
       programmeTypes: ['software_developer'],
       maxPerRecipient: '20000.00',
       openMatching: false,
@@ -142,6 +142,38 @@ describe('LevyTransferPreferenceService', () => {
         service.anonymousMatchingByOrganisation([]),
       ).resolves.toEqual(new Map());
       expect(preferenceFind).not.toHaveBeenCalled();
+    });
+  });
+
+  it('normalises the open lists as the recipient side does, and stores closed ones as sent', async () => {
+    preferenceFindOne.mockResolvedValue(null);
+    preferenceCreate.mockImplementation(
+      (value: LevyTransferPreference) => value,
+    );
+    preferenceSave.mockImplementation((value: LevyTransferPreference) =>
+      Promise.resolve({
+        ...value,
+        id: 'pref-1',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      }),
+    );
+
+    const result = await service.upsert('org-1', {
+      sectors: ['  Digital   &  Technology ', '   '],
+      regions: ['North West'],
+      sizeBands: ['10-49'],
+      programmeTypes: [' ST0415	Software   Developer'],
+      maxPerRecipient: null,
+      openMatching: false,
+      anonymousMatching: false,
+    });
+
+    expect(result).toMatchObject({
+      sectors: ['Digital & Technology'],
+      regions: ['North West'],
+      sizeBands: ['10-49'],
+      programmeTypes: ['ST0415 Software Developer'],
     });
   });
 });

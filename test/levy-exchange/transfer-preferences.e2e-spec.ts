@@ -30,10 +30,10 @@ describe('Levy Exchange transfer preferences (e2e)', () => {
       .put('/api/v1/levy-exchange/transfer-preferences')
       .set(ctx.authHeaders)
       .send({
-        sectors: ['construction'],
-        regions: ['north_west'],
-        sizeBands: ['10_49'],
-        programmeTypes: ['standards'],
+        sectors: ['  Construction '],
+        regions: ['North West'],
+        sizeBands: ['10-49'],
+        programmeTypes: ['ST0415   Software Developer'],
         maxPerRecipient: '20000.00',
         openMatching: false,
         anonymousMatching: false,
@@ -47,6 +47,39 @@ describe('Levy Exchange transfer preferences (e2e)', () => {
     expect(
       (upsertRes.body as { data: { openMatching: boolean } }).data.openMatching,
     ).toBe(false);
+    // Normalised exactly as the recipient's single values are, so equal words
+    // on the two sides are equal strings when matching compares them.
+    expect(
+      (
+        upsertRes.body as {
+          data: { sectors: string[]; programmeTypes: string[] };
+        }
+      ).data,
+    ).toMatchObject({
+      sectors: ['Construction'],
+      programmeTypes: ['ST0415 Software Developer'],
+    });
+
+    const closed = await request(app.getHttpServer())
+      .put('/api/v1/levy-exchange/transfer-preferences')
+      .set(ctx.authHeaders)
+      .send({
+        sectors: [],
+        regions: ['North West', 'Midlands'],
+        sizeBands: ['10_49'],
+        programmeTypes: [],
+        maxPerRecipient: null,
+        openMatching: false,
+        anonymousMatching: false,
+      })
+      .expect(422);
+    expect((closed.body as { errors: Record<string, string> }).errors).toEqual({
+      regions: expect.stringMatching(
+        /^regions must be one of the permitted values: .*North West/,
+      ),
+      sizeBands:
+        'sizeBands must be one of the permitted values: 1-9, 10-49, 50-249, 250+',
+    });
 
     const getRes = await request(app.getHttpServer())
       .get('/api/v1/levy-exchange/transfer-preferences')

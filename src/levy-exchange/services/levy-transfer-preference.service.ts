@@ -6,6 +6,7 @@ import { withRlsBootstrap } from '../../common/context/correlation-id-context.js
 import { TransferPreferencesResponseDto } from '../dto/transfer-preferences-response.dto.js';
 import { UpsertTransferPreferencesDto } from '../dto/upsert-transfer-preferences.dto.js';
 import { LevyTransferPreference } from '../entities/levy-transfer-preference.entity.js';
+import { normaliseOpenVocabularyValue } from '../levy-vocabulary.js';
 
 @Injectable()
 export class LevyTransferPreferenceService {
@@ -23,10 +24,10 @@ export class LevyTransferPreferenceService {
     });
 
     if (existing) {
-      existing.sectors = this.normalizeList(dto.sectors);
-      existing.regions = this.normalizeList(dto.regions);
-      existing.sizeBands = this.normalizeList(dto.sizeBands);
-      existing.programmeTypes = this.normalizeList(dto.programmeTypes);
+      existing.sectors = this.normaliseOpenList(dto.sectors);
+      existing.regions = [...dto.regions];
+      existing.sizeBands = [...dto.sizeBands];
+      existing.programmeTypes = this.normaliseOpenList(dto.programmeTypes);
       existing.maxPerRecipient = dto.maxPerRecipient ?? null;
       existing.openMatching = dto.openMatching;
       existing.anonymousMatching = dto.anonymousMatching;
@@ -35,10 +36,10 @@ export class LevyTransferPreferenceService {
 
     const created = this.preferenceRepo.create({
       organisationId,
-      sectors: this.normalizeList(dto.sectors),
-      regions: this.normalizeList(dto.regions),
-      sizeBands: this.normalizeList(dto.sizeBands),
-      programmeTypes: this.normalizeList(dto.programmeTypes),
+      sectors: this.normaliseOpenList(dto.sectors),
+      regions: [...dto.regions],
+      sizeBands: [...dto.sizeBands],
+      programmeTypes: this.normaliseOpenList(dto.programmeTypes),
       maxPerRecipient: dto.maxPerRecipient ?? null,
       openMatching: dto.openMatching,
       anonymousMatching: dto.anonymousMatching,
@@ -108,9 +109,15 @@ export class LevyTransferPreferenceService {
     return preference;
   }
 
-  private normalizeList(values: string[]): string[] {
+  /**
+   * An open list, normalised as the recipient's single value is
+   * (`normaliseOpenVocabularyValue`), with empty entries dropped. Closed lists
+   * (regions, sizeBands) arrive validated against the vocabulary and are stored
+   * as sent.
+   */
+  private normaliseOpenList(values: string[]): string[] {
     return values
-      .map((value) => value.trim())
+      .map(normaliseOpenVocabularyValue)
       .filter((value) => value.length > 0);
   }
 

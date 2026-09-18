@@ -11,9 +11,9 @@ describe('LevyEligibilityService', () => {
 
   it('returns eligible for SME band with open sector/region', () => {
     const result = service.check({
-      employeeCountBand: '10_49',
-      sector: 'construction',
-      region: 'north_west',
+      employeeCountBand: '10-49',
+      sector: 'Construction',
+      region: 'North West',
       hasDasAccount: false,
     });
 
@@ -27,9 +27,9 @@ describe('LevyEligibilityService', () => {
 
   it('returns not_eligible for levy-paying employer size', () => {
     const result = service.check({
-      employeeCountBand: '250_plus',
-      sector: 'construction',
-      region: 'north_west',
+      employeeCountBand: '250+',
+      sector: 'Construction',
+      region: 'North West',
       hasDasAccount: false,
     });
 
@@ -39,9 +39,9 @@ describe('LevyEligibilityService', () => {
 
   it('returns check_with_advisor when DAS account exists', () => {
     const result = service.check({
-      employeeCountBand: '10_49',
-      sector: 'construction',
-      region: 'north_west',
+      employeeCountBand: '10-49',
+      sector: 'Construction',
+      region: 'North West',
       hasDasAccount: true,
     });
 
@@ -51,12 +51,34 @@ describe('LevyEligibilityService', () => {
 
   it('uses sector-specific funding band when configured', () => {
     const result = service.check({
-      employeeCountBand: '50_249',
-      sector: 'digital',
-      region: 'london',
+      employeeCountBand: '50-249',
+      sector: 'Digital & Technology',
+      region: 'London',
       hasDasAccount: false,
     });
 
     expect(result.estimatedFundingBand.min).toBe(3500);
+  });
+
+  it('looks the sector up after the same normalisation as the profile', () => {
+    const result = service.check({
+      employeeCountBand: '10-49',
+      sector: '  Digital   &  Technology ',
+      region: 'London',
+      hasDasAccount: false,
+    });
+    expect(result.estimatedFundingBand.min).toBe(3500);
+  });
+
+  it('gives a sector with no configured band the default band, not a guess', () => {
+    // "Technology" was the checker's old option. It is not the vocabulary's
+    // value, and an open field is not mapped onto one.
+    const result = service.check({
+      employeeCountBand: '10-49',
+      sector: 'Technology',
+      region: 'London',
+      hasDasAccount: false,
+    });
+    expect(result.estimatedFundingBand.min).toBe(3000);
   });
 });

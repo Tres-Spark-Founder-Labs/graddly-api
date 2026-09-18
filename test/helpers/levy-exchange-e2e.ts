@@ -48,19 +48,19 @@ export interface ISeedDonorLinkResult {
 }
 
 const DEFAULT_RECIPIENT_PROFILE = {
-  sector: 'construction',
-  region: 'north_west',
-  employeeCountBand: '10_49',
-  programmeType: 'standards',
+  sector: 'Construction',
+  region: 'North West',
+  employeeCountBand: '10-49',
+  programmeType: 'ST0415 Software Developer',
   transferAmountRequired: '15000.00',
   hasDasAccount: true,
 };
 
 const DEFAULT_TRANSFER_PREFERENCES = {
-  sectors: ['construction'],
-  regions: ['north_west'],
-  sizeBands: ['10_49'],
-  programmeTypes: ['standards'],
+  sectors: ['Construction'],
+  regions: ['North West'],
+  sizeBands: ['10-49'],
+  programmeTypes: ['ST0415 Software Developer'],
   maxPerRecipient: '20000.00',
   openMatching: false,
   anonymousMatching: false,

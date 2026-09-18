@@ -30,10 +30,12 @@ describe('Levy Exchange recipient profile (e2e)', () => {
       .put('/api/v1/levy-exchange/recipient-profile')
       .set(ctx.authHeaders)
       .send({
-        sector: 'construction',
-        region: 'north_west',
-        employeeCountBand: '10_49',
-        programmeType: 'standards',
+        // Open fields arrive untidy and are stored normalised (trimmed,
+        // whitespace collapsed, case kept), as the donor side's are.
+        sector: '  Construction ',
+        region: 'North West',
+        employeeCountBand: '10-49',
+        programmeType: 'ST0415   Software Developer',
         transferAmountRequired: '15000.00',
         hasDasAccount: true,
       })
@@ -41,9 +43,13 @@ describe('Levy Exchange recipient profile (e2e)', () => {
 
     expectSuccessEnvelope(upsertRes.body);
     expectRecipientProfileResource((upsertRes.body as { data: unknown }).data);
-    expect((upsertRes.body as { data: { sector: string } }).data.sector).toBe(
-      'construction',
-    );
+    expect(
+      (upsertRes.body as { data: { sector: string; programmeType: string } })
+        .data,
+    ).toMatchObject({
+      sector: 'Construction',
+      programmeType: 'ST0415 Software Developer',
+    });
 
     const getRes = await request(app.getHttpServer())
       .get('/api/v1/levy-exchange/recipient-profile')
@@ -74,12 +80,32 @@ describe('Levy Exchange recipient profile (e2e)', () => {
     const res = await request(app.getHttpServer())
       .put('/api/v1/levy-exchange/recipient-profile')
       .set(ctx.authHeaders)
-      .send({ sector: 'construction' })
+      .send({ sector: 'Construction' })
       .expect(422);
 
     expectValidationErrorBody(
       res.body as Record<string, unknown>,
       '/api/v1/levy-exchange/recipient-profile',
     );
+
+    // A closed field outside its set — here the eligibility checker's old
+    // slug — is rejected with the field and every permitted value named.
+    const closed = await request(app.getHttpServer())
+      .put('/api/v1/levy-exchange/recipient-profile')
+      .set(ctx.authHeaders)
+      .send({
+        sector: 'Construction',
+        region: 'north_west',
+        employeeCountBand: '10-49',
+        programmeType: 'ST0415 Software Developer',
+        transferAmountRequired: '15000.00',
+        hasDasAccount: false,
+      })
+      .expect(422);
+    expect((closed.body as { errors: Record<string, string> }).errors).toEqual({
+      region: expect.stringMatching(
+        /^region must be one of the permitted values: .*North West.*Northern Ireland/,
+      ),
+    });
   });
 });

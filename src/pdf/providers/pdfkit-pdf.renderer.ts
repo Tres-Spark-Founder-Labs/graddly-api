@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 
 import type {
+  IApprenticeRosterContent,
   ICommitmentAuditTrailContent,
   ICommitmentSnapshotContent,
   ILevyRoiReportContent,
@@ -839,6 +840,151 @@ export class PdfKitPdfRenderer implements IPdfRenderer {
               y = doc.page.margins.top;
               // Repeat the header: a cohort table running to twenty pages is
               // unreadable if only page one says what the columns are.
+              drawHeader();
+            }
+          }
+          doc.y = y;
+        }
+
+        doc.moveDown(1.5);
+        doc
+          .fontSize(8)
+          .fillColor('#666666')
+          .text(`Generated ${content.generatedAt.slice(0, 10)}.`, {
+            align: 'center',
+          })
+          .fillColor('black');
+      },
+      { layout: 'landscape' },
+    );
+  }
+
+  /**
+   * F1.2.1 AC6 — the employer's apprentice roster.
+   *
+   * Same shape as the learner cohort (landscape, repeated header, the filters
+   * printed on the face of the document) and the same branding block as the
+   * levy report (F1.1.5 AC2: Gradlly and the employer's name and logo). The
+   * columns are the on-screen table's; rows arrive already filtered and
+   * sorted, and are printed in the order given.
+   */
+  renderApprenticeRoster(content: IApprenticeRosterContent): Promise<Buffer> {
+    return renderToBuffer(
+      (doc) => {
+        if (content.logoBytes) {
+          try {
+            doc.image(content.logoBytes, { fit: [140, 48], align: 'center' });
+            doc.moveDown(0.5);
+          } catch {
+            // A bad logo must not fail the export.
+          }
+        }
+        doc
+          .fontSize(9)
+          .fillColor('#666666')
+          .text('Gradlly', { align: 'center' })
+          .fillColor('black');
+        doc.moveDown(0.5);
+        doc.fontSize(18).text('Apprentice roster', { align: 'center' });
+        doc.moveDown(0.3);
+        doc.fontSize(11).text(content.organisationName, { align: 'center' });
+        doc.moveDown(0.5);
+
+        // The filters and sort, on the face of the document, for the same
+        // reason the cohort export prints its own: a page of rows with no
+        // record of what it was narrowed to cannot be checked by its reader.
+        doc.fontSize(9).fillColor('#666666');
+        doc.text(
+          content.filterSummary
+            ? `Filtered: ${content.filterSummary}`
+            : 'No filters applied — every apprentice on the roster.',
+          { align: 'center' },
+        );
+        if (content.sortSummary) {
+          doc.text(content.sortSummary, { align: 'center' });
+        }
+        doc.text(
+          `${content.totalCount} apprentice${content.totalCount === 1 ? '' : 's'}.`,
+          { align: 'center' },
+        );
+        if (content.statusCounts.length > 0) {
+          doc.text(
+            content.statusCounts
+              .map((s) => `${s.label}: ${s.count}`)
+              .join('   '),
+            { align: 'center' },
+          );
+        }
+        doc.fillColor('black');
+        doc.moveDown();
+
+        if (content.rows.length === 0) {
+          doc.fontSize(11).text('No apprentices match these filters.');
+        } else {
+          const columns = [
+            { label: 'Apprentice', width: 125 },
+            { label: 'Employee ID', width: 70 },
+            { label: 'Standard', width: 135 },
+            { label: 'Provider', width: 115 },
+            { label: 'OTJ %', width: 45 },
+            { label: 'EPA date', width: 68 },
+            { label: 'Last activity', width: 68 },
+            { label: 'Status', width: 66 },
+          ] as const;
+          const tableWidth = columns.reduce((sum, c) => sum + c.width, 0);
+
+          const startX = doc.page.margins.left;
+          let y = doc.y;
+
+          const drawHeader = () => {
+            doc.fontSize(8).fillColor('#666666');
+            let x = startX;
+            for (const column of columns) {
+              doc.text(column.label, x, y, {
+                width: column.width,
+                lineBreak: false,
+              });
+              x += column.width;
+            }
+            doc.fillColor('black');
+            y += 14;
+            doc
+              .moveTo(startX, y - 4)
+              .lineTo(startX + tableWidth, y - 4)
+              .strokeColor('#dddddd')
+              .stroke();
+            doc.fontSize(9);
+          };
+
+          drawHeader();
+
+          for (const row of content.rows) {
+            // "—" where the screen shows "—": a blank cell reads as a bug.
+            const cells = [
+              row.name,
+              row.employeeId ?? '—',
+              row.standard,
+              row.provider,
+              row.otjProgress ?? '—',
+              row.epaDate ?? '—',
+              row.lastActivity ?? '—',
+              row.statusLabel,
+            ];
+
+            let x = startX;
+            for (const [index, column] of columns.entries()) {
+              doc.text(cells[index], x, y, {
+                width: column.width,
+                lineBreak: false,
+                ellipsis: true,
+              });
+              x += column.width;
+            }
+            y += 15;
+
+            if (y > doc.page.height - doc.page.margins.bottom - 30) {
+              doc.addPage();
+              y = doc.page.margins.top;
               drawHeader();
             }
           }

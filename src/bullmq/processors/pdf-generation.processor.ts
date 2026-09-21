@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Job } from 'bullmq';
 import { Repository } from 'typeorm';
 
+import { ApprenticeRosterService } from '../../apprentices/apprentice-roster.service.js';
 import { CommitmentAuditTrailService } from '../../commitments/commitment-audit-trail.service.js';
 import { CommitmentChaseService } from '../../commitments/commitment-chase.service.js';
 import { COMMITMENT_SIGNING_ORDER } from '../../commitments/commitment-signing-order.js';
@@ -83,6 +84,8 @@ export class PdfGenerationProcessor extends WorkerHost {
     // parameter mid-list silently shifts every one after it. That has already
     // cost seven e2e suites once.
     private readonly learnerCohortService: LearnerCohortService,
+    // F1.2.1 AC6. Same rule: appended last, and mirrored in the helper.
+    private readonly apprenticeRosterService: ApprenticeRosterService,
   ) {
     super();
   }
@@ -244,6 +247,26 @@ export class PdfGenerationProcessor extends WorkerHost {
           logoBytes,
         });
         filename = `learner-cohort-${organisationId}.pdf`;
+      } else if (template === PdfJobTemplate.APPRENTICE_ROSTER) {
+        // F1.2.1 AC6. The screen's filter, search and sort travelled with the
+        // job, so the document is the table the employer exported.
+        const content = await this.apprenticeRosterService.buildPdfContent(
+          organisationId,
+          job.data.rosterQuery ?? {},
+        );
+        const logoBytes = await this.fetchLogoBytes(
+          (
+            await this.organisationRepo.findOne({
+              where: { id: organisationId },
+              select: ['logoUrl'],
+            })
+          )?.logoUrl ?? null,
+        );
+        buffer = await this.pdfService.renderApprenticeRoster({
+          ...content,
+          logoBytes,
+        });
+        filename = `apprentice-roster-${organisationId}.pdf`;
       } else {
         buffer = await this.pdfService.renderHelloPdf();
         filename = `hello-${jobId}.pdf`;

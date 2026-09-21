@@ -15,4 +15,10 @@ export interface IPdfJobPayload {
    * `LearnersModule`; the processor casts it back.
    */
   cohortQuery?: Record<string, unknown>;
+  /**
+   * F1.2.1 AC6 — the employer roster's filter, search and sort, for the same
+   * reason and with the same loose typing; the processor casts it back to
+   * ExportApprenticeRosterDto.
+   */
+  rosterQuery?: Record<string, unknown>;
 }

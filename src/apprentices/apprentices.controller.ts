@@ -42,16 +42,19 @@ import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
+import { PdfJobResponseDto } from '../pdf/dto/pdf-job-response.dto.js';
 
+import { ApprenticeRosterService } from './apprentice-roster.service.js';
 import { ApprenticesService } from './apprentices.service.js';
 import { ApprenticeResponseDto } from './dto/apprentice-response.dto.js';
 import { CreateApprenticeDto } from './dto/create-apprentice.dto.js';
+import { ExportApprenticeRosterDto } from './dto/export-apprentice-roster.dto.js';
 import { UpdateApprenticeDto } from './dto/update-apprentice.dto.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 
 @ApiTags('Apprentices')
-@ApiExtraModels(ApprenticeResponseDto, PaginationMetaDto)
+@ApiExtraModels(ApprenticeResponseDto, PaginationMetaDto, PdfJobResponseDto)
 @Controller({ path: 'apprentices', version: '1' })
 @UseGuards(JwtAuthGuard, ActiveOrganisationGuard)
 @ApiBearerAuth()
@@ -69,7 +72,10 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
   type: ErrorResponseDto,
 })
 export class ApprenticesController {
-  constructor(private readonly apprenticesService: ApprenticesService) {}
+  constructor(
+    private readonly apprenticesService: ApprenticesService,
+    private readonly rosterService: ApprenticeRosterService,
+  ) {}
 
   @Post()
   @ResponseMessage('Apprentice created successfully')
@@ -97,6 +103,44 @@ export class ApprenticesController {
   ) {
     setCurrentUserId(user.id);
     return this.apprenticesService.create(user, dto);
+  }
+
+  /**
+   * F1.2.1 AC6 — the PDF half of "exportable as CSV and PDF".
+   *
+   * Declared before `:id` so the literal path wins. Takes the roster
+   * screen's filter, search and sort so the document is the table the
+   * employer was looking at — the CSV export writes the visible rows for the
+   * same reason.
+   */
+  @Post('roster/export')
+  @ResponseMessage('Apprentice roster PDF export queued successfully')
+  @ApiOperation({
+    summary: 'Queue the apprentice roster table as a PDF',
+    description:
+      "F1.2.1 AC6. Employer organisations only. Accepts the roster screen's " +
+      'filter, search and sort and prints them on the document. Poll ' +
+      '`GET /pdf/jobs/{jobId}`.',
+  })
+  @ApiCreatedResponse({
+    description: 'Queued PDF generation job',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(PdfJobResponseDto) },
+      },
+    },
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'Validation failed',
+    type: ValidationErrorResponseDto,
+  })
+  exportRosterPdf(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ExportApprenticeRosterDto,
+  ): Promise<PdfJobResponseDto> {
+    setCurrentUserId(user.id);
+    return this.rosterService.exportPdf(user, dto);
   }
 
   @Get()

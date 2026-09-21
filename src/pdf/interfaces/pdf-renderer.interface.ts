@@ -299,6 +299,40 @@ export interface ILearnerCohortContent {
   generatedAt: string;
 }
 
+/**
+ * F1.2.1 AC6 — the employer's apprentice roster, as the screen shows it.
+ *
+ * Every cell is a string the renderer prints as given, already formatted by
+ * ApprenticeRosterService in the same way the portal formats it; the renderer
+ * decides nothing about the data.
+ */
+export interface IApprenticeRosterContent {
+  organisationName: string;
+  logoBytes?: Buffer | null;
+
+  /** Human-readable description of the filters and search, or null when unfiltered. */
+  filterSummary: string | null;
+  /** "Sorted by EPA date, ascending", or null for the roster's own order. */
+  sortSummary: string | null;
+  totalCount: number;
+  /** Counts per status badge, so the reader sees the shape before the rows. */
+  statusCounts: Array<{ label: string; count: number }>;
+
+  rows: Array<{
+    name: string;
+    employeeId: string | null;
+    standard: string;
+    provider: string;
+    /** "42%" or null — null for every employer row today; see the service. */
+    otjProgress: string | null;
+    /** "12 Oct 2026" as the screen prints it, or null. */
+    epaDate: string | null;
+    lastActivity: string | null;
+    statusLabel: string;
+  }>;
+  generatedAt: string;
+}
+
 export interface IPdfRenderer {
   renderHelloPdf(): Promise<Buffer>;
   renderReviewSnapshot(content: IReviewSnapshotContent): Promise<Buffer>;
@@ -317,6 +351,7 @@ export interface IPdfRenderer {
   ): Promise<Buffer>;
   renderQipPlan(content: IQipPlanContent): Promise<Buffer>;
   renderLearnerCohort(content: ILearnerCohortContent): Promise<Buffer>;
+  renderApprenticeRoster(content: IApprenticeRosterContent): Promise<Buffer>;
   embedSignature(
     unsignedPdf: Buffer,
     signaturePng: Buffer,

@@ -12,4 +12,6 @@ export enum PdfJobTemplate {
   QIP_PLAN = 'qip_plan',
   /** F2.2.1 AC5 — the full learner cohort table as a PDF. */
   LEARNER_COHORT = 'learner_cohort',
+  /** F1.2.1 AC6 — the employer's apprentice roster, as filtered on screen. */
+  APPRENTICE_ROSTER = 'apprentice_roster',
 }

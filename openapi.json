@@ -20941,6 +20941,91 @@
         ]
       }
     },
+    "/apprentices/roster/export": {
+      "post": {
+        "description": "F1.2.1 AC6. Employer organisations only. Accepts the roster screen's filter, search and sort and prints them on the document. Poll `GET /pdf/jobs/{jobId}`.",
+        "operationId": "ApprenticesController_exportRosterPdf",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportApprenticeRosterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Queued PDF generation job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PdfJobResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Queue the apprentice roster table as a PDF",
+        "tags": [
+          "Apprentices"
+        ]
+      }
+    },
     "/apprentices/{id}": {
       "get": {
         "operationId": "ApprenticesController_findOne",
@@ -27059,7 +27144,8 @@
               "commitment_audit_trail",
               "provider_comparison",
               "qip_plan",
-              "learner_cohort"
+              "learner_cohort",
+              "apprentice_roster"
             ],
             "type": "string"
           },
@@ -27475,7 +27561,8 @@
               "commitment_audit_trail",
               "provider_comparison",
               "qip_plan",
-              "learner_cohort"
+              "learner_cohort",
+              "apprentice_roster"
             ],
             "type": "string",
             "example": "hello"
@@ -33910,6 +33997,70 @@
           "lastName",
           "email"
         ]
+      },
+      "ExportApprenticeRosterDto": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "enum": [
+              "all",
+              "on_track",
+              "at_risk",
+              "critically_behind",
+              "epa_imminent"
+            ],
+            "type": "string",
+            "default": "all",
+            "description": "The status pill. `epa_imminent` is EPA under 90 days away."
+          },
+          "search": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Search box: matched case-insensitively against name, standard, provider and employee ID."
+          },
+          "provider": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Provider filter, by display name (exact)."
+          },
+          "standard": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Standard filter, by display name (exact)."
+          },
+          "epaMonth": {
+            "type": "string",
+            "description": "EPA month filter, `YYYY-MM`.",
+            "example": "2026-10"
+          },
+          "cohort": {
+            "type": "string",
+            "description": "Cohort (planned start) month filter, `YYYY-MM`.",
+            "example": "2025-09"
+          },
+          "sortBy": {
+            "type": "string",
+            "enum": [
+              "name",
+              "standard",
+              "provider",
+              "otjActual",
+              "epaDate",
+              "attendance",
+              "lastActivity",
+              "status"
+            ],
+            "description": "Sort column. Omitted means the roster order (newest first)."
+          },
+          "sortOrder": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "default": "asc"
+          }
+        }
       },
       "UpdateApprenticeDto": {
         "type": "object",

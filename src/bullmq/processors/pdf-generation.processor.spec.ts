@@ -2,6 +2,8 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Job } from 'bullmq';
 
+import { ApprenticeRosterService } from '../../apprentices/apprentice-roster.service.js';
+import { ApprenticeRosterFilter } from '../../apprentices/dto/export-apprentice-roster.dto.js';
 import { PdfGenerationProcessor } from '../../bullmq/processors/pdf-generation.processor.js';
 import { CommitmentAuditTrailService } from '../../commitments/commitment-audit-trail.service.js';
 import { CommitmentChaseService } from '../../commitments/commitment-chase.service.js';
@@ -29,6 +31,8 @@ describe('PdfGenerationProcessor', () => {
   let processor: PdfGenerationProcessor;
   const update = jest.fn();
   const putObject = jest.fn();
+  const buildRosterContent = jest.fn();
+  const renderApprenticeRoster = jest.fn();
 
   beforeEach(async () => {
     update.mockReset();
@@ -44,6 +48,7 @@ describe('PdfGenerationProcessor', () => {
             renderHelloPdf: jest
               .fn()
               .mockResolvedValue(Buffer.from('%PDF-test')),
+            renderApprenticeRoster,
           },
         },
         {
@@ -104,6 +109,11 @@ describe('PdfGenerationProcessor', () => {
           useValue: { buildPdfContent: jest.fn() },
         },
         {
+          // F1.2.1 AC6 — the employer roster PDF branch.
+          provide: ApprenticeRosterService,
+          useValue: { buildPdfContent: buildRosterContent },
+        },
+        {
           // F1.3.3 AC3 — the audit trail export template.
           provide: CommitmentAuditTrailService,
           useValue: { buildPdfContent: jest.fn() },
@@ -147,6 +157,55 @@ describe('PdfGenerationProcessor', () => {
     expect(putObject).toHaveBeenCalled();
     expect(update).toHaveBeenCalledWith(
       'job-1',
+      expect.objectContaining({ status: PdfJobStatus.COMPLETED }),
+    );
+  });
+
+  /** F1.2.1 AC6 — the roster PDF is built from the query the job carried. */
+  it('builds the apprentice roster from the screen state the job carried', async () => {
+    const content = {
+      organisationName: 'Acme Employer',
+      filterSummary: 'status At risk',
+      sortSummary: null,
+      totalCount: 0,
+      statusCounts: [],
+      rows: [],
+      generatedAt: '2026-09-21T09:00:00.000Z',
+    };
+    buildRosterContent.mockResolvedValue(content);
+    renderApprenticeRoster.mockResolvedValue(Buffer.from('%PDF-roster'));
+    const rosterQuery = {
+      filter: ApprenticeRosterFilter.AT_RISK,
+      search: 'priya',
+      sortBy: 'epaDate',
+      sortOrder: 'desc',
+    };
+
+    await processor.process({
+      id: 'job-2',
+      name: PDF_JOB_GENERATE,
+      data: {
+        jobId: 'job-2',
+        organisationId: 'org-1',
+        userId: 'user-1',
+        template: PdfJobTemplate.APPRENTICE_ROSTER,
+        rosterQuery,
+      },
+    } as Job<IPdfJobPayload>);
+
+    expect(buildRosterContent).toHaveBeenCalledWith('org-1', rosterQuery);
+    expect(renderApprenticeRoster).toHaveBeenCalledWith({
+      ...content,
+      logoBytes: null,
+    });
+    expect(putObject).toHaveBeenCalledWith(
+      'org-1',
+      expect.any(String),
+      Buffer.from('%PDF-roster'),
+      'application/pdf',
+    );
+    expect(update).toHaveBeenCalledWith(
+      'job-2',
       expect.objectContaining({ status: PdfJobStatus.COMPLETED }),
     );
   });

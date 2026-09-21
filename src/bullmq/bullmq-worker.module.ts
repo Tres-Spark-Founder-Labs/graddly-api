@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { ApprenticesModule } from '../apprentices/apprentices.module.js';
 import { CommitmentsModule } from '../commitments/commitments.module.js';
 import { CommitmentSignature } from '../commitments/entities/commitment-signature.entity.js';
 import { CommitmentStatement } from '../commitments/entities/commitment-statement.entity.js';
@@ -59,6 +60,8 @@ import { SystemPingProcessor } from './processors/system-ping.processor.js';
     CommitmentsModule,
     // F2.2.1 AC5 — PdfGenerationProcessor builds the cohort PDF content.
     LearnersModule,
+    // F1.2.1 AC6 — and the employer's apprentice roster.
+    ApprenticesModule,
     TypeOrmModule.forFeature([
       EvidencePackJob,
       EpaPackJob,

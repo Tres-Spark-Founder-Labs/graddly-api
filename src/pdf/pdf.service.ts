@@ -9,6 +9,7 @@ import type {
   ILevyTransferAgreementContent,
   IPdfRenderer,
   IProviderComparisonContent,
+  IApprenticeRosterContent,
   ILearnerCohortContent,
   IQipPlanContent,
   IReviewSnapshotContent,
@@ -61,6 +62,11 @@ export class PdfService {
 
   renderLearnerCohort(content: ILearnerCohortContent): Promise<Buffer> {
     return this.renderer.renderLearnerCohort(content);
+  }
+
+  /** F1.2.1 AC6. */
+  renderApprenticeRoster(content: IApprenticeRosterContent): Promise<Buffer> {
+    return this.renderer.renderApprenticeRoster(content);
   }
 
   embedSignature(

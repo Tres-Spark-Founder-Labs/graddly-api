@@ -701,7 +701,12 @@ export class EnrolmentsService {
     return enriched;
   }
 
-  private async enrichEnrolmentsForDisplay(
+  /**
+   * Public for ApprenticeRosterService (F1.2.1 AC6): the roster PDF must show
+   * the standard and provider names exactly as GET /enrolments serves them
+   * to the screen, so it uses the same labelling rather than a copy of it.
+   */
+  async enrichEnrolmentsForDisplay(
     enrolments: Enrolment[],
   ): Promise<EnrolmentWithDisplayLabels[]> {
     if (enrolments.length === 0) {

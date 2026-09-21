@@ -1,6 +1,7 @@
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Job } from 'bullmq';
 
+import { ApprenticeRosterService } from '../../src/apprentices/apprentice-roster.service.js';
 import { PdfGenerationProcessor } from '../../src/bullmq/processors/pdf-generation.processor.js';
 import { CommitmentAuditTrailService } from '../../src/commitments/commitment-audit-trail.service.js';
 import { CommitmentChaseService } from '../../src/commitments/commitment-chase.service.js';
@@ -63,6 +64,7 @@ export async function processPdfJobInApp(
     app.get<Repository<LevyTransfer>>(getRepositoryToken(LevyTransfer)),
     app.get<Repository<Organisation>>(getRepositoryToken(Organisation)),
     app.get(LearnerCohortService),
+    app.get(ApprenticeRosterService),
   );
 
   const job = {

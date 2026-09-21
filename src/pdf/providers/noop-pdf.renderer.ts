@@ -7,6 +7,7 @@ import type {
   ILevyTransferAgreementContent,
   IPdfRenderer,
   IProviderComparisonContent,
+  IApprenticeRosterContent,
   ILearnerCohortContent,
   IQipPlanContent,
   IReviewSnapshotContent,
@@ -60,6 +61,10 @@ export class NoopPdfRenderer implements IPdfRenderer {
   }
 
   renderLearnerCohort(_content: ILearnerCohortContent): Promise<Buffer> {
+    return Promise.resolve(MINIMAL_PDF);
+  }
+
+  renderApprenticeRoster(_content: IApprenticeRosterContent): Promise<Buffer> {
     return Promise.resolve(MINIMAL_PDF);
   }
 

@@ -311,6 +311,85 @@ describe('PdfKitPdfRenderer', () => {
     expect(elapsed).toBeLessThan(2000);
   }, 30000);
 
+  /** F1.2.1 AC6 — the employer's apprentice roster as a PDF. */
+  it('renderApprenticeRoster returns a PDF buffer, with every nullable cell empty', async () => {
+    const buffer = await renderer.renderApprenticeRoster({
+      organisationName: 'Acme Employer Ltd',
+      filterSummary: 'search "priya", status At risk',
+      sortSummary: 'Sorted by EPA date, descending.',
+      totalCount: 2,
+      statusCounts: [{ label: 'At risk', count: 2 }],
+      rows: [
+        {
+          name: 'Priya Sharma',
+          employeeId: 'EMP-04821',
+          standard: 'Software Developer (ST0116)',
+          provider: 'Midlands Technical College',
+          otjProgress: '62%',
+          epaDate: '12 Oct 2026',
+          lastActivity: '28 Jul 2026',
+          statusLabel: 'At risk',
+        },
+        {
+          name: 'Priya Patel',
+          employeeId: null,
+          standard: '—',
+          provider: '—',
+          otjProgress: null,
+          epaDate: null,
+          lastActivity: null,
+          statusLabel: 'At risk',
+        },
+      ],
+      generatedAt: '2026-09-21T09:00:00.000Z',
+    });
+    expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+  });
+
+  it('renderApprenticeRoster handles an empty roster', async () => {
+    const buffer = await renderer.renderApprenticeRoster({
+      organisationName: 'Acme Employer Ltd',
+      filterSummary: 'search "nobody"',
+      sortSummary: null,
+      totalCount: 0,
+      statusCounts: [],
+      rows: [],
+      generatedAt: '2026-09-21T09:00:00.000Z',
+    });
+    expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+  });
+
+  /**
+   * F1.2.1 AC7's ceiling is 500 apprentices, and the PDF must come in under
+   * the platform's ten-second PDF target. This pins the rendering share:
+   * a renderer that goes quadratic on row count fails here.
+   */
+  it('renders a 500-apprentice roster well inside the ten-second target', async () => {
+    const startedAt = Date.now();
+    const buffer = await renderer.renderApprenticeRoster({
+      organisationName: 'Acme Employer Ltd',
+      filterSummary: null,
+      sortSummary: null,
+      totalCount: 500,
+      statusCounts: [{ label: 'On track', count: 500 }],
+      rows: Array.from({ length: 500 }, (_, i) => ({
+        name: `Apprentice Number ${i + 1}`,
+        employeeId: `EMP-${String(i).padStart(5, '0')}`,
+        standard: 'Engineering Technician (ST0457)',
+        provider: `Provider ${i % 8}`,
+        otjProgress: null,
+        epaDate: '01 Dec 2026',
+        lastActivity: null,
+        statusLabel: 'On track',
+      })),
+      generatedAt: '2026-09-21T09:00:00.000Z',
+    });
+    const elapsed = Date.now() - startedAt;
+
+    expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+    expect(elapsed).toBeLessThan(2000);
+  }, 30000);
+
   it('embedSignature returns a PDF buffer without a valid PNG', async () => {
     const unsigned = await renderer.renderHelloPdf();
     const signed = await renderer.embedSignature(

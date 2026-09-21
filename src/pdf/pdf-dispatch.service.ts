@@ -31,6 +31,7 @@ export class PdfDispatchService {
     statementId?: string;
     transferId?: string;
     cohortQuery?: Record<string, unknown>;
+    rosterQuery?: Record<string, unknown>;
   }): Promise<PdfGenerationJob> {
     const jobId = uuidV4();
     const job = this.jobRepo.create({
@@ -51,6 +52,7 @@ export class PdfDispatchService {
       statementId: input.statementId,
       transferId: input.transferId,
       cohortQuery: input.cohortQuery,
+      rosterQuery: input.rosterQuery,
     };
 
     await this.pdfQueue.add(PDF_JOB_GENERATE, payload, {

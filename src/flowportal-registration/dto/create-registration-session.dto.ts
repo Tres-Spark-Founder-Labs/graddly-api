@@ -23,9 +23,22 @@ import {
  * can match — the checker's old vocabulary surviving one hop further along.
  *
  * Held to the same rule as the profile PUT, for the same reason: `region` is
- * closed and rejected by name when it is not one of the twelve;`sector` is
+ * closed and rejected by name when it is not one of the twelve; `sector` is
  * open, because no list of UK SME sectors is complete, and is normalised on
  * write instead (see `RegistrationSessionService.create`).
+ *
+ * ── THIS IS THE STRICT SIDE ─────────────────────────────────────────────────
+ *
+ * A value in this body is data on the write, and is validated strictly: a
+ * region outside the vocabulary is a 422. That is deliberate and stays.
+ *
+ * The lenient side is the prefill, and it is not here. The flow app reads
+ * sector and region from the /register link as hints and drops a region the
+ * vocabulary no longer permits before calling this endpoint
+ * (`registrationPrefill`, apps/flow/features/flowportal-registration/
+ * schemas), so an old bookmarked link — `region=north_west` — starts a
+ * session without the hint instead of failing. Old slugs are not translated
+ * anywhere: a slug-to-value map would be a second vocabulary.
  */
 export class CreateRegistrationSessionDto {
   @ApiPropertyOptional({

@@ -4,10 +4,10 @@ Postgres is used with **Row Level Security (RLS)** for tenant isolation. The API
 
 ## Roles
 
-| Role | Env vars | Purpose |
-|------|----------|---------|
-| **Migrator** | `DB_MIGRATION_USERNAME`, `DB_MIGRATION_PASSWORD` | Run migrations (`CREATE TABLE`, RLS policies, etc.). Typically `postgres` locally or a CI/admin user. |
-| **Application** | `DB_USERNAME`, `DB_PASSWORD` | NestJS API and e2e tests. Must not be a superuser. |
+| Role            | Env vars                                         | Purpose                                                                                               |
+| --------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| **Migrator**    | `DB_MIGRATION_USERNAME`, `DB_MIGRATION_PASSWORD` | Run migrations (`CREATE TABLE`, RLS policies, etc.). Typically `postgres` locally or a CI/admin user. |
+| **Application** | `DB_USERNAME`, `DB_PASSWORD`                     | NestJS API and e2e tests. Must not be a superuser.                                                    |
 
 Do **not** put the app password in migrations or source control for production. Create the role in your host (Railway, RDS, etc.) and set secrets there.
 
@@ -68,6 +68,11 @@ yarn db:setup
 
 CI runs `yarn db:provision-role` after `yarn migration:run`, then e2e with `DB_USERNAME=graddly_app`.
 
+Locally, `test/global-setup.ts` also applies pending migrations, but it reads them
+from `dist/`, so a new migration reaches the e2e database only after `yarn build`.
+A missing or stale `dist/` is skipped silently, not reported. See "Building and
+testing" in the README.
+
 ## Production / Railway
 
 1. Create the database and an application user in the platform (or via SQL as admin).
@@ -88,8 +93,8 @@ DELETE FROM migrations WHERE name = 'CreateGraddlyAppRole1777310000000';
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `yarn db:provision-role` | Create/update app role and grants (idempotent) |
-| `yarn db:setup` | `migration:run` then `db:provision-role` |
-| `yarn migration:run` | Apply schema migrations (use migrator credentials) |
+| Command                  | Description                                        |
+| ------------------------ | -------------------------------------------------- |
+| `yarn db:provision-role` | Create/update app role and grants (idempotent)     |
+| `yarn db:setup`          | `migration:run` then `db:provision-role`           |
+| `yarn migration:run`     | Apply schema migrations (use migrator credentials) |

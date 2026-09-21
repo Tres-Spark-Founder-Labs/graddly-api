@@ -76,6 +76,33 @@ $ yarn run test:e2e
 $ yarn run test:cov
 ```
 
+### Building and testing
+
+Jest transforms `src/` and `test/` from source, so neither suite needs
+`nest build` to run the code under test. One step still reads `dist/`:
+`test/global-setup.ts` applies pending migrations through
+`dist/src/config/data-source.js`, inside a `try/catch`. With no `dist/` it
+skips silently; with a stale one it applies only the migrations that were
+compiled. So after adding or changing a migration, run `yarn build` (or
+`yarn migration:run`, which builds first) **before** `yarn test:e2e`.
+Otherwise no build is needed.
+
+Never build and test at the same time, and never run two Jest processes
+against the e2e database at once. The e2e suite shares one database and
+`maxWorkers: 1`; a concurrent `nest build`, `next build` or second Jest run
+starves it, and the result is `read ECONNRESET` and 60 s hook timeouts that
+look like product failures and are not. A killed run can leave a Jest child
+alive: check for one before starting the next.
+
+Where the time goes, measured on `levy-exchange/transfers` (6 tests) with a
+warm Jest cache: global-setup ≈ 5 s once per run (TypeORM data-source init
+≈ 2.5 s, truncating 76 tables ≈ 1.7 s, migrations ≈ 30 ms when already
+applied); then per file ≈ 6–7 s evaluating the ~850 source modules and
+≈ 1.4 s booting the Nest app, before any test runs. A cold cache adds
+≈ 16 s once for the transform. The tests themselves were ≈ 10 s of a 30 s
+run. The per-file module load and boot, multiplied by 83 files, is most of
+the full suite's wall-clock; migrations and the transform are not.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.

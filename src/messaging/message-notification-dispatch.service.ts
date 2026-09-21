@@ -2,7 +2,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
-import { IsNull, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 
 import { bullmqDefaultJobOptions } from '../bullmq/bullmq-default-job-options.js';
 import { QUEUE_EMAIL } from '../bullmq/bullmq.constants.js';
@@ -10,8 +10,6 @@ import { EMAIL_JOB_SEND } from '../email/email-job.constants.js';
 import { EmailPayloadFactory } from '../email/email-payload.factory.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
-import { NotificationPreference } from '../notifications/entities/notification-preference.entity.js';
-import { NotificationChannel } from '../notifications/enums/notification-channel.enum.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { User } from '../users/entities/user.entity.js';
@@ -25,8 +23,6 @@ export class MessageNotificationDispatchService {
     @InjectQueue(QUEUE_EMAIL) private readonly emailQueue: Queue,
     private readonly emailPayloadFactory: EmailPayloadFactory,
     private readonly notificationsService: NotificationsService,
-    @InjectRepository(NotificationPreference)
-    private readonly preferenceRepo: Repository<NotificationPreference>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
   ) {}
@@ -58,7 +54,22 @@ export class MessageNotificationDispatchService {
       },
     });
 
-    const emailEnabled = await this.isEmailEnabled(recipientUserId);
+    /**
+     * The send-time preference check (F3.4.3 AC3). This used to read the
+     * recipient's preference row itself — as the sender, under
+     * `notification_preferences_select`, which admits only the row's own
+     * user. The recipient's row was therefore always invisible, `?? true`
+     * answered "enabled", and a recipient who had switched message emails off
+     * kept receiving them. The check now reads past that to the recipient's
+     * own setting; see `NotificationsService.isEmailEnabled`.
+     *
+     * Called directly rather than through `sendEmail` because this email is
+     * enqueued with its own job id and delay (the debounce below).
+     */
+    const emailEnabled = await this.notificationsService.isEmailEnabled(
+      recipientUserId,
+      NotificationType.MESSAGE,
+    );
     if (!emailEnabled) {
       return;
     }
@@ -98,18 +109,5 @@ export class MessageNotificationDispatchService {
       return thread.apprenticeUserId;
     }
     return null;
-  }
-
-  private async isEmailEnabled(userId: string): Promise<boolean> {
-    const preference = await this.preferenceRepo.findOne({
-      where: {
-        user: { id: userId },
-        organisation: IsNull(),
-        type: NotificationType.MESSAGE,
-        channel: NotificationChannel.EMAIL,
-        isDeleted: false,
-      },
-    });
-    return preference?.enabled ?? true;
   }
 }

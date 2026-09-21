@@ -1648,6 +1648,14 @@ async function main() {
         'Caseload above threshold',
         'Four of your learners are flagged at risk.',
       ],
+      [NotificationType.EPA_DATE_UPDATED]: [
+        'End-point assessment date updated',
+        'Your end-point assessment is now booked for 1 September 2026.',
+      ],
+      [NotificationType.MILESTONE_COMPLETED]: [
+        'Milestone completed',
+        'You have completed the gateway readiness checklist.',
+      ],
     };
 
     const notifications: Notification[] = [];

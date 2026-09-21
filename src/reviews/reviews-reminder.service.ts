@@ -4,7 +4,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Between, In, Repository } from 'typeorm';
 
 import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
-import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
@@ -28,7 +27,6 @@ export class ReviewsReminderService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly notificationsService: NotificationsService,
-    private readonly emailDispatchService: EmailDispatchService,
     private readonly config: ConfigService,
   ) {}
 
@@ -225,8 +223,10 @@ export class ReviewsReminderService {
       delivered += 1;
 
       if (signer.email) {
-        await this.emailDispatchService.enqueue(
-          new SerializedEmailPayload(
+        await this.notificationsService.sendEmail({
+          userId: signer.id,
+          type: NotificationType.REVIEW,
+          payload: new SerializedEmailPayload(
             EmailTemplate.REVIEW_REMINDER,
             signer.email,
             {
@@ -238,7 +238,7 @@ export class ReviewsReminderService {
               appName: this.config.get<string>('app.email.appName', 'Graddly'),
             },
           ),
-        );
+        });
       }
     }
 
@@ -274,8 +274,10 @@ export class ReviewsReminderService {
     });
 
     if (apprentice.email) {
-      await this.emailDispatchService.enqueue(
-        new SerializedEmailPayload(
+      await this.notificationsService.sendEmail({
+        userId: apprentice.id,
+        type: NotificationType.REVIEW,
+        payload: new SerializedEmailPayload(
           EmailTemplate.REVIEW_REMINDER,
           apprentice.email,
           {
@@ -287,7 +289,7 @@ export class ReviewsReminderService {
             appName: this.config.get<string>('app.email.appName', 'Graddly'),
           },
         ),
-      );
+      });
     }
 
     // Reached the apprentice: the caller may record the reminder as sent.

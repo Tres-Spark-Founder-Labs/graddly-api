@@ -15,6 +15,7 @@ import {
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
+  ApiUnprocessableEntityResponse,
   getSchemaPath,
 } from '@nestjs/swagger';
 
@@ -23,6 +24,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { setCurrentUserId } from '../common/context/correlation-id-context.js';
 import { ErrorResponseDto } from '../common/dto/error-response.dto.js';
 import { PaginationMetaDto } from '../common/dto/pagination-meta.dto.js';
+import { ValidationException } from '../common/exceptions/validation.exception.js';
 import { ResponseMessage } from '../common/interceptors/response-message.decorator.js';
 import { LearnerAccessible } from '../common/learner-scope/learner-accessible.decorator.js';
 
@@ -32,9 +34,17 @@ import {
 } from './dto/digest-preference.dto.js';
 import { ListNotificationsQueryDto } from './dto/list-notifications-query.dto.js';
 import { MarkAllNotificationsReadDto } from './dto/mark-all-notifications-read.dto.js';
+import {
+  NotificationChannelPreferenceDto,
+  NotificationPreferencesResponseDto,
+  NotificationTypePreferencesDto,
+  UpdateNotificationPreferenceItemDto,
+  UpdateNotificationPreferencesDto,
+} from './dto/notification-preferences.dto.js';
 import { NotificationResponseDto } from './dto/notification-response.dto.js';
 import { NotificationType } from './enums/notification-type.enum.js';
 import { NotificationPreferencesService } from './notification-preferences.service.js';
+import { isConfigurablePreference } from './notification-type-catalogue.js';
 import { NotificationsService } from './notifications.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
@@ -45,6 +55,11 @@ import type { PaginatedResult } from '../common/pagination/paginated-result.js';
   NotificationResponseDto,
   PaginationMetaDto,
   DigestPreferenceResponseDto,
+  NotificationPreferencesResponseDto,
+  NotificationTypePreferencesDto,
+  NotificationChannelPreferenceDto,
+  UpdateNotificationPreferencesDto,
+  UpdateNotificationPreferenceItemDto,
 )
 @Controller({ path: 'notifications', version: '1' })
 @UseGuards(JwtAuthGuard)
@@ -113,6 +128,95 @@ export class NotificationsController {
       user.id,
       dto.organisationId ?? user.organisationId ?? undefined,
     );
+  }
+
+  /**
+   * F3.4.3 AC3 — the current user's notification preferences: every
+   * (channel, type) pair, labelled, with whether each can be changed.
+   *
+   * Per user, so there is no organisation in it — the preference follows the
+   * person across every organisation they belong to (migration
+   * 1781100000057 says why). Declared before `:id/read`.
+   */
+  @LearnerAccessible()
+  @Get('preferences')
+  @ResponseMessage('Notification preferences retrieved successfully')
+  @ApiOperation({
+    summary: 'Get the current user notification preferences',
+    description:
+      'Every (channel, type) pair with its enabled state; an absent choice ' +
+      'is enabled. `configurable` marks the pairs PATCH accepts: email, for ' +
+      'the types the platform emails.',
+  })
+  @ApiOkResponse({
+    description: 'Every (channel, type) pair',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(NotificationPreferencesResponseDto) },
+      },
+    },
+  })
+  async getPreferences(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<NotificationPreferencesResponseDto> {
+    setCurrentUserId(user.id);
+    return this.preferencesService.listForUser(user.id);
+  }
+
+  /**
+   * F3.4.3 AC3 — set per-type preferences. Only configurable pairs are
+   * accepted, each at most once: a stored setting nothing acts on would
+   * tell the person they had switched something off that still arrives.
+   * The digest endpoints below are unchanged.
+   */
+  @LearnerAccessible()
+  @Patch('preferences')
+  @ResponseMessage('Notification preferences updated successfully')
+  @ApiOperation({
+    summary: 'Set the current user notification preferences',
+    description:
+      'Upserts each { channel, type, enabled }. Refused, naming the pair, ' +
+      'when a pair is not configurable or appears twice.',
+  })
+  @ApiOkResponse({
+    description: 'Every (channel, type) pair, after the change',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(NotificationPreferencesResponseDto) },
+      },
+    },
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'A pair is not configurable, or appears twice',
+    type: ErrorResponseDto,
+  })
+  async updatePreferences(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateNotificationPreferencesDto,
+  ): Promise<NotificationPreferencesResponseDto> {
+    setCurrentUserId(user.id);
+
+    const seen = new Set<string>();
+    for (const item of dto.preferences) {
+      const key = `${item.channel}:${item.type}`;
+      if (seen.has(key)) {
+        throw new ValidationException({
+          preferences: `${item.channel} for ${item.type} appears more than once`,
+        });
+      }
+      seen.add(key);
+      if (!isConfigurablePreference(item.channel, item.type)) {
+        throw new ValidationException({
+          preferences:
+            `${item.channel} for ${item.type} cannot be set here: only email, ` +
+            'for a type the platform emails, is configurable',
+        });
+      }
+    }
+
+    return this.preferencesService.setForUser(user.id, dto.preferences);
   }
 
   /**

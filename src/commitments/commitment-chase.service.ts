@@ -4,7 +4,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
-import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
@@ -35,7 +34,6 @@ export class CommitmentChaseService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly notificationsService: NotificationsService,
-    private readonly emailDispatchService: EmailDispatchService,
     private readonly config: ConfigService,
   ) {}
 
@@ -229,15 +227,24 @@ export class CommitmentChaseService {
       ? EmailTemplate.COMMITMENT_CHASE
       : EmailTemplate.COMMITMENT_READY_TO_SIGN;
 
-    await this.emailDispatchService.enqueue(
-      new SerializedEmailPayload(template, user.email, {
+    /**
+     * Through the send-time preference check (F3.4.3 AC3). Both outcomes are
+     * "chased": `suppressed` means the signer switched commitment emails off,
+     * and they have just been reached in-app. Treating it as not chased would
+     * leave no dispatch recorded, and every run after would post them another
+     * in-app notice for an email they asked not to have.
+     */
+    await this.notificationsService.sendEmail({
+      userId: user.id,
+      type: NotificationType.COMMITMENT,
+      payload: new SerializedEmailPayload(template, user.email, {
         firstName: user.firstName,
         statementVersion: statement.version,
         partyLabel: this.partyLabel(signature.party),
         daysUnsigned: options.daysUnsigned ?? null,
         appName: this.config.get<string>('app.email.appName', 'Graddly'),
       }),
-    );
+    });
     return true;
   }
 

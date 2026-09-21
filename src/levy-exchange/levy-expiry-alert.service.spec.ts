@@ -45,7 +45,16 @@ describe('LevyExpiryAlertService', () => {
         },
         {
           provide: NotificationsService,
-          useValue: { createForUser },
+          // sendEmail forwards to the dispatcher mock: the gate with every
+          // preference on. The gate itself is tested in
+          // notifications.service.spec.
+          useValue: {
+            createForUser,
+            sendEmail: jest.fn(async ({ payload }: { payload: unknown }) => {
+              await enqueueEmail(payload);
+              return 'queued' as const;
+            }),
+          },
         },
         {
           provide: EmailDispatchService,

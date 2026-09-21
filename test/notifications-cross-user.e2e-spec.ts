@@ -3,6 +3,7 @@ import { Client } from 'pg';
 import request from 'supertest';
 
 import { ORGANISATION_ID_HEADER } from '../src/common/constants/organisation-headers.js';
+import { NotificationChannel } from '../src/notifications/enums/notification-channel.enum.js';
 import { NotificationType } from '../src/notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../src/notifications/notifications.service.js';
 
@@ -10,6 +11,7 @@ import { createE2eApp } from './helpers/e2e-app.js';
 import { createVerifiedUser } from './helpers/e2e-http.js';
 import { buildOrgPayload } from './helpers/e2e-organisation.js';
 import { createAppDbClient, createE2ePgClient } from './helpers/rls-db.js';
+import { enterTenantContext } from './helpers/tenant-context.js';
 
 import type { App } from 'supertest/types';
 
@@ -445,5 +447,136 @@ describe('Notifications written to a third party (F3.4.3 AC1)', () => {
 
     // And nothing was written.
     expect(await countNotificationsFor(invitee.userId)).toBe(0);
+  });
+
+  /**
+   * F3.4.3 AC3 — per-type email preferences, enforced at send time, for a
+   * recipient who is not the actor.
+   *
+   * The send-time check has to read the *recipient's* preference while
+   * someone else is the current user, and `notification_preferences_select`
+   * admits only the row's own user. Read that way — as
+   * MessageNotificationDispatchService used to — a switched-off preference is
+   * invisible and the email goes out anyway. This proves the check sees it,
+   * on the application's own role.
+   */
+  it("F3.4.3 AC3: honours a recipient's email switch when someone else sends", async () => {
+    const suffix = Date.now();
+    const recipient = await createVerifiedUser(app, {
+      email: `prefs-recipient-${suffix}@example.com`,
+    });
+    const actor = await createVerifiedUser(app, {
+      email: `prefs-actor-${suffix}@example.com`,
+    });
+    const bearer = `Bearer ${recipient.accessToken}`;
+
+    // Every (channel, type) pair, on by default, with only email switchable.
+    const before = await request(app.getHttpServer())
+      .get('/api/v1/notifications/preferences')
+      .set('Authorization', bearer)
+      .expect(200);
+    type Matrix = {
+      types: {
+        type: NotificationType;
+        label: string;
+        channels: {
+          channel: string;
+          enabled: boolean;
+          configurable: boolean;
+        }[];
+      }[];
+    };
+    const message = (before.body as { data: Matrix }).data.types.find(
+      (t) => t.type === NotificationType.MESSAGE,
+    );
+    expect(message?.label).toEqual(expect.any(String));
+    expect(message?.channels).toEqual([
+      {
+        channel: NotificationChannel.IN_APP,
+        enabled: true,
+        configurable: false,
+      },
+      { channel: NotificationChannel.EMAIL, enabled: true, configurable: true },
+      {
+        channel: NotificationChannel.DIGEST,
+        enabled: true,
+        configurable: false,
+      },
+    ]);
+
+    // In-app cannot be switched off: the centre lists every notification.
+    await request(app.getHttpServer())
+      .patch('/api/v1/notifications/preferences')
+      .set('Authorization', bearer)
+      .send({
+        preferences: [
+          {
+            channel: NotificationChannel.IN_APP,
+            type: NotificationType.MESSAGE,
+            enabled: false,
+          },
+        ],
+      })
+      .expect(422);
+
+    // The recipient switches message emails off — twice, to show the upsert
+    // converges on one row rather than inserting another.
+    for (let i = 0; i < 2; i++) {
+      await request(app.getHttpServer())
+        .patch('/api/v1/notifications/preferences')
+        .set('Authorization', bearer)
+        .send({
+          preferences: [
+            {
+              channel: NotificationChannel.EMAIL,
+              type: NotificationType.MESSAGE,
+              enabled: false,
+            },
+          ],
+        })
+        .expect(200);
+    }
+    const rows = await (async () => {
+      const sudo = createE2ePgClient();
+      await sudo.connect();
+      try {
+        return (
+          await sudo.query<{ n: number }>(
+            `SELECT count(*)::int AS n FROM notification_preferences
+              WHERE "userId" = $1 AND channel = 'email' AND type = 'message'
+                AND "organisationId" IS NULL AND "isDeleted" = false`,
+            [recipient.userId],
+          )
+        ).rows[0].n;
+      } finally {
+        await sudo.end();
+      }
+    })();
+    expect(rows).toBe(1);
+
+    // Why the check needs to see past row-level security: as graddly_app, with
+    // another user current, the recipient's row is simply not there.
+    await appDb.query(
+      `SELECT set_config('app.current_user', $1, false),
+              set_config('app.current_org', '', false),
+              set_config('app.rls_bootstrap', '0', false)`,
+      [actor.userId],
+    );
+    const seenByActor = await appDb.query(
+      `SELECT enabled FROM notification_preferences WHERE "userId" = $1`,
+      [recipient.userId],
+    );
+    expect(seenByActor.rowCount).toBe(0);
+
+    // The send-time check, run with the actor current, as every sender is.
+    enterTenantContext({ label: 'e2e:prefs-actor', userId: actor.userId });
+    const notifications = app.get(NotificationsService);
+    await expect(
+      notifications.isEmailEnabled(recipient.userId, NotificationType.MESSAGE),
+    ).resolves.toBe(false);
+    // Only the switched type: the recipient's other emails are untouched.
+    await expect(
+      notifications.isEmailEnabled(recipient.userId, NotificationType.REVIEW),
+    ).resolves.toBe(true);
   });
 });

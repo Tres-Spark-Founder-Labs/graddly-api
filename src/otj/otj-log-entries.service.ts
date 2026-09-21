@@ -11,7 +11,6 @@ import { In, Repository } from 'typeorm';
 import { LearnerScopeService } from '../common/learner-scope/learner-scope.service.js';
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
-import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
@@ -50,7 +49,6 @@ export class OtjLogEntriesService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly notificationsService: NotificationsService,
-    private readonly emailDispatchService: EmailDispatchService,
     private readonly config: ConfigService,
     private readonly eifScoreCache: EifScoreCacheService,
     private readonly keyBuilder: StorageKeyBuilder,
@@ -473,8 +471,10 @@ export class OtjLogEntriesService {
       });
 
       if (apprenticeUser?.email) {
-        await this.emailDispatchService.enqueue(
-          new SerializedEmailPayload(
+        await this.notificationsService.sendEmail({
+          userId: apprenticeUser.id,
+          type: NotificationType.OTJ,
+          payload: new SerializedEmailPayload(
             EmailTemplate.OTJ_DECISION,
             apprenticeUser.email,
             {
@@ -490,7 +490,7 @@ export class OtjLogEntriesService {
               appName: this.config.get<string>('app.email.appName', 'Graddly'),
             },
           ),
-        );
+        });
       }
     } catch (error) {
       /**

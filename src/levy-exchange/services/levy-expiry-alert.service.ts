@@ -4,7 +4,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Between, In, Repository } from 'typeorm';
 
 import { withRlsBootstrap } from '../../common/context/correlation-id-context.js';
-import { EmailDispatchService } from '../../email/email-dispatch.service.js';
 import { EmailTemplate } from '../../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../../email/payloads/serialized-email.payload.js';
 import { NotificationType } from '../../notifications/enums/notification-type.enum.js';
@@ -29,7 +28,6 @@ export class LevyExpiryAlertService {
     @InjectRepository(OrganisationMembership)
     private readonly membershipRepo: Repository<OrganisationMembership>,
     private readonly notificationsService: NotificationsService,
-    private readonly emailDispatchService: EmailDispatchService,
     private readonly config: ConfigService,
   ) {}
 
@@ -207,8 +205,10 @@ export class LevyExpiryAlertService {
       delivered += 1;
 
       if (user.email) {
-        await this.emailDispatchService.enqueue(
-          new SerializedEmailPayload(emailTemplate, user.email, {
+        await this.notificationsService.sendEmail({
+          userId: user.id,
+          type: notificationType,
+          payload: new SerializedEmailPayload(emailTemplate, user.email, {
             firstName: user.firstName,
             trancheAmount: tranche.amount,
             expiresOn: tranche.expiresOn,
@@ -216,7 +216,7 @@ export class LevyExpiryAlertService {
             appName,
             transferCtaUrl,
           }),
-        );
+        });
       }
     }
 

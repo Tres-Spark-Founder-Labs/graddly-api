@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
+import { NotificationType } from '../notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { TripartiteParty } from '../signing/tripartite-party.enum.js';
 import { User } from '../users/entities/user.entity.js';
@@ -26,7 +27,15 @@ describe('CommitmentChaseService', () => {
     save: jest.fn(),
   };
   const userRepo = { findOne: jest.fn() };
-  const notificationsService = { createForUser: jest.fn() };
+  // sendEmail forwards to the dispatcher mock: the gate with every
+  // preference on. The gate itself is tested in notifications.service.spec.
+  const notificationsService = {
+    createForUser: jest.fn(),
+    sendEmail: jest.fn(async ({ payload }: { payload: unknown }) => {
+      await emailDispatchService.enqueue(payload);
+      return 'queued' as const;
+    }),
+  };
   const emailDispatchService = { enqueue: jest.fn() };
 
   beforeEach(async () => {
@@ -98,6 +107,57 @@ describe('CommitmentChaseService', () => {
         signatureId: 'sig-1',
         chaseKind: CommitmentChaseKind.SEVEN_DAYS,
       }),
+    );
+  });
+
+  /**
+   * F3.4.3 AC3 — the chase email goes through the send-time preference check
+   * as a commitment email. When the signer has switched those off, they were
+   * still reached in-app, so the chase is recorded: otherwise every run after
+   * would post them another in-app notice for an email they asked not to get.
+   */
+  it('sends the chase as a commitment email through the preference check, and records it when the signer opted out', async () => {
+    const staleDate = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+    statementRepo.find.mockResolvedValue([
+      {
+        id: 'stmt-1',
+        organisationId: 'org-1',
+        version: 1,
+        status: CommitmentStatementStatus.AWAITING_SIGNATURES,
+      },
+    ]);
+    signatureRepo.find.mockResolvedValue([
+      {
+        id: 'sig-1',
+        statementId: 'stmt-1',
+        signOrder: 1,
+        status: CommitmentSignatureStatus.PENDING,
+        signerUserId: 'user-1',
+        party: TripartiteParty.APPRENTICE,
+        createdAt: staleDate,
+        updatedAt: staleDate,
+      },
+    ]);
+    dispatchRepo.findOne.mockResolvedValue(null);
+    userRepo.findOne.mockResolvedValue({
+      id: 'user-1',
+      firstName: 'Alex',
+      email: 'alex@example.com',
+    });
+    notificationsService.sendEmail.mockResolvedValueOnce('suppressed');
+
+    const sent = await service.sendDueChases();
+
+    expect(notificationsService.sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        type: NotificationType.COMMITMENT,
+      }),
+    );
+    expect(emailDispatchService.enqueue).not.toHaveBeenCalled();
+    expect(sent).toBe(1);
+    expect(dispatchRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ signatureId: 'sig-1' }),
     );
   });
 

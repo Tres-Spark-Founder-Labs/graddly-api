@@ -4,7 +4,6 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { QUEUE_EMAIL } from '../bullmq/bullmq.constants.js';
 import { EmailPayloadFactory } from '../email/email-payload.factory.js';
-import { NotificationPreference } from '../notifications/entities/notification-preference.entity.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { User } from '../users/entities/user.entity.js';
@@ -16,8 +15,10 @@ import { MESSAGE_EMAIL_DEBOUNCE_MS } from './messaging.constants.js';
 
 describe('MessageNotificationDispatchService', () => {
   const emailQueue = { add: jest.fn() };
-  const notificationsService = { createForUser: jest.fn() };
-  const preferenceRepo = { findOne: jest.fn() };
+  const notificationsService = {
+    createForUser: jest.fn(),
+    isEmailEnabled: jest.fn(),
+  };
   const userRepo = { findOne: jest.fn() };
   const emailPayloadFactory = {
     toJob: jest.fn().mockReturnValue({ template: 'x' }),
@@ -42,10 +43,6 @@ describe('MessageNotificationDispatchService', () => {
         { provide: EmailPayloadFactory, useValue: emailPayloadFactory },
         { provide: NotificationsService, useValue: notificationsService },
         {
-          provide: getRepositoryToken(NotificationPreference),
-          useValue: preferenceRepo,
-        },
-        {
           provide: getRepositoryToken(User),
           useValue: userRepo,
         },
@@ -54,7 +51,7 @@ describe('MessageNotificationDispatchService', () => {
 
     service = moduleRef.get(MessageNotificationDispatchService);
     jest.clearAllMocks();
-    preferenceRepo.findOne.mockResolvedValue({ enabled: true });
+    notificationsService.isEmailEnabled.mockResolvedValue(true);
     userRepo.findOne.mockResolvedValue({
       id: 'u-tutor',
       email: 'tutor@example.com',
@@ -86,8 +83,15 @@ describe('MessageNotificationDispatchService', () => {
     );
   });
 
-  it('skips email when preference disabled', async () => {
-    preferenceRepo.findOne.mockResolvedValue({ enabled: false });
+  /**
+   * The old version of this test mocked the preference repository and passed
+   * — while production ignored the preference, because the repository read
+   * ran as the sender and row-level security hid the recipient's row. The
+   * check now lives in NotificationsService.isEmailEnabled; what matters
+   * here is that it is asked about the recipient, for message emails.
+   */
+  it('asks the send-time check about the recipient, and skips the email when they opted out', async () => {
+    notificationsService.isEmailEnabled.mockResolvedValue(false);
 
     await service.notifyNewMessage({
       thread,
@@ -96,6 +100,10 @@ describe('MessageNotificationDispatchService', () => {
       bodyPreview: 'Hello tutor',
     });
 
+    expect(notificationsService.isEmailEnabled).toHaveBeenCalledWith(
+      'u-tutor',
+      NotificationType.MESSAGE,
+    );
     expect(notificationsService.createForUser).toHaveBeenCalled();
     expect(emailQueue.add).not.toHaveBeenCalled();
   });

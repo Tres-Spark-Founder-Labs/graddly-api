@@ -7,12 +7,15 @@ import { DigestFrequency } from './enums/digest-frequency.enum.js';
 import { NotificationChannel } from './enums/notification-channel.enum.js';
 import { NotificationType } from './enums/notification-type.enum.js';
 import { NotificationPreferencesService } from './notification-preferences.service.js';
+import { NOTIFICATION_TYPE_CATALOGUE } from './notification-type-catalogue.js';
 
 describe('NotificationPreferencesService', () => {
   const findOne = jest.fn();
+  const find = jest.fn();
   const create = jest.fn();
   const save = jest.fn();
-  const preferenceRepo = { findOne, create, save };
+  const query = jest.fn();
+  const preferenceRepo = { findOne, find, create, save, query };
 
   let service: NotificationPreferencesService;
 
@@ -173,6 +176,126 @@ describe('NotificationPreferencesService', () => {
           enabled: true,
         }),
       );
+    });
+  });
+
+  /** F3.4.3 AC3 — GET /notifications/preferences. */
+  describe('listForUser', () => {
+    const everyType = Object.keys(
+      NOTIFICATION_TYPE_CATALOGUE,
+    ) as NotificationType[];
+
+    it('returns every (channel, type) pair, labelled, defaulting absent rows to enabled', async () => {
+      find.mockResolvedValue([]);
+
+      const matrix = await service.listForUser('user-1');
+
+      expect(matrix.types.map((t) => t.type)).toEqual(everyType);
+      for (const entry of matrix.types) {
+        expect(entry.label).toBe(NOTIFICATION_TYPE_CATALOGUE[entry.type].label);
+        expect(entry.channels.map((c) => c.channel)).toEqual([
+          NotificationChannel.IN_APP,
+          NotificationChannel.EMAIL,
+          NotificationChannel.DIGEST,
+        ]);
+        expect(entry.channels.every((c) => c.enabled)).toBe(true);
+      }
+      // A GET writes nothing: the default is a rule, not rows.
+      expect(save).not.toHaveBeenCalled();
+      expect(query).not.toHaveBeenCalled();
+    });
+
+    it("reflects the user's stored choices, read per user", async () => {
+      find.mockResolvedValue([
+        {
+          id: 'p-1',
+          channel: NotificationChannel.EMAIL,
+          type: NotificationType.REVIEW,
+          enabled: false,
+        },
+      ]);
+
+      const matrix = await service.listForUser('user-1');
+      const review = matrix.types.find(
+        (t) => t.type === NotificationType.REVIEW,
+      );
+
+      expect(
+        review?.channels.find((c) => c.channel === NotificationChannel.EMAIL)
+          ?.enabled,
+      ).toBe(false);
+      const [options] = find.mock.calls[0] as [
+        { where: Record<string, unknown> },
+      ];
+      expect(options.where).toMatchObject({ user: { id: 'user-1' } });
+      expect(options.where.organisation).toBeDefined();
+    });
+
+    it('marks only email, on emailed types, as configurable', async () => {
+      find.mockResolvedValue([]);
+
+      const matrix = await service.listForUser('user-1');
+
+      for (const entry of matrix.types) {
+        for (const pair of entry.channels) {
+          expect(pair.configurable).toBe(
+            pair.channel === NotificationChannel.EMAIL &&
+              NOTIFICATION_TYPE_CATALOGUE[entry.type].emailed,
+          );
+        }
+      }
+      // The F3.4.3 AC2 types that are emailed today are switchable.
+      const switchable = matrix.types
+        .filter((t) => t.channels.some((c) => c.configurable))
+        .map((t) => t.type);
+      expect(switchable).toEqual(
+        expect.arrayContaining([
+          NotificationType.OTJ,
+          NotificationType.REVIEW,
+          NotificationType.MESSAGE,
+          NotificationType.COMMITMENT,
+          NotificationType.EPA_DATE_UPDATED,
+        ]),
+      );
+      // Declared, not emitted: nothing to switch off yet.
+      expect(switchable).not.toContain(NotificationType.MILESTONE_COMPLETED);
+    });
+  });
+
+  /** F3.4.3 AC3 — PATCH /notifications/preferences. */
+  describe('setForUser', () => {
+    it('upserts each pair on the per-user unique index, so concurrent saves converge on one row', async () => {
+      query.mockResolvedValue(undefined);
+      find.mockResolvedValue([]);
+
+      await service.setForUser('user-1', [
+        {
+          channel: NotificationChannel.EMAIL,
+          type: NotificationType.REVIEW,
+          enabled: false,
+        },
+        {
+          channel: NotificationChannel.EMAIL,
+          type: NotificationType.MESSAGE,
+          enabled: true,
+        },
+      ]);
+
+      expect(query).toHaveBeenCalledTimes(2);
+      const [sql, params] = query.mock.calls[0] as [string, unknown[]];
+      // The conflict target is UQ_notification_preferences_user_default —
+      // the partial index over the organisation-less rows. The older index
+      // includes organisationId, and NULLs never conflict in it.
+      expect(sql).toMatch(
+        /ON CONFLICT \("userId", channel, type\)\s+WHERE "organisationId" IS NULL AND "isDeleted" = false/,
+      );
+      expect(sql).toMatch(/VALUES \(\$1, NULL,/);
+      expect(params).toEqual([
+        'user-1',
+        NotificationChannel.EMAIL,
+        NotificationType.REVIEW,
+        false,
+      ]);
     });
   });
 });

@@ -1,9 +1,21 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Logger, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import {
+  getRlsBootstrap,
+  runWithCorrelationId,
+} from '../common/context/correlation-id-context.js';
+import { EmailDispatchService } from '../email/email-dispatch.service.js';
+import { EmailTemplate } from '../email/email-template.enum.js';
+import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
+
+import { NotificationPreference } from './entities/notification-preference.entity.js';
 import { Notification } from './entities/notification.entity.js';
+import { NotificationChannel } from './enums/notification-channel.enum.js';
 import { NotificationType } from './enums/notification-type.enum.js';
+import { NotificationPreferencesService } from './notification-preferences.service.js';
 import { NotificationsService } from './notifications.service.js';
 
 describe('NotificationsService', () => {
@@ -29,16 +41,32 @@ describe('NotificationsService', () => {
     manager: { query: jest.fn() },
   };
 
+  // The real NotificationPreferencesService sits behind the gate; only its
+  // repository and the dispatcher are doubles.
+  const preferenceRepo = {
+    findOne: jest.fn(),
+    find: jest.fn(),
+    query: jest.fn(),
+  };
+  const emailDispatch = { enqueue: jest.fn() };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NotificationsService,
+        NotificationPreferencesService,
         {
           provide: getRepositoryToken(Notification),
           useValue: notificationRepo,
         },
+        {
+          provide: getRepositoryToken(NotificationPreference),
+          useValue: preferenceRepo,
+        },
+        { provide: EmailDispatchService, useValue: emailDispatch },
+        { provide: ConfigService, useValue: { get: jest.fn() } },
       ],
     }).compile();
 
@@ -223,5 +251,111 @@ describe('NotificationsService', () => {
     expect(result.updated).toBe(3);
     expect(qb.update).toHaveBeenCalled();
     expect(qb.execute).toHaveBeenCalled();
+  });
+
+  /**
+   * ── THE SEND-TIME CHECK ────────────────────────────────────────────────
+   *
+   * F3.4.3 AC3 is met when the email is not generated at all, not when it is
+   * hidden afterwards. These drive sendEmail through the real preference
+   * service, down to the row it reads.
+   */
+  describe('sendEmail — the preference is enforced at send time', () => {
+    const payload = new SerializedEmailPayload(
+      EmailTemplate.REVIEW_REMINDER,
+      'apprentice@example.com',
+      { firstName: 'Alex' },
+    );
+    const send = () =>
+      service.sendEmail({
+        userId: 'user-recipient',
+        type: NotificationType.REVIEW,
+        payload,
+      });
+
+    it('never dispatches the email when the recipient switched this type off', async () => {
+      preferenceRepo.findOne.mockResolvedValue({ id: 'p-1', enabled: false });
+
+      await expect(send()).resolves.toBe('suppressed');
+
+      expect(emailDispatch.enqueue).not.toHaveBeenCalled();
+    });
+
+    it('dispatches it when the recipient has it on', async () => {
+      preferenceRepo.findOne.mockResolvedValue({ id: 'p-1', enabled: true });
+
+      await expect(send()).resolves.toBe('queued');
+
+      expect(emailDispatch.enqueue).toHaveBeenCalledWith(payload);
+    });
+
+    it('dispatches it when the recipient never chose — email is on by default', async () => {
+      preferenceRepo.findOne.mockResolvedValue(null);
+
+      await expect(send()).resolves.toBe('queued');
+
+      expect(emailDispatch.enqueue).toHaveBeenCalledTimes(1);
+    });
+
+    it("reads the recipient's own email preference for this type, per user", async () => {
+      preferenceRepo.findOne.mockResolvedValue(null);
+
+      await send();
+
+      const [options] = preferenceRepo.findOne.mock.calls[0] as [
+        { where: Record<string, unknown>; select: string[] },
+      ];
+      expect(options.where).toMatchObject({
+        user: { id: 'user-recipient' },
+        channel: NotificationChannel.EMAIL,
+        type: NotificationType.REVIEW,
+        isDeleted: false,
+      });
+      // Per user: the organisation-less row, never an organisation's.
+      expect(options.where.organisation).toBeDefined();
+      expect(options.select).toEqual(['id', 'enabled']);
+      // No defaults are written on the send path.
+      expect(preferenceRepo.query).not.toHaveBeenCalled();
+    });
+
+    /**
+     * The recipient is almost never the actor, and
+     * notification_preferences_select admits only a row's own user. Read as
+     * the actor, a switched-off preference is invisible and `?? true` sends
+     * the email anyway — which is how the message-email opt-out never
+     * worked. The read must happen with the bootstrap flag on.
+     */
+    it("reads the recipient's preference past row-level security, and closes the window after", async () => {
+      const flagDuringRead: boolean[] = [];
+      preferenceRepo.findOne.mockImplementation(() => {
+        flagDuringRead.push(getRlsBootstrap());
+        return Promise.resolve({ id: 'p-1', enabled: false });
+      });
+
+      await runWithCorrelationId('send-time-check', async () => {
+        await send();
+        expect(getRlsBootstrap()).toBe(false);
+      });
+
+      expect(flagDuringRead).toEqual([true]);
+    });
+
+    it('says so loudly when asked to email a type the catalogue marks as not emailed', async () => {
+      const error = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => undefined);
+      preferenceRepo.findOne.mockResolvedValue(null);
+
+      await service.sendEmail({
+        userId: 'user-recipient',
+        type: NotificationType.CASELOAD_AT_RISK,
+        payload,
+      });
+
+      expect(error).toHaveBeenCalledWith(
+        expect.stringContaining('caseload_at_risk'),
+      );
+      error.mockRestore();
+    });
   });
 });

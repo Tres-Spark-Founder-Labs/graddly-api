@@ -7,6 +7,7 @@ import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
+import { NotificationType } from '../notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { User } from '../users/entities/user.entity.js';
 
@@ -27,7 +28,15 @@ describe('OtjPaceService', () => {
   };
   const userRepo = { findOne: jest.fn() };
   const apprenticeRepo = { findOne: jest.fn() };
-  const notifications = { createForUser: jest.fn() };
+  // sendEmail forwards to the dispatcher mock: the gate with every
+  // preference on. The gate itself is tested in notifications.service.spec.
+  const notifications = {
+    createForUser: jest.fn(),
+    sendEmail: jest.fn(async ({ payload }: { payload: unknown }) => {
+      await emailDispatchService.enqueue(payload);
+      return 'queued' as const;
+    }),
+  };
   const emailDispatchService = { enqueue: jest.fn() };
 
   /**
@@ -275,6 +284,36 @@ describe('OtjPaceService', () => {
       ).resolves.not.toThrow();
 
       expect(emailDispatchService.enqueue).toHaveBeenCalled();
+    });
+
+    it('sends the manager email as an off-the-job notification, through the preference check', async () => {
+      await service.evaluateEnrolmentPace(behindEnrolment());
+
+      expect(notifications.sendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'user-mgr',
+          type: NotificationType.OTJ,
+        }),
+      );
+    });
+
+    /**
+     * F3.4.3 AC3 — a manager who switched off-the-job emails off is not
+     * emailed, and the weekly recurrence still counts as settled: they were
+     * reached in-app, and leaving it unstamped would re-post that notice on
+     * every run for an email they asked not to have.
+     */
+    it('settles the weekly recurrence when the manager has switched these emails off', async () => {
+      notifications.sendEmail.mockResolvedValueOnce('suppressed');
+      const lastAlerted = new Date('2025-09-20T00:00:00.000Z');
+      const enrolment = behindEnrolment();
+      enrolment.otjPaceAlertLevel = OtjPaceAlertLevel.OFF_TRACK;
+      enrolment.otjPaceAlertedAt = lastAlerted;
+
+      await service.evaluateEnrolmentPace(enrolment);
+
+      expect(emailDispatchService.enqueue).not.toHaveBeenCalled();
+      expect(enrolment.otjPaceAlertedAt).not.toEqual(lastAlerted);
     });
 
     it('skips quietly when no line manager is assigned', async () => {

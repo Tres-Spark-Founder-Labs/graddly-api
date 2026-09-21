@@ -20,7 +20,15 @@ describe('ReviewsReminderService', () => {
     save: jest.fn(),
   };
   const userRepo = { find: jest.fn(), findOne: jest.fn() };
-  const notificationsService = { createForUser: jest.fn() };
+  // sendEmail forwards to the dispatcher mock: the gate with every
+  // preference on. The gate itself is tested in notifications.service.spec.
+  const notificationsService = {
+    createForUser: jest.fn(),
+    sendEmail: jest.fn(async ({ payload }: { payload: unknown }) => {
+      await emailDispatchService.enqueue(payload);
+      return 'queued' as const;
+    }),
+  };
   const emailDispatchService = { enqueue: jest.fn() };
   let service: ReviewsReminderService;
 

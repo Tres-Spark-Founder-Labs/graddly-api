@@ -8,7 +8,6 @@ import {
   runWithTenantContext,
   withRlsBootstrap,
 } from '../common/context/correlation-id-context.js';
-import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
@@ -42,7 +41,6 @@ export class OtjPaceService {
     @InjectRepository(Apprentice)
     private readonly apprenticeRepo: Repository<Apprentice>,
     private readonly notificationsService: NotificationsService,
-    private readonly emailDispatchService: EmailDispatchService,
     private readonly config: ConfigService,
     private readonly otjSummary: OtjSummaryService,
   ) {}
@@ -429,15 +427,24 @@ export class OtjPaceService {
       );
     }
 
-    let emailQueued = false;
+    /**
+     * Whether the alert is settled for this run. An email the manager chose
+     * not to receive counts: they switched off-the-job emails off (F3.4.3
+     * AC3), the send-time check honoured it, and leaving the alert unstamped
+     * would re-post the in-app notice every run for an email they asked not to
+     * have. No address, or a failed enqueue, still does not count.
+     */
+    let reached = false;
     try {
       const manager = await this.userRepo.findOne({
         where: { id: managerUserId, isDeleted: false },
       });
 
       if (manager?.email) {
-        await this.emailDispatchService.enqueue(
-          new SerializedEmailPayload(
+        await this.notificationsService.sendEmail({
+          userId: manager.id,
+          type: NotificationType.OTJ,
+          payload: new SerializedEmailPayload(
             EmailTemplate.OTJ_PACE_ALERT,
             manager.email,
             {
@@ -452,8 +459,8 @@ export class OtjPaceService {
               appName: this.config.get<string>('app.email.appName', 'Graddly'),
             },
           ),
-        );
-        emailQueued = true;
+        });
+        reached = true;
       }
     } catch (error) {
       // The flag itself is already persisted. A failed alert must not roll
@@ -474,7 +481,7 @@ export class OtjPaceService {
      * or a mail outage, still stamped `otjPaceAlertedAt` as though the alert
      * had landed.
      */
-    return emailQueued;
+    return reached;
   }
 
   private async apprenticeNameFor(enrolment: Enrolment): Promise<string> {

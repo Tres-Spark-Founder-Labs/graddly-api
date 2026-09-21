@@ -28,7 +28,15 @@ describe('OtjLogEntriesService', () => {
     createQueryBuilder: jest.fn(),
     softRemove: jest.fn(),
   };
-  const notificationsService = { createForUser: jest.fn() };
+  // sendEmail forwards to the dispatcher mock: the gate with every
+  // preference on. The gate itself is tested in notifications.service.spec.
+  const notificationsService = {
+    createForUser: jest.fn(),
+    sendEmail: jest.fn(async ({ payload }: { payload: unknown }) => {
+      await emailDispatchService.enqueue(payload);
+      return 'queued' as const;
+    }),
+  };
   const emailDispatchService = { enqueue: jest.fn() };
   const configService = { get: jest.fn() };
   const eifScoreCache = { invalidate: jest.fn() };

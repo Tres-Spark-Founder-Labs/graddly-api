@@ -1,10 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { CommitmentStatementGroup } from '../commitments/entities/commitment-statement-group.entity.js';
 import { CommitmentStatement } from '../commitments/entities/commitment-statement.entity.js';
 import { CommitmentStatementStatus } from '../commitments/enums/commitment-statement-status.enum.js';
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
+import { EmailTemplate } from '../email/email-template.enum.js';
+import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
@@ -24,6 +28,7 @@ import {
 import { Standard } from '../programmes/entities/standard.entity.js';
 import { Review } from '../reviews/entities/review.entity.js';
 import { ReviewStatus } from '../reviews/enums/review-status.enum.js';
+import { User } from '../users/entities/user.entity.js';
 
 import { DEFAULT_GATEWAY_CRITERIA } from './constants/default-gateway-criteria.js';
 import { EnrolmentsService } from './enrolments.service.js';
@@ -39,6 +44,8 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
 
 @Injectable()
 export class EnrolmentJourneyService {
+  private readonly logger = new Logger(EnrolmentJourneyService.name);
+
   constructor(
     private readonly enrolmentsService: EnrolmentsService,
     @InjectRepository(Enrolment)
@@ -56,6 +63,9 @@ export class EnrolmentJourneyService {
     @InjectRepository(OrganisationMembership)
     private readonly membershipRepo: Repository<OrganisationMembership>,
     private readonly notificationsService: NotificationsService,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+    private readonly config: ConfigService,
   ) {}
 
   async getJourney(
@@ -88,6 +98,8 @@ export class EnrolmentJourneyService {
     const enrolment = await this.enrolmentsService.findOne(user, enrolmentId);
 
     let changed = false;
+    // Held so the apprentice is told only when the date actually moves.
+    const previousEpaDate = this.dateOnly(enrolment.epaDate);
     if (dto.epaDate !== undefined) {
       enrolment.epaDate = dto.epaDate;
       changed = true;
@@ -107,7 +119,102 @@ export class EnrolmentJourneyService {
     if (changed) {
       await this.enrolmentRepo.save(enrolment);
     }
+
+    const epaDate = this.dateOnly(enrolment.epaDate);
+    if (dto.epaDate !== undefined && epaDate !== previousEpaDate) {
+      await this.notifyEpaDateUpdated(enrolment, epaDate, previousEpaDate);
+    }
+
     return this.buildJourney(enrolment);
+  }
+
+  /**
+   * F3.4.3 AC2 — "EPA date update", emitted where the EPA date changes: this
+   * PATCH is the only write to `enrolments.epaDate`.
+   *
+   * Only when the date moved — set, changed or removed — so re-saving the
+   * same date, or editing the EPAO alone, tells the apprentice nothing new.
+   * In-app always (F3.4.3 AC1, the centre lists every notification); email
+   * through the send-time preference check, so an apprentice who switched
+   * these emails off (AC3) is not sent one.
+   *
+   * The date has already been saved, and the journey is what the caller
+   * asked for; a notification that cannot be delivered is logged, not thrown,
+   * so it cannot turn a successful edit into an error. An enrolment with no
+   * linked apprentice account has nobody to tell, which is not an error
+   * either (F1.2.5 AC1/AC3 — the profile exists before the login).
+   */
+  private async notifyEpaDateUpdated(
+    enrolment: Enrolment,
+    epaDate: string | null,
+    previousEpaDate: string | null,
+  ): Promise<void> {
+    const apprenticeUserId = enrolment.apprenticeUserId;
+    if (!apprenticeUserId) {
+      return;
+    }
+
+    try {
+      await this.notificationsService.createForUser({
+        userId: apprenticeUserId,
+        organisationId: enrolment.organisationId,
+        type: NotificationType.EPA_DATE_UPDATED,
+        title: epaDate
+          ? 'End-point assessment date updated'
+          : 'End-point assessment date removed',
+        body: epaDate
+          ? `Your end-point assessment is now booked for ${epaDate}.`
+          : 'Your end-point assessment date has been removed. Your training provider will confirm a new date.',
+        metadata: { enrolmentId: enrolment.id, epaDate, previousEpaDate },
+      });
+
+      /**
+       * The apprentice's address and first name, for the email. The staff
+       * member making this change is usually not in the apprentice's
+       * organisation, so `users_select` would hide the row; read under the
+       * rule on `withRlsBootstrap` — two named columns, the id taken from the
+       * enrolment this caller has just been authorised to edit.
+       */
+      const apprentice = await withRlsBootstrap(() =>
+        this.userRepo.findOne({
+          where: { id: apprenticeUserId, isDeleted: false },
+          select: ['id', 'email', 'firstName'],
+        }),
+      );
+      if (!apprentice?.email) {
+        return;
+      }
+
+      await this.notificationsService.sendEmail({
+        userId: apprentice.id,
+        type: NotificationType.EPA_DATE_UPDATED,
+        payload: new SerializedEmailPayload(
+          EmailTemplate.EPA_DATE_UPDATED,
+          apprentice.email,
+          {
+            firstName: apprentice.firstName ?? 'there',
+            epaDate,
+            previousEpaDate,
+            appName: this.config.get<string>('app.email.appName', 'Graddly'),
+          },
+        ),
+      });
+    } catch (error) {
+      this.logger.warn(
+        `EPA date notification failed for enrolment ${enrolment.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  /** A date column as `YYYY-MM-DD`, or null — so equal dates compare equal. */
+  private dateOnly(value: string | Date | null | undefined): string | null {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+    const text = value instanceof Date ? value.toISOString() : String(value);
+    return text.slice(0, 10);
   }
 
   private async buildJourney(

@@ -5386,6 +5386,114 @@
         ]
       }
     },
+    "/notifications/preferences": {
+      "get": {
+        "description": "Every (channel, type) pair with its enabled state; an absent choice is enabled. `configurable` marks the pairs PATCH accepts: email, for the types the platform emails.",
+        "operationId": "NotificationsController_getPreferences",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Every (channel, type) pair",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/NotificationPreferencesResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get the current user notification preferences",
+        "tags": [
+          "Notifications"
+        ]
+      },
+      "patch": {
+        "description": "Upserts each { channel, type, enabled }. Refused, naming the pair, when a pair is not configurable or appears twice.",
+        "operationId": "NotificationsController_updatePreferences",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateNotificationPreferencesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Every (channel, type) pair, after the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/NotificationPreferencesResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A pair is not configurable, or appears twice",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set the current user notification preferences",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
     "/notifications/preferences/digest": {
       "get": {
         "operationId": "NotificationsController_getDigestPreference",
@@ -25289,7 +25397,9 @@
               "levy_expiry_90",
               "levy_expiry_30",
               "message",
-              "caseload_at_risk"
+              "caseload_at_risk",
+              "epa_date_updated",
+              "milestone_completed"
             ],
             "type": "string"
           },
@@ -25347,7 +25457,9 @@
               "levy_expiry_90",
               "levy_expiry_30",
               "message",
-              "caseload_at_risk"
+              "caseload_at_risk",
+              "epa_date_updated",
+              "milestone_completed"
             ],
             "type": "string"
           },
@@ -25363,6 +25475,146 @@
         "required": [
           "type",
           "frequency"
+        ]
+      },
+      "NotificationChannelPreferenceDto": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "enum": [
+              "in_app",
+              "email",
+              "digest"
+            ],
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether this channel is on. With no stored choice, true."
+          },
+          "configurable": {
+            "type": "boolean",
+            "description": "Whether PATCH /notifications/preferences may change this pair. True only for email on a type the platform emails. In-app is never configurable (F3.4.3 AC1: the centre lists every notification); the OTJ digest keeps its own endpoint, /notifications/preferences/digest."
+          }
+        },
+        "required": [
+          "channel",
+          "enabled",
+          "configurable"
+        ]
+      },
+      "NotificationTypePreferencesDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "enum": [
+              "system",
+              "generic",
+              "invitation",
+              "otj",
+              "review",
+              "commitment",
+              "portfolio",
+              "ilr_submission_succeeded",
+              "ilr_submission_failed",
+              "levy_expiry_90",
+              "levy_expiry_30",
+              "message",
+              "caseload_at_risk",
+              "epa_date_updated",
+              "milestone_completed"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "example": "Review reminders"
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationChannelPreferenceDto"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "label",
+          "channels"
+        ]
+      },
+      "NotificationPreferencesResponseDto": {
+        "type": "object",
+        "properties": {
+          "types": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationTypePreferencesDto"
+            }
+          }
+        },
+        "required": [
+          "types"
+        ]
+      },
+      "UpdateNotificationPreferenceItemDto": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "enum": [
+              "in_app",
+              "email",
+              "digest"
+            ],
+            "type": "string",
+            "example": "email"
+          },
+          "type": {
+            "enum": [
+              "system",
+              "generic",
+              "invitation",
+              "otj",
+              "review",
+              "commitment",
+              "portfolio",
+              "ilr_submission_succeeded",
+              "ilr_submission_failed",
+              "levy_expiry_90",
+              "levy_expiry_30",
+              "message",
+              "caseload_at_risk",
+              "epa_date_updated",
+              "milestone_completed"
+            ],
+            "type": "string",
+            "example": "review"
+          },
+          "enabled": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "channel",
+          "type",
+          "enabled"
+        ]
+      },
+      "UpdateNotificationPreferencesDto": {
+        "type": "object",
+        "properties": {
+          "preferences": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UpdateNotificationPreferenceItemDto"
+            }
+          }
+        },
+        "required": [
+          "preferences"
         ]
       },
       "MarkAllNotificationsReadDto": {

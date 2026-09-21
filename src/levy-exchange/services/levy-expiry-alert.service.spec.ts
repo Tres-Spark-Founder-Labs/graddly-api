@@ -26,7 +26,15 @@ describe('LevyExpiryAlertService', () => {
     save: jest.fn(),
   };
   const membershipRepo = { find: jest.fn() };
-  const notificationsService = { createForUser: jest.fn() };
+  // sendEmail forwards to the dispatcher mock: the gate with every
+  // preference on. The gate itself is tested in notifications.service.spec.
+  const notificationsService = {
+    createForUser: jest.fn(),
+    sendEmail: jest.fn(async ({ payload }: { payload: unknown }) => {
+      await emailDispatchService.enqueue(payload);
+      return 'queued' as const;
+    }),
+  };
   const emailDispatchService = { enqueue: jest.fn() };
   const configGet = jest.fn(
     (_key: string, fallback?: unknown) => fallback ?? 'Graddly',

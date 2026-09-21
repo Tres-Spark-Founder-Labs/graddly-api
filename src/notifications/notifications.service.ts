@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -8,18 +9,94 @@ import { Repository } from 'typeorm';
 
 import { buildPaginationMeta } from '../common/pagination/build-pagination-meta.js';
 import { PaginatedResult } from '../common/pagination/paginated-result.js';
+import { EmailDispatchService } from '../email/email-dispatch.service.js';
 
 import { CreateNotificationDto } from './dto/create-notification.dto.js';
 import { ListNotificationsQueryDto } from './dto/list-notifications-query.dto.js';
 import { NotificationResponseDto } from './dto/notification-response.dto.js';
 import { Notification } from './entities/notification.entity.js';
+import { NotificationChannel } from './enums/notification-channel.enum.js';
+import { NotificationType } from './enums/notification-type.enum.js';
+import { NotificationPreferencesService } from './notification-preferences.service.js';
+import { NOTIFICATION_TYPE_CATALOGUE } from './notification-type-catalogue.js';
+
+import type { BaseEmailPayload } from '../email/payloads/base-email.payload.js';
+
+/**
+ * What `sendEmail` did. `suppressed` means the recipient switched this type's
+ * email off — a deliberate outcome, not a failure; the caller decides what it
+ * means for its own bookkeeping (a chase or pace alert still reached them
+ * in-app).
+ */
+export type NotificationEmailOutcome = 'queued' | 'suppressed';
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(
     @InjectRepository(Notification)
     private readonly notificationRepo: Repository<Notification>,
+    private readonly preferencesService: NotificationPreferencesService,
+    private readonly emailDispatch: EmailDispatchService,
   ) {}
+
+  /**
+   * ── THE SEND-TIME PREFERENCE CHECK ──────────────────────────────────────
+   *
+   * Whether this recipient wants email about this notification type.
+   * F3.4.3 AC3 is met here, at send time, and nowhere else: a type switched
+   * off never generates the email at all. Filtering on display would still
+   * send it.
+   *
+   * Every email about a notification type goes through this — directly, for
+   * a sender that enqueues with its own job options (the debounced message
+   * email), or through `sendEmail`, which calls it. Transactional mail —
+   * sign-in, password reset, invitations, registration — is not a
+   * notification type and does not.
+   *
+   * Absent a stored preference, email is on. The read sees past row-level
+   * security to the recipient's own setting; the reason, and the proof that
+   * reading it as the actor silently ignored it, are on
+   * `NotificationPreferencesService.isEnabledForRecipient`.
+   */
+  async isEmailEnabled(
+    userId: string,
+    type: NotificationType,
+  ): Promise<boolean> {
+    return this.preferencesService.isEnabledForRecipient(
+      userId,
+      type,
+      NotificationChannel.EMAIL,
+    );
+  }
+
+  /**
+   * Email a person about a notification type, if they want it.
+   *
+   * The check first, then the enqueue — so a type the recipient switched off
+   * never reaches the queue. Returns what happened, so callers that stamp a
+   * delivery can tell "they chose not to get this" from "it went out".
+   */
+  async sendEmail(input: {
+    userId: string;
+    type: NotificationType;
+    payload: BaseEmailPayload;
+  }): Promise<NotificationEmailOutcome> {
+    if (!NOTIFICATION_TYPE_CATALOGUE[input.type].emailed) {
+      // The catalogue decides which types offer an email switch. A type
+      // emailed without being marked would reach people with no way to stop
+      // it — loud, so the table is updated, but not fatal to the send.
+      this.logger.error(
+        `Emailing notification type "${input.type}", which NOTIFICATION_TYPE_CATALOGUE marks as not emailed: its recipients are offered no switch for it.`,
+      );
+    }
+    if (!(await this.isEmailEnabled(input.userId, input.type))) {
+      return 'suppressed';
+    }
+    await this.emailDispatch.enqueue(input.payload);
+    return 'queued';
+  }
 
   async listForUser(
     userId: string,

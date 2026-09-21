@@ -1,0 +1,14 @@
+{% extends "layouts/base.html.njk" %}
+
+{% block title %}End-point assessment date{% endblock %}
+
+{% block content %}
+<p>Hi {{ firstName }},</p>
+{% if epaDate %}
+<p>Your end-point assessment is now booked for <strong>{{ epaDate }}</strong>{% if previousEpaDate %} (previously {{ previousEpaDate }}){% endif %}.</p>
+{% else %}
+<p>Your end-point assessment date{% if previousEpaDate %} of {{ previousEpaDate }}{% endif %} has been removed. Your training provider will confirm a new date.</p>
+{% endif %}
+<p>Sign in to {{ appName }} to see your programme journey.</p>
+<p style="color:#6b7280;font-size:12px;">You are receiving this because end-point assessment date emails are switched on in your notification preferences.</p>
+{% endblock %}

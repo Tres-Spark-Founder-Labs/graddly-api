@@ -1,15 +1,19 @@
+import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { CommitmentStatementGroup } from '../commitments/entities/commitment-statement-group.entity.js';
 import { CommitmentStatement } from '../commitments/entities/commitment-statement.entity.js';
 import { CommitmentStatementStatus } from '../commitments/enums/commitment-statement-status.enum.js';
+import { EmailTemplate } from '../email/email-template.enum.js';
+import { NotificationType } from '../notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
 import { Review } from '../reviews/entities/review.entity.js';
 import { ReviewStatus } from '../reviews/enums/review-status.enum.js';
+import { User } from '../users/entities/user.entity.js';
 
 import { EnrolmentJourneyService } from './enrolment-journey.service.js';
 import { EnrolmentsService } from './enrolments.service.js';
@@ -29,7 +33,8 @@ describe('EnrolmentJourneyService', () => {
   const commitmentRepo = { findOne: jest.fn() };
   const reviewRepo = { find: jest.fn(), createQueryBuilder: jest.fn() };
   const membershipRepo = { find: jest.fn() };
-  const notifications = { createForUser: jest.fn() };
+  const notifications = { createForUser: jest.fn(), sendEmail: jest.fn() };
+  const userRepo = { findOne: jest.fn() };
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -53,6 +58,8 @@ describe('EnrolmentJourneyService', () => {
           useValue: membershipRepo,
         },
         { provide: NotificationsService, useValue: notifications },
+        { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: ConfigService, useValue: { get: jest.fn(() => 'Graddly') } },
       ],
     }).compile();
 
@@ -77,6 +84,12 @@ describe('EnrolmentJourneyService', () => {
       Promise.resolve(value),
     );
     membershipRepo.find.mockResolvedValue([]);
+    notifications.sendEmail.mockResolvedValue('queued');
+    userRepo.findOne.mockResolvedValue({
+      id: 'user-app',
+      email: 'alex@example.com',
+      firstName: 'Alex',
+    });
   });
 
   it('returns journey with milestones, checklist, and EPA countdown', async () => {
@@ -135,6 +148,121 @@ describe('EnrolmentJourneyService', () => {
     expect(enrolment.epaDate).toBe('2026-06-01');
     expect(journey.epaDate).toBe('2026-06-01');
     expect(journey.epaCountdownBand).not.toBe('unset');
+  });
+
+  /**
+   * F3.4.3 AC2 — "EPA date update", emitted from the one place the EPA date
+   * is written. In-app always (AC1); email through the send-time preference
+   * check (AC3).
+   */
+  describe('EPA date updates notify the apprentice', () => {
+    const enrolmentWith = (overrides: Partial<Enrolment> = {}) =>
+      ({
+        id: 'enr-1',
+        organisationId: 'org-1',
+        standardId: 'std-1',
+        status: EnrolmentStatus.ACTIVE,
+        activatedAt: new Date('2025-01-15T00:00:00.000Z'),
+        plannedStartDate: '2025-01-15',
+        plannedEndDate: '2026-12-31',
+        plannedDurationMonths: 18,
+        epaDate: '2026-06-01',
+        completedAt: null,
+        gatewayReadyNotifiedAt: null,
+        apprenticeUserId: 'user-app',
+        ...overrides,
+      }) as Enrolment;
+    const staff = { id: 'u-staff', organisationId: 'org-1' } as never;
+
+    it('tells the apprentice in-app and by email when the date moves', async () => {
+      enrolmentsService.findOne.mockResolvedValue(enrolmentWith());
+
+      await service.updateJourney(staff, 'enr-1', { epaDate: '2026-09-01' });
+
+      const [inApp] = notifications.createForUser.mock.calls[0] as [
+        {
+          userId: string;
+          organisationId: string;
+          type: NotificationType;
+          metadata: Record<string, unknown>;
+        },
+      ];
+      expect(inApp).toMatchObject({
+        userId: 'user-app',
+        organisationId: 'org-1',
+        type: NotificationType.EPA_DATE_UPDATED,
+      });
+      expect(inApp.metadata).toMatchObject({
+        epaDate: '2026-09-01',
+        previousEpaDate: '2026-06-01',
+      });
+      const [send] = notifications.sendEmail.mock.calls[0] as [
+        {
+          userId: string;
+          type: NotificationType;
+          payload: { template: string; getTemplateContext: () => object };
+        },
+      ];
+      expect(send.userId).toBe('user-app');
+      expect(send.type).toBe(NotificationType.EPA_DATE_UPDATED);
+      expect(send.payload.template).toBe(EmailTemplate.EPA_DATE_UPDATED);
+      expect(send.payload.getTemplateContext()).toMatchObject({
+        epaDate: '2026-09-01',
+        previousEpaDate: '2026-06-01',
+      });
+    });
+
+    it('says nothing when the same date is saved again, or only the EPAO changes', async () => {
+      enrolmentsService.findOne.mockResolvedValue(enrolmentWith());
+      await service.updateJourney(staff, 'enr-1', { epaDate: '2026-06-01' });
+
+      enrolmentsService.findOne.mockResolvedValue(enrolmentWith());
+      await service.updateJourney(staff, 'enr-1', {
+        epaOrganisationName: 'Innovate Awarding',
+      });
+
+      expect(notifications.createForUser).not.toHaveBeenCalled();
+      expect(notifications.sendEmail).not.toHaveBeenCalled();
+    });
+
+    it('tells the apprentice when the date is removed', async () => {
+      enrolmentsService.findOne.mockResolvedValue(enrolmentWith());
+
+      await service.updateJourney(staff, 'enr-1', {
+        epaDate: null as unknown as string,
+      });
+
+      expect(notifications.createForUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: NotificationType.EPA_DATE_UPDATED,
+          title: 'End-point assessment date removed',
+        }),
+      );
+    });
+
+    it('has nobody to tell when the enrolment has no apprentice account yet', async () => {
+      enrolmentsService.findOne.mockResolvedValue(
+        enrolmentWith({ apprenticeUserId: null }),
+      );
+
+      await service.updateJourney(staff, 'enr-1', { epaDate: '2026-09-01' });
+
+      expect(notifications.createForUser).not.toHaveBeenCalled();
+      expect(notifications.sendEmail).not.toHaveBeenCalled();
+    });
+
+    it('keeps the saved date when the notification cannot be delivered', async () => {
+      const enrolment = enrolmentWith();
+      enrolmentsService.findOne.mockResolvedValue(enrolment);
+      notifications.createForUser.mockRejectedValueOnce(new Error('down'));
+
+      const journey = await service.updateJourney(staff, 'enr-1', {
+        epaDate: '2026-09-01',
+      });
+
+      expect(journey.epaDate).toBe('2026-09-01');
+      expect(enrolmentRepo.save).toHaveBeenCalled();
+    });
   });
 
   /** An enrolment with none of the gateway criteria met unless overridden. */

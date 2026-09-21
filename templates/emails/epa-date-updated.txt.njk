@@ -1,0 +1,7 @@
+Hi {{ firstName }},
+
+{% if epaDate %}Your end-point assessment is now booked for {{ epaDate }}{% if previousEpaDate %} (previously {{ previousEpaDate }}){% endif %}.{% else %}Your end-point assessment date{% if previousEpaDate %} of {{ previousEpaDate }}{% endif %} has been removed. Your training provider will confirm a new date.{% endif %}
+
+Sign in to {{ appName }} to see your programme journey.
+
+You are receiving this because end-point assessment date emails are switched on in your notification preferences.

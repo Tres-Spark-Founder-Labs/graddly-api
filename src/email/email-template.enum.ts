@@ -15,4 +15,6 @@ export enum EmailTemplate {
   /** F1.4.1 AC5 — scheduled monthly ROI report to configured recipients. */
   LEVY_ROI_MONTHLY = 'levy-roi-monthly',
   FLOWPORTAL_REGISTRATION_COMPLETE = 'flowportal-registration-complete',
+  /** F3.4.3 AC2 — the apprentice's EPA date was set, changed or removed. */
+  EPA_DATE_UPDATED = 'epa-date-updated',
 }

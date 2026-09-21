@@ -22,6 +22,10 @@ import { NotificationType } from './enums/notification-type.enum.js';
  *   in_app   never. F3.4.3 AC1: the notification centre lists all
  *            notifications. Suppressing the in-app row would empty the centre,
  *            not quieten the inbox.
+ *   push     only for types some path pushes (`pushed`), on the same
+ *            reasoning as email. Whether a browser receives push at all is
+ *            the subscription, not a preference: a person with no
+ *            subscription gets none whatever this says.
  *   digest   not through the per-type endpoint. The OTJ digest has a cadence
  *            (daily / weekly / off) and keeps its own endpoint,
  *            /notifications/preferences/digest; a second, frequency-blind
@@ -35,14 +39,18 @@ export interface INotificationTypeEntry {
   label: string;
   /** True when some code path emails this type through the send-time check. */
   emailed: boolean;
+  /** True when some code path pushes this type through the send-time check. */
+  pushed?: boolean;
 }
 
 export const NOTIFICATION_TYPE_CATALOGUE: Readonly<
   Record<NotificationType, INotificationTypeEntry>
 > = Object.freeze({
   [NotificationType.OTJ]: {
-    label: 'Off-the-job hours: approvals and pace alerts',
+    label: 'Off-the-job hours: approvals, pace and inactivity alerts',
     emailed: true,
+    // F3.1.4 AC4 — the seven-day inactivity alert is pushed.
+    pushed: true,
   },
   [NotificationType.REVIEW]: { label: 'Review reminders', emailed: true },
   [NotificationType.MESSAGE]: { label: 'New messages', emailed: true },
@@ -92,18 +100,24 @@ export const NOTIFICATION_CHANNELS: readonly NotificationChannel[] =
     NotificationChannel.IN_APP,
     NotificationChannel.EMAIL,
     NotificationChannel.DIGEST,
+    NotificationChannel.PUSH,
   ]);
 
 /**
- * Whether PATCH /notifications/preferences may set this pair. Only email, and
- * only for a type the platform emails; see the notes above for the rest.
+ * Whether PATCH /notifications/preferences may set this pair. Email for a
+ * type the platform emails, push for a type it pushes; see the notes above
+ * for the rest.
  */
 export function isConfigurablePreference(
   channel: NotificationChannel,
   type: NotificationType,
 ): boolean {
-  return (
-    channel === NotificationChannel.EMAIL &&
-    NOTIFICATION_TYPE_CATALOGUE[type].emailed
-  );
+  const entry = NOTIFICATION_TYPE_CATALOGUE[type];
+  if (channel === NotificationChannel.EMAIL) {
+    return entry.emailed;
+  }
+  if (channel === NotificationChannel.PUSH) {
+    return entry.pushed === true;
+  }
+  return false;
 }

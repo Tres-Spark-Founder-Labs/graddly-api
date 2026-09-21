@@ -69,6 +69,8 @@ export default registerAs('app', () => {
       dasFundingSyncSchedule: e.CRON_DAS_FUNDING_SYNC_SCHEDULE,
       otjPaceEnabled: e.CRON_OTJ_PACE_ENABLED,
       otjPaceSchedule: e.CRON_OTJ_PACE_SCHEDULE,
+      otjInactivityEnabled: e.CRON_OTJ_INACTIVITY_ENABLED,
+      otjInactivitySchedule: e.CRON_OTJ_INACTIVITY_SCHEDULE,
       reviewOverdueEnabled: e.CRON_REVIEW_OVERDUE_ENABLED,
       reviewOverdueSchedule: e.CRON_REVIEW_OVERDUE_SCHEDULE,
       reviewRemindersEnabled: e.CRON_REVIEW_REMINDERS_ENABLED,
@@ -198,6 +200,16 @@ export default registerAs('app', () => {
     },
     withdrawalPush: {
       endpointUrl: e.WITHDRAWAL_PUSH_ENDPOINT_URL,
+    },
+    // F3.4.3 AC4 — web push (VAPID). Enabled only when all three are set.
+    webPush: {
+      vapidPublicKey: e.WEB_PUSH_VAPID_PUBLIC_KEY,
+      vapidPrivateKey: e.WEB_PUSH_VAPID_PRIVATE_KEY,
+      vapidSubject: e.WEB_PUSH_VAPID_SUBJECT,
+      enabled:
+        e.WEB_PUSH_VAPID_PUBLIC_KEY.trim() !== '' &&
+        e.WEB_PUSH_VAPID_PRIVATE_KEY.trim() !== '' &&
+        e.WEB_PUSH_VAPID_SUBJECT.trim() !== '',
     },
     portfolio: {
       heatmapCacheTtlSeconds: e.PORTFOLIO_HEATMAP_CACHE_TTL_SECONDS,

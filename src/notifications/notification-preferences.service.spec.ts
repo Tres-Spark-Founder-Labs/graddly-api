@@ -197,6 +197,7 @@ describe('NotificationPreferencesService', () => {
           NotificationChannel.IN_APP,
           NotificationChannel.EMAIL,
           NotificationChannel.DIGEST,
+          NotificationChannel.PUSH,
         ]);
         expect(entry.channels.every((c) => c.enabled)).toBe(true);
       }
@@ -231,19 +232,26 @@ describe('NotificationPreferencesService', () => {
       expect(options.where.organisation).toBeDefined();
     });
 
-    it('marks only email, on emailed types, as configurable', async () => {
+    it('marks email on emailed types, and push on pushed types, as configurable', async () => {
       find.mockResolvedValue([]);
 
       const matrix = await service.listForUser('user-1');
 
       for (const entry of matrix.types) {
+        const catalogue = NOTIFICATION_TYPE_CATALOGUE[entry.type];
         for (const pair of entry.channels) {
-          expect(pair.configurable).toBe(
-            pair.channel === NotificationChannel.EMAIL &&
-              NOTIFICATION_TYPE_CATALOGUE[entry.type].emailed,
-          );
+          const expected =
+            (pair.channel === NotificationChannel.EMAIL && catalogue.emailed) ||
+            (pair.channel === NotificationChannel.PUSH &&
+              catalogue.pushed === true);
+          expect(pair.configurable).toBe(expected);
         }
       }
+      // F3.1.4 AC4 — the inactivity alert is pushed, so OTJ push is a switch.
+      const otjPush = matrix.types
+        .find((t) => t.type === NotificationType.OTJ)
+        ?.channels.find((c) => c.channel === NotificationChannel.PUSH);
+      expect(otjPush?.configurable).toBe(true);
       // The F3.4.3 AC2 types that are emailed today are switchable.
       const switchable = matrix.types
         .filter((t) => t.channels.some((c) => c.configurable))

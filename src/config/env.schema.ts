@@ -176,6 +176,14 @@ export const envSchema = z
     RESEND_API_KEY: z.string().optional().default(''),
     RESEND_FROM_EMAIL: z.string().optional().default(''),
     EMAIL_PROVIDER: z.enum(['resend', 'noop']).default('noop'),
+
+    // F3.4.3 AC4 — web push. All three or none: with any unset, push is off,
+    // subscriptions are still accepted and stored, and sends report
+    // 'unavailable'. Generate a pair with `npx web-push generate-vapid-keys`.
+    WEB_PUSH_VAPID_PUBLIC_KEY: z.string().optional().default(''),
+    WEB_PUSH_VAPID_PRIVATE_KEY: z.string().optional().default(''),
+    // A mailto: or https: URL the push service can contact about this sender.
+    WEB_PUSH_VAPID_SUBJECT: z.string().optional().default(''),
     PASSWORD_RESET_TOKEN_TTL_SECONDS: z.coerce
       .number()
       .int()
@@ -276,6 +284,19 @@ export const envSchema = z
       .default('false')
       .transform((v) => v === 'true'),
     CRON_OTJ_PACE_SCHEDULE: z.string().min(1).default('0 1 * * *'),
+
+    // F3.1.4 AC4 — push an apprentice who has logged no off-the-job hours in
+    // seven days. Runs daily; the alert itself is once per apprentice per week
+    // (AC6). Not in DEPLOYED_CRON_FLAGS_DEFAULT_TRUE: it reaches apprentices
+    // directly, so switching it on in a deployed environment is a decision,
+    // not a default.
+    CRON_OTJ_INACTIVITY_ENABLED: z
+      .string()
+      .optional()
+      .default('false')
+      .transform((v) => v === 'true'),
+    // 09:00 — after the nightly pace job, and at a time a nudge is welcome.
+    CRON_OTJ_INACTIVITY_SCHEDULE: z.string().min(1).default('0 9 * * *'),
 
     CRON_REVIEW_OVERDUE_ENABLED: z
       .string()

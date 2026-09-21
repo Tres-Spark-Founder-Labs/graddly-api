@@ -19,6 +19,11 @@ import { NotificationChannel } from './enums/notification-channel.enum.js';
 import { NotificationType } from './enums/notification-type.enum.js';
 import { NotificationPreferencesService } from './notification-preferences.service.js';
 import { NOTIFICATION_TYPE_CATALOGUE } from './notification-type-catalogue.js';
+import {
+  IPushDeliveryOutcome,
+  IPushPayload,
+  PushNotificationsService,
+} from './push-notifications.service.js';
 
 import type { BaseEmailPayload } from '../email/payloads/base-email.payload.js';
 
@@ -30,6 +35,17 @@ import type { BaseEmailPayload } from '../email/payloads/base-email.payload.js';
  */
 export type NotificationEmailOutcome = 'queued' | 'suppressed';
 
+/**
+ * What `sendPush` did. `suppressed` is the recipient's per-type choice;
+ * `unavailable` means the server has no VAPID keys; `no_subscription` means
+ * the recipient never opted a browser in. Only `sent` reached a device.
+ */
+export type NotificationPushOutcome =
+  | 'sent'
+  | 'suppressed'
+  | 'unavailable'
+  | 'no_subscription';
+
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
@@ -39,6 +55,7 @@ export class NotificationsService {
     private readonly notificationRepo: Repository<Notification>,
     private readonly preferencesService: NotificationPreferencesService,
     private readonly emailDispatch: EmailDispatchService,
+    private readonly push: PushNotificationsService,
   ) {}
 
   /**
@@ -69,6 +86,48 @@ export class NotificationsService {
       type,
       NotificationChannel.EMAIL,
     );
+  }
+
+  /** The push counterpart of `isEmailEnabled`; same reasoning, same read. */
+  async isPushEnabled(
+    userId: string,
+    type: NotificationType,
+  ): Promise<boolean> {
+    return this.preferencesService.isEnabledForRecipient(
+      userId,
+      type,
+      NotificationChannel.PUSH,
+    );
+  }
+
+  /**
+   * F3.4.3 AC4 — push a person about a notification type, if they want it and
+   * have a browser opted in. The per-type check first, as for email, so a
+   * type the recipient switched off never reaches a push service. Dead
+   * subscriptions (404/410) are deleted on the way.
+   */
+  async sendPush(input: {
+    userId: string;
+    type: NotificationType;
+    payload: IPushPayload;
+  }): Promise<{
+    outcome: NotificationPushOutcome;
+    delivery: IPushDeliveryOutcome | null;
+  }> {
+    if (!NOTIFICATION_TYPE_CATALOGUE[input.type].pushed) {
+      this.logger.error(
+        `Pushing notification type "${input.type}", which NOTIFICATION_TYPE_CATALOGUE marks as not pushed: its recipients are offered no switch for it.`,
+      );
+    }
+    if (!this.push.isEnabled()) {
+      return { outcome: 'unavailable', delivery: null };
+    }
+    if (!(await this.isPushEnabled(input.userId, input.type))) {
+      return { outcome: 'suppressed', delivery: null };
+    }
+    const delivery = await this.push.sendToUser(input.userId, input.payload);
+    const reached = delivery.delivered + delivery.expired + delivery.failed;
+    return { outcome: reached === 0 ? 'no_subscription' : 'sent', delivery };
   }
 
   /**

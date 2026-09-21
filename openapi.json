@@ -5234,6 +5234,180 @@
         ]
       }
     },
+    "/notifications/push-subscriptions/public-key": {
+      "get": {
+        "description": "Pass as applicationServerKey to PushManager.subscribe(). Null when web push is not configured on this server.",
+        "operationId": "NotificationsController_getPushPublicKey",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The public key, or null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PushPublicKeyResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The VAPID public key browsers subscribe with",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/push-subscriptions": {
+      "post": {
+        "operationId": "NotificationsController_createPushSubscription",
+        "parameters": [
+          {
+            "name": "user-agent",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePushSubscriptionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The stored subscription",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PushSubscriptionResponseDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not a web push subscription",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Subscribe this browser to web push",
+        "tags": [
+          "Notifications"
+        ]
+      },
+      "delete": {
+        "operationId": "NotificationsController_deletePushSubscription",
+        "parameters": [
+          {
+            "name": "endpoint",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "How many subscriptions were removed (0 or 1)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "removed": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Unsubscribe this browser from web push",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
     "/notifications": {
       "get": {
         "operationId": "NotificationsController_list",
@@ -25484,7 +25658,8 @@
             "enum": [
               "in_app",
               "email",
-              "digest"
+              "digest",
+              "push"
             ],
             "type": "string"
           },
@@ -25564,7 +25739,8 @@
             "enum": [
               "in_app",
               "email",
-              "digest"
+              "digest",
+              "push"
             ],
             "type": "string",
             "example": "email"
@@ -25615,6 +25791,81 @@
         },
         "required": [
           "preferences"
+        ]
+      },
+      "PushPublicKeyResponseDto": {
+        "type": "object",
+        "properties": {
+          "publicKey": {
+            "type": "string",
+            "nullable": true,
+            "description": "The VAPID public key to pass as applicationServerKey; null when web push is not configured on this server."
+          }
+        },
+        "required": [
+          "publicKey"
+        ]
+      },
+      "PushSubscriptionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "userAgent": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "endpoint",
+          "createdAt"
+        ]
+      },
+      "PushSubscriptionKeysDto": {
+        "type": "object",
+        "properties": {
+          "p256dh": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "P-256 ECDH public key, base64url."
+          },
+          "auth": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Authentication secret, base64url."
+          }
+        },
+        "required": [
+          "p256dh",
+          "auth"
+        ]
+      },
+      "CreatePushSubscriptionDto": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "maxLength": 2048,
+            "format": "uri",
+            "description": "The push service URL for this browser.",
+            "example": "https://fcm.googleapis.com/fcm/send/…"
+          },
+          "keys": {
+            "$ref": "#/components/schemas/PushSubscriptionKeysDto"
+          }
+        },
+        "required": [
+          "endpoint",
+          "keys"
         ]
       },
       "MarkAllNotificationsReadDto": {

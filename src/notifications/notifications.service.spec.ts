@@ -17,6 +17,7 @@ import { NotificationChannel } from './enums/notification-channel.enum.js';
 import { NotificationType } from './enums/notification-type.enum.js';
 import { NotificationPreferencesService } from './notification-preferences.service.js';
 import { NotificationsService } from './notifications.service.js';
+import { PushNotificationsService } from './push-notifications.service.js';
 
 describe('NotificationsService', () => {
   let service: NotificationsService;
@@ -49,6 +50,7 @@ describe('NotificationsService', () => {
     query: jest.fn(),
   };
   const emailDispatch = { enqueue: jest.fn() };
+  const push = { isEnabled: jest.fn(), sendToUser: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -66,6 +68,7 @@ describe('NotificationsService', () => {
           useValue: preferenceRepo,
         },
         { provide: EmailDispatchService, useValue: emailDispatch },
+        { provide: PushNotificationsService, useValue: push },
         { provide: ConfigService, useValue: { get: jest.fn() } },
       ],
     }).compile();
@@ -356,6 +359,92 @@ describe('NotificationsService', () => {
         expect.stringContaining('caseload_at_risk'),
       );
       error.mockRestore();
+    });
+  });
+
+  /**
+   * F3.4.3 AC4 — push goes through the same send-time check as email. A type
+   * the recipient switched off never reaches a push service.
+   */
+  describe('sendPush — the preference is enforced at send time', () => {
+    const payload = {
+      title: 'No off-the-job hours logged this week',
+      body: 'Log a session now.',
+      url: '/otj-logs?log=1',
+    };
+    const send = () =>
+      service.sendPush({
+        userId: 'user-recipient',
+        type: NotificationType.OTJ,
+        payload,
+      });
+
+    beforeEach(() => {
+      push.isEnabled.mockReturnValue(true);
+      push.sendToUser.mockResolvedValue({
+        delivered: 1,
+        expired: 0,
+        failed: 0,
+      });
+    });
+
+    it('never pushes when the recipient switched this type off', async () => {
+      preferenceRepo.findOne.mockResolvedValue({ id: 'p-1', enabled: false });
+
+      await expect(send()).resolves.toEqual({
+        outcome: 'suppressed',
+        delivery: null,
+      });
+      expect(push.sendToUser).not.toHaveBeenCalled();
+    });
+
+    it("reads the recipient's push preference for this type", async () => {
+      preferenceRepo.findOne.mockResolvedValue(null);
+
+      await send();
+
+      const [options] = preferenceRepo.findOne.mock.calls[0] as [
+        { where: Record<string, unknown> },
+      ];
+      expect(options.where).toMatchObject({
+        user: { id: 'user-recipient' },
+        channel: NotificationChannel.PUSH,
+        type: NotificationType.OTJ,
+      });
+    });
+
+    it('pushes when the recipient has it on, and says so', async () => {
+      preferenceRepo.findOne.mockResolvedValue({ id: 'p-1', enabled: true });
+
+      await expect(send()).resolves.toEqual({
+        outcome: 'sent',
+        delivery: { delivered: 1, expired: 0, failed: 0 },
+      });
+      expect(push.sendToUser).toHaveBeenCalledWith('user-recipient', payload);
+    });
+
+    it('reports no subscription rather than success when nothing was reached', async () => {
+      preferenceRepo.findOne.mockResolvedValue(null);
+      push.sendToUser.mockResolvedValue({
+        delivered: 0,
+        expired: 0,
+        failed: 0,
+      });
+
+      await expect(send()).resolves.toMatchObject({
+        outcome: 'no_subscription',
+      });
+    });
+
+    it('reports unavailable, and reads no preference, when the server has no VAPID keys', async () => {
+      push.isEnabled.mockReturnValue(false);
+
+      await expect(send()).resolves.toEqual({
+        outcome: 'unavailable',
+        delivery: null,
+      });
+      expect(preferenceRepo.findOne).not.toHaveBeenCalled();
+      expect(push.sendToUser).not.toHaveBeenCalled();
     });
   });
 });

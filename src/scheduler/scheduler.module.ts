@@ -32,6 +32,7 @@ import { HealthCronService } from './health-cron.service.js';
 import { LevyExpiryAlertsCronService } from './levy-expiry-alerts-cron.service.js';
 import { LevyRoiMonthlyCronService } from './levy-roi-monthly-cron.service.js';
 import { LevyTransferStatusCronService } from './levy-transfer-status-cron.service.js';
+import { OtjInactivityCronService } from './otj-inactivity-cron.service.js';
 import { OtjPaceCronService } from './otj-pace-cron.service.js';
 import { ReviewOverdueCronService } from './review-overdue-cron.service.js';
 import { ReviewRemindersCronService } from './review-reminders-cron.service.js';
@@ -83,6 +84,7 @@ import { ReviewRemindersCronService } from './review-reminders-cron.service.js';
     DasSyncCronService,
     DasFundingSyncCronService,
     OtjPaceCronService,
+    OtjInactivityCronService,
     ReviewOverdueCronService,
     ReviewRemindersCronService,
     CommitmentChaseCronService,

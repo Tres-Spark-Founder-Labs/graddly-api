@@ -6,6 +6,8 @@ import { ORGANISATION_ID_HEADER } from '../src/common/constants/organisation-hea
 import { NotificationChannel } from '../src/notifications/enums/notification-channel.enum.js';
 import { NotificationType } from '../src/notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../src/notifications/notifications.service.js';
+import { PushNotificationsService } from '../src/notifications/push-notifications.service.js';
+import { WebPushClient } from '../src/notifications/web-push.client.js';
 
 import { createE2eApp } from './helpers/e2e-app.js';
 import { createVerifiedUser } from './helpers/e2e-http.js';
@@ -502,6 +504,12 @@ describe('Notifications written to a third party (F3.4.3 AC1)', () => {
         enabled: true,
         configurable: false,
       },
+      // Messages are not pushed (yet), so push is not a switch for them.
+      {
+        channel: NotificationChannel.PUSH,
+        enabled: true,
+        configurable: false,
+      },
     ]);
 
     // In-app cannot be switched off: the centre lists every notification.
@@ -578,5 +586,170 @@ describe('Notifications written to a third party (F3.4.3 AC1)', () => {
     await expect(
       notifications.isEmailEnabled(recipient.userId, NotificationType.REVIEW),
     ).resolves.toBe(true);
+  });
+
+  /**
+   * F3.4.3 AC4 — a browser's subscription is stored by its owner and read by
+   * the send path for a recipient who is not the actor. The push service is
+   * doubled at the client: what this proves is the storage, the row-level
+   * security around it, the per-type check, and the dead-endpoint cleanup,
+   * all on the application's own role.
+   */
+  it("F3.4.3 AC4: stores a browser's subscription, pushes to it past RLS, and drops a dead one", async () => {
+    const suffix = Date.now();
+    const recipient = await createVerifiedUser(app, {
+      email: `push-recipient-${suffix}@example.com`,
+    });
+    const actor = await createVerifiedUser(app, {
+      email: `push-actor-${suffix}@example.com`,
+    });
+    const bearer = `Bearer ${recipient.accessToken}`;
+    const endpoint = `https://push.example.test/${suffix}`;
+
+    // The browser subscribes; the body is PushSubscription.toJSON().
+    const created = await request(app.getHttpServer())
+      .post('/api/v1/notifications/push-subscriptions')
+      .set('Authorization', bearer)
+      .set('User-Agent', 'e2e Mobile Safari')
+      .send({ endpoint, keys: { p256dh: 'p256dh-key', auth: 'auth-key' } })
+      .expect(201);
+    expect((created.body as { data: { endpoint: string } }).data.endpoint).toBe(
+      endpoint,
+    );
+
+    // Subscribing again from the same browser is idempotent.
+    await request(app.getHttpServer())
+      .post('/api/v1/notifications/push-subscriptions')
+      .set('Authorization', bearer)
+      .send({ endpoint, keys: { p256dh: 'p256dh-key-2', auth: 'auth-key' } })
+      .expect(201);
+
+    // Not a push subscription: refused, not stored.
+    await request(app.getHttpServer())
+      .post('/api/v1/notifications/push-subscriptions')
+      .set('Authorization', bearer)
+      .send({
+        endpoint: 'http://not-https.example/x',
+        keys: { p256dh: 'k', auth: 'a' },
+      })
+      .expect(422);
+
+    // Under graddly_app with the actor current, the recipient's row is invisible.
+    await appDb.query(
+      `SELECT set_config('app.current_user', $1, false),
+              set_config('app.current_org', '', false),
+              set_config('app.rls_bootstrap', '0', false)`,
+      [actor.userId],
+    );
+    const seenByActor = await appDb.query(
+      `SELECT id FROM push_subscriptions WHERE "userId" = $1 AND "isDeleted" = false`,
+      [recipient.userId],
+    );
+    expect(seenByActor.rowCount).toBe(0);
+    const liveRows = async () => {
+      const sudo = createE2ePgClient();
+      await sudo.connect();
+      try {
+        return (
+          await sudo.query<{ n: number }>(
+            `SELECT count(*)::int AS n FROM push_subscriptions WHERE "userId" = $1 AND "isDeleted" = false`,
+            [recipient.userId],
+          )
+        ).rows[0].n;
+      } finally {
+        await sudo.end();
+      }
+    };
+    expect(await liveRows()).toBe(1);
+
+    // The send path, with the actor current: the push service is a double
+    // that accepts, so this proves the read past RLS and the type check.
+    const client = app.get(WebPushClient);
+    const sent: string[] = [];
+    jest.spyOn(client, 'isEnabled').mockReturnValue(true);
+    const send = jest
+      .spyOn(client, 'send')
+      .mockImplementation((subscription) => {
+        sent.push(subscription.endpoint);
+        return Promise.resolve({ statusCode: 201 });
+      });
+    try {
+      enterTenantContext({ label: 'e2e:push-actor', userId: actor.userId });
+      const notifications = app.get(NotificationsService);
+      const first = await notifications.sendPush({
+        userId: recipient.userId,
+        type: NotificationType.OTJ,
+        payload: {
+          title: 'Log a session',
+          body: 'Seven days',
+          url: '/otj-logs?log=1',
+        },
+      });
+      expect(first.outcome).toBe('sent');
+      expect(sent).toEqual([endpoint]);
+
+      // The recipient switches OTJ push off; the next send is suppressed
+      // before any push service is contacted.
+      await request(app.getHttpServer())
+        .patch('/api/v1/notifications/preferences')
+        .set('Authorization', bearer)
+        .send({
+          preferences: [
+            {
+              channel: NotificationChannel.PUSH,
+              type: NotificationType.OTJ,
+              enabled: false,
+            },
+          ],
+        })
+        .expect(200);
+      const second = await notifications.sendPush({
+        userId: recipient.userId,
+        type: NotificationType.OTJ,
+        payload: {
+          title: 'Log a session',
+          body: 'Seven days',
+          url: '/otj-logs?log=1',
+        },
+      });
+      expect(second.outcome).toBe('suppressed');
+      expect(send).toHaveBeenCalledTimes(1);
+
+      // Back on; the push service now says the endpoint is gone (410), and
+      // the row is retired so it is never tried again.
+      await request(app.getHttpServer())
+        .patch('/api/v1/notifications/preferences')
+        .set('Authorization', bearer)
+        .send({
+          preferences: [
+            {
+              channel: NotificationChannel.PUSH,
+              type: NotificationType.OTJ,
+              enabled: true,
+            },
+          ],
+        })
+        .expect(200);
+      send.mockRejectedValueOnce(
+        Object.assign(new Error('Gone'), { statusCode: 410 }),
+      );
+      const third = await app
+        .get(PushNotificationsService)
+        .sendToUser(recipient.userId, { title: 't', body: 'b', url: '/' });
+      expect(third).toEqual({ delivered: 0, expired: 1, failed: 0 });
+      expect(await liveRows()).toBe(0);
+    } finally {
+      jest.restoreAllMocks();
+    }
+
+    // Unsubscribing what is already gone removes nothing, and says so.
+    const removed = await request(app.getHttpServer())
+      .delete('/api/v1/notifications/push-subscriptions')
+      .query({ endpoint })
+      .set('Authorization', bearer)
+      .expect(200);
+    expect((removed.body as { data: { removed: number } }).data.removed).toBe(
+      0,
+    );
   });
 });

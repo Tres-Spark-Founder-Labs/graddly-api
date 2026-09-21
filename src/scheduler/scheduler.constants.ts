@@ -13,6 +13,9 @@ export const DAS_FUNDING_SYNC_CRON_NAME = 'das-funding-sync';
 /** Nightly OTJ pace update cron. */
 export const OTJ_PACE_CRON_NAME = 'otj-pace-nightly';
 
+/** F3.1.4 AC4 — daily sweep, weekly alert, for apprentices who stopped logging. */
+export const OTJ_INACTIVITY_CRON_NAME = 'otj-inactivity-daily';
+
 /** Nightly review overdue flag cron. */
 export const REVIEW_OVERDUE_CRON_NAME = 'review-overdue-nightly';
 

@@ -162,6 +162,14 @@ export class Enrolment extends BaseEntity {
   otjPaceAlertedAt!: Date | null;
 
   /**
+   * F3.1.4 AC4 — when the seven-day inactivity alert last went to this
+   * enrolment's apprentice. The sweep runs daily; this keeps the alert to one
+   * per apprentice per week (AC6), as `otjPaceAlertedAt` does for pace.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  otjInactivityAlertedAt!: Date | null;
+
+  /**
    * How far behind the required OTJ pace, as a percentage (F1.2.4 AC5).
    * Null when pace cannot be computed — which is not the same as zero.
    *

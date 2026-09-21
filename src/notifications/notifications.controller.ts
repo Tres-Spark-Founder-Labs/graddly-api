@@ -1,15 +1,20 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Headers,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiCreatedResponse,
   ApiExtraModels,
   ApiOkResponse,
   ApiOperation,
@@ -42,10 +47,17 @@ import {
   UpdateNotificationPreferencesDto,
 } from './dto/notification-preferences.dto.js';
 import { NotificationResponseDto } from './dto/notification-response.dto.js';
+import {
+  CreatePushSubscriptionDto,
+  PushPublicKeyResponseDto,
+  PushSubscriptionKeysDto,
+  PushSubscriptionResponseDto,
+} from './dto/push-subscription.dto.js';
 import { NotificationType } from './enums/notification-type.enum.js';
 import { NotificationPreferencesService } from './notification-preferences.service.js';
 import { isConfigurablePreference } from './notification-type-catalogue.js';
 import { NotificationsService } from './notifications.service.js';
+import { PushNotificationsService } from './push-notifications.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 import type { PaginatedResult } from '../common/pagination/paginated-result.js';
@@ -60,6 +72,10 @@ import type { PaginatedResult } from '../common/pagination/paginated-result.js';
   NotificationChannelPreferenceDto,
   UpdateNotificationPreferencesDto,
   UpdateNotificationPreferenceItemDto,
+  PushPublicKeyResponseDto,
+  PushSubscriptionResponseDto,
+  CreatePushSubscriptionDto,
+  PushSubscriptionKeysDto,
 )
 @Controller({ path: 'notifications', version: '1' })
 @UseGuards(JwtAuthGuard)
@@ -72,7 +88,113 @@ export class NotificationsController {
   constructor(
     private readonly notificationsService: NotificationsService,
     private readonly preferencesService: NotificationPreferencesService,
+    private readonly pushService: PushNotificationsService,
   ) {}
+
+  /**
+   * F3.4.3 AC4 — web push. The browser asks for the server's VAPID public key
+   * before subscribing; null means push is not configured here and the client
+   * must not offer it. Declared before `:id/read`.
+   */
+  @LearnerAccessible()
+  @Get('push-subscriptions/public-key')
+  @ResponseMessage('Web push public key retrieved successfully')
+  @ApiOperation({
+    summary: 'The VAPID public key browsers subscribe with',
+    description:
+      'Pass as applicationServerKey to PushManager.subscribe(). Null when ' +
+      'web push is not configured on this server.',
+  })
+  @ApiOkResponse({
+    description: 'The public key, or null',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(PushPublicKeyResponseDto) },
+      },
+    },
+  })
+  getPushPublicKey(): PushPublicKeyResponseDto {
+    return { publicKey: this.pushService.publicKey() };
+  }
+
+  /**
+   * Stores this browser's subscription for the current user. The body is
+   * `PushSubscription.toJSON()` as the browser produces it. Idempotent on the
+   * endpoint.
+   */
+  @LearnerAccessible()
+  @Post('push-subscriptions')
+  @ResponseMessage('Push subscription saved successfully')
+  @ApiOperation({ summary: 'Subscribe this browser to web push' })
+  @ApiCreatedResponse({
+    description: 'The stored subscription',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(PushSubscriptionResponseDto) },
+      },
+    },
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'Not a web push subscription',
+    type: ErrorResponseDto,
+  })
+  async createPushSubscription(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreatePushSubscriptionDto,
+    @Headers('user-agent') userAgent?: string,
+  ): Promise<PushSubscriptionResponseDto> {
+    setCurrentUserId(user.id);
+    const saved = await this.pushService.subscribe(user.id, {
+      endpoint: dto.endpoint,
+      p256dh: dto.keys.p256dh,
+      auth: dto.keys.auth,
+      userAgent:
+        typeof userAgent === 'string' && userAgent.trim() !== ''
+          ? userAgent.slice(0, 512)
+          : null,
+    });
+    return {
+      id: saved.id,
+      endpoint: saved.endpoint,
+      userAgent: saved.userAgent,
+      createdAt: saved.createdAt.toISOString(),
+    };
+  }
+
+  /**
+   * Retires this browser's subscription. The endpoint comes as a query
+   * parameter: a DELETE body does not reliably survive the portals' BFF, and
+   * the endpoint is the only identity the browser holds.
+   */
+  @LearnerAccessible()
+  @Delete('push-subscriptions')
+  @HttpCode(200)
+  @ResponseMessage('Push subscription removed successfully')
+  @ApiOperation({ summary: 'Unsubscribe this browser from web push' })
+  @ApiOkResponse({
+    description: 'How many subscriptions were removed (0 or 1)',
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: {
+          type: 'object',
+          properties: { removed: { type: 'number' } },
+        },
+      },
+    },
+  })
+  async deletePushSubscription(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('endpoint') endpoint: string,
+  ): Promise<{ removed: number }> {
+    setCurrentUserId(user.id);
+    if (typeof endpoint !== 'string' || endpoint.trim() === '') {
+      throw new ValidationException({ endpoint: 'endpoint is required' });
+    }
+    return { removed: await this.pushService.unsubscribe(user.id, endpoint) };
+  }
 
   @LearnerAccessible()
   @Get()

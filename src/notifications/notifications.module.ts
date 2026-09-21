@@ -8,10 +8,13 @@ import { User } from '../users/entities/user.entity.js';
 import { DigestDispatchService } from './digest-dispatch.service.js';
 import { NotificationPreference } from './entities/notification-preference.entity.js';
 import { Notification } from './entities/notification.entity.js';
+import { PushSubscription } from './entities/push-subscription.entity.js';
 import { NotificationPreferencesService } from './notification-preferences.service.js';
 import { NotificationsController } from './notifications.controller.js';
 import { NotificationsService } from './notifications.service.js';
 import { OtjDigestService } from './otj-digest.service.js';
+import { PushNotificationsService } from './push-notifications.service.js';
+import { WebPushClient } from './web-push.client.js';
 
 @Module({
   imports: [
@@ -19,6 +22,7 @@ import { OtjDigestService } from './otj-digest.service.js';
     TypeOrmModule.forFeature([
       Notification,
       NotificationPreference,
+      PushSubscription,
       OtjLogEntry,
       User,
     ]),
@@ -27,12 +31,15 @@ import { OtjDigestService } from './otj-digest.service.js';
   providers: [
     NotificationsService,
     NotificationPreferencesService,
+    PushNotificationsService,
+    WebPushClient,
     DigestDispatchService,
     OtjDigestService,
   ],
   exports: [
     NotificationsService,
     NotificationPreferencesService,
+    PushNotificationsService,
     DigestDispatchService,
     OtjDigestService,
   ],

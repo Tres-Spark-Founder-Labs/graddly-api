@@ -11,6 +11,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+import { normaliseOpenVocabularyValue } from '../levy-exchange/levy-vocabulary.js';
+
 import {
   FlowportalRegistrationSession,
   type RegistrationStepPayload,
@@ -57,10 +59,20 @@ export class RegistrationSessionService {
     const resumeTokenHash = this.hashToken(resumeToken);
     const expiresAt = this.computeExpiresAt();
 
+    /**
+     * The eligibility checker's answers, kept in the Levy Exchange
+     * vocabulary: `region` arrives validated against the closed set, and
+     * `sector` is normalised exactly as the recipient profile PUT normalises
+     * it. The same words have to be the same string by the time this SME has
+     * a profile, or matching compares them and finds nothing.
+     */
+    const sector = dto.sector
+      ? normaliseOpenVocabularyValue(dto.sector)
+      : undefined;
     const stepPayload: RegistrationStepPayload = {};
-    if (dto.sector || dto.region) {
+    if (sector || dto.region) {
       stepPayload[RegistrationWizardStep.COMPANY_VERIFICATION] = {
-        ...(dto.sector ? { sector: dto.sector } : {}),
+        ...(sector ? { sector } : {}),
         ...(dto.region ? { region: dto.region } : {}),
       };
     }

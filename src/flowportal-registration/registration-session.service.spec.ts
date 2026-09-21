@@ -80,6 +80,26 @@ describe('RegistrationSessionService', () => {
     expect(sessionRepo.save).toHaveBeenCalled();
   });
 
+  /**
+   * The checker's answers are the Levy Exchange vocabulary by the time they
+   * reach a session: the sector normalised as the recipient profile PUT
+   * normalises it, the region stored as the validated value it arrived as.
+   * A session carrying something else seeds a profile matching cannot meet.
+   */
+  it('normalises the seeded sector and keeps the seeded region', async () => {
+    await service.create({
+      sector: '  Digital   &  Technology ',
+      region: 'North West',
+    });
+
+    const saved = sessionRepo.save.mock.calls.at(-1)?.[0] as {
+      stepPayload: Record<string, { sector?: string; region?: string }>;
+    };
+    expect(
+      saved.stepPayload[RegistrationWizardStep.COMPANY_VERIFICATION],
+    ).toEqual({ sector: 'Digital & Technology', region: 'North West' });
+  });
+
   it('advances steps in order and completes with email', async () => {
     const created = await service.create({});
     const token = created.resumeToken;

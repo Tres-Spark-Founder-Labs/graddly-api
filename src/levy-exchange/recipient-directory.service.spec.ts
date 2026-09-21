@@ -90,9 +90,9 @@ describe('LevyRecipientProfileService — directory (F1.1.4 AC2)', () => {
     );
     expect(clauses).toEqual(
       expect.arrayContaining([
-        'LOWER(p.sector) = LOWER(:sector)',
-        'LOWER(p.region) = LOWER(:region)',
-        'LOWER(p.programmeType) = LOWER(:programmeType)',
+        'p.sector = :sector',
+        'p.region = :region',
+        'p.programmeType = :programmeType',
       ]),
     );
   });
@@ -102,21 +102,31 @@ describe('LevyRecipientProfileService — directory (F1.1.4 AC2)', () => {
     const clauses = (qbAndWhere.mock.calls as unknown as [string][]).map(
       (c) => c[0],
     );
-    expect(clauses).not.toContain('LOWER(p.sector) = LOWER(:sector)');
+    expect(clauses).not.toContain('p.sector = :sector');
   });
 
-  it('matches filters case-insensitively', async () => {
-    // Sector/region are free text captured from SME onboarding, so casing
-    // varies; an exact match would silently return nothing.
+  /**
+   * The directory compares exactly, because matching does.
+   *
+   * This test asserted the opposite — that a donor searching "manufacturing"
+   * found a profile stored as "Manufacturing" — which is precisely how the
+   * directory came to admit rows matching would refuse. Matching decides who
+   * gets money, so it is the reference, and the case fold that made the search
+   * forgiving here had no counterpart there.
+   */
+  it('compares filters exactly, as matching does, rather than folding case', async () => {
     await service.searchDirectory('org-donor', {
       page: 1,
       perPage: 20,
       sector: 'manufacturing',
     });
-    expect(qbAndWhere).toHaveBeenCalledWith(
-      'LOWER(p.sector) = LOWER(:sector)',
-      { sector: 'manufacturing' },
+    expect(qbAndWhere).toHaveBeenCalledWith('p.sector = :sector', {
+      sector: 'manufacturing',
+    });
+    const clauses = (qbAndWhere.mock.calls as unknown as [string][]).map(
+      (c) => c[0],
     );
+    expect(clauses.some((clause) => clause.includes('LOWER('))).toBe(false);
   });
 
   it('paginates and reports meta', async () => {

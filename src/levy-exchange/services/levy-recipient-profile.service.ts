@@ -78,14 +78,46 @@ export class LevyRecipientProfileService {
         viewerOrganisationId,
       });
 
+    /**
+     * ── THE SAME COMPARISON AS MATCHING, AND IT MUST STAY THAT WAY ──────────
+     *
+     * These three filters used to read `LOWER(p.sector) = LOWER(:sector)`.
+     * `LevyMatchingService.passesPreferenceFilters` compares the same fields
+     * with `Array.includes`, which is exact, so the directory admitted rows
+     * matching would then refuse: a donor found an SME by searching "retail",
+     * asked for a match, and got nothing — and neither screen said why.
+     *
+     * Matching decides who gets money, so matching is the reference and this
+     * is exact too. The two are only equivalent while both are exact: a
+     * case-insensitive pair would need the same case fold in Postgres and in
+     * JavaScript, and `LOWER()` follows the column's collation while
+     * `String.prototype.toLowerCase` follows Unicode's own rules — agreeing on
+     * ASCII and not guaranteed to agree beyond it. That is the same shape of
+     * defect as the two vocabularies, one layer down.
+     *
+     * What keeps the two sides speaking one language is
+     * GET /levy-exchange/vocabulary: both writes take their values from it,
+     * closed fields can only hold a served value, and the open fields are
+     * normalised identically on each write
+     * (`normaliseOpenVocabularyValue`).
+     *
+     * Two gaps remain, and exactness makes them visible rather than creating
+     * them. Case is still a near-miss on the open fields — "retail" is not
+     * "Retail" — and it now fails here exactly as it already failed in
+     * matching, instead of the directory hiding it. And the donor's directory
+     * filters in apps/employer are still free-text boxes rather than the
+     * served values, so a donor can still type a value no profile holds; that
+     * screen should offer `open.sector` / `open.programmeType` as suggestions
+     * and `closed.region` as a select, the way the preferences screen does.
+     */
     if (query.sector) {
-      qb.andWhere('LOWER(p.sector) = LOWER(:sector)', { sector: query.sector });
+      qb.andWhere('p.sector = :sector', { sector: query.sector });
     }
     if (query.region) {
-      qb.andWhere('LOWER(p.region) = LOWER(:region)', { region: query.region });
+      qb.andWhere('p.region = :region', { region: query.region });
     }
     if (query.programmeType) {
-      qb.andWhere('LOWER(p.programmeType) = LOWER(:programmeType)', {
+      qb.andWhere('p.programmeType = :programmeType', {
         programmeType: query.programmeType,
       });
     }

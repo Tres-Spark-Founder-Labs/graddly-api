@@ -1,6 +1,8 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 
+import { CreateRegistrationSessionDto } from '../flowportal-registration/dto/create-registration-session.dto.js';
+
 import { loadEligibilityRulesConfig } from './config/eligibility-rules.config.js';
 import { VocabularyController } from './controllers/vocabulary.controller.js';
 import { CheckLevyEligibilityDto } from './dto/check-levy-eligibility.dto.js';
@@ -201,6 +203,41 @@ describe('the Levy Exchange vocabulary', () => {
             programmeTypes: ['ST0999 Butcher'],
           }),
         ),
+      ).resolves.toEqual({});
+    });
+  });
+
+  /**
+   * The checker's answers travel on the registration link, and end up
+   * describing the SME whose profile matching compares. They were
+   * unvalidated passthrough with slug examples, which is the checker's old
+   * vocabulary surviving one hop further along.
+   */
+  describe('the registration session', () => {
+    it('takes vocabulary values, and nothing seeded at all', async () => {
+      await expect(
+        errorsOf(CreateRegistrationSessionDto, {
+          sector: 'Construction',
+          region: 'North West',
+        }),
+      ).resolves.toEqual({});
+      // Both are optional: the wizard can be started without the checker.
+      await expect(errorsOf(CreateRegistrationSessionDto, {})).resolves.toEqual(
+        {},
+      );
+    });
+
+    it('rejects a region outside the twelve — the checker-era slug included', async () => {
+      await expect(
+        errorsOf(CreateRegistrationSessionDto, { region: 'north_west' }),
+      ).resolves.toEqual({
+        region: [`region must be one of the permitted values: ${everyRegion}`],
+      });
+    });
+
+    it('accepts any sector, as every other write does', async () => {
+      await expect(
+        errorsOf(CreateRegistrationSessionDto, { sector: 'Retail' }),
       ).resolves.toEqual({});
     });
   });

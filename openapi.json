@@ -16317,10 +16317,10 @@
             "name": "sector",
             "required": false,
             "in": "query",
-            "description": "Filter by SME sector",
+            "description": "Filter by SME sector, compared exactly. An open vocabulary field: GET /levy-exchange/vocabulary open.sector carries the suggestions.",
             "schema": {
               "maxLength": 100,
-              "example": "manufacturing",
+              "example": "Engineering & Manufacturing",
               "type": "string"
             }
           },
@@ -16328,7 +16328,7 @@
             "name": "region",
             "required": false,
             "in": "query",
-            "description": "Filter by SME region",
+            "description": "Filter by SME region, compared exactly. A closed vocabulary field: GET /levy-exchange/vocabulary closed.region carries every value a stored profile can hold.",
             "schema": {
               "maxLength": 100,
               "example": "West Midlands",
@@ -16339,10 +16339,10 @@
             "name": "programmeType",
             "required": false,
             "in": "query",
-            "description": "Filter by apprenticeship programme type",
+            "description": "Filter by apprenticeship programme type, compared exactly. An open vocabulary field: GET /levy-exchange/vocabulary open.programmeType carries the suggestions.",
             "schema": {
               "maxLength": 100,
-              "example": "standards",
+              "example": "ST0415 Software Developer",
               "type": "string"
             }
           }
@@ -32689,14 +32689,27 @@
           "sector": {
             "type": "string",
             "maxLength": 100,
-            "example": "construction",
-            "description": "Sector slug pre-seeded from eligibility checker"
+            "example": "Construction",
+            "description": "Sector pre-seeded from the eligibility checker. Open vocabulary field: any value, normalised on write. Suggestions from GET /levy-exchange/vocabulary (open.sector)."
           },
           "region": {
             "type": "string",
-            "maxLength": 100,
-            "example": "north_west",
-            "description": "Region slug pre-seeded from eligibility checker"
+            "enum": [
+              "North East",
+              "North West",
+              "Yorkshire and the Humber",
+              "East Midlands",
+              "West Midlands",
+              "East of England",
+              "London",
+              "South East",
+              "South West",
+              "Wales",
+              "Scotland",
+              "Northern Ireland"
+            ],
+            "example": "North West",
+            "description": "Region pre-seeded from the eligibility checker. Closed vocabulary field: one of GET /levy-exchange/vocabulary closed.region."
           }
         }
       },

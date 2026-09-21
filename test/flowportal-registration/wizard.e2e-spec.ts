@@ -38,8 +38,11 @@ describe('Flowportal registration wizard (e2e)', () => {
       .post('/api/v1/flowportal-registration/sessions')
       .send({
         contactEmail: 'wizard-e2e@example.com',
-        sector: 'construction',
-        region: 'north_west',
+        // The eligibility checker's answers, in the Levy Exchange vocabulary:
+        // the sector untidy on purpose (open, normalised on write), the region
+        // a permitted value (closed, rejected otherwise).
+        sector: '  Construction ',
+        region: 'North West',
       })
       .expect(201);
 
@@ -54,6 +57,13 @@ describe('Flowportal registration wizard (e2e)', () => {
     expect(resumeRes.body.data.currentStep).toBe(
       RegistrationWizardStep.COMPANY_VERIFICATION,
     );
+    // The seeded sector is stored normalised, exactly as the recipient profile
+    // PUT stores it, so the profile this session leads to can match a donor.
+    expect(
+      resumeRes.body.data.stepPayload[
+        RegistrationWizardStep.COMPANY_VERIFICATION
+      ],
+    ).toMatchObject({ sector: 'Construction', region: 'North West' });
 
     await request(app.getHttpServer())
       .put(

@@ -29146,6 +29146,11 @@
             "nullable": true,
             "description": "Completion time when status is completed."
           },
+          "downloadEmailSentAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "F3.3.4 AC5 — when the download link was emailed to the requester; null when it was not (not yet, switched off in their preferences, or no address)."
+          },
           "downloadUrl": {
             "type": "string",
             "nullable": true,
@@ -29165,7 +29170,8 @@
           "errorMessage",
           "manifest",
           "createdAt",
-          "completedAt"
+          "completedAt",
+          "downloadEmailSentAt"
         ]
       },
       "CreateEpaPackJobDto": {

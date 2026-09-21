@@ -17,4 +17,6 @@ export enum EmailTemplate {
   FLOWPORTAL_REGISTRATION_COMPLETE = 'flowportal-registration-complete',
   /** F3.4.3 AC2 — the apprentice's EPA date was set, changed or removed. */
   EPA_DATE_UPDATED = 'epa-date-updated',
+  /** F3.3.4 AC5 — the EPA evidence pack is built; here is the download link. */
+  EPA_PACK_READY = 'epa-pack-ready',
 }

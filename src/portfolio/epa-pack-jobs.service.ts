@@ -59,6 +59,7 @@ export class EpaPackJobsService {
       manifest: job.manifest,
       createdAt: job.createdAt.toISOString(),
       completedAt: job.completedAt?.toISOString() ?? null,
+      downloadEmailSentAt: job.downloadEmailSentAt?.toISOString() ?? null,
     };
 
     if (

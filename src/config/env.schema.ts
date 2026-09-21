@@ -228,6 +228,15 @@ export const envSchema = z
 
     PDF_PROVIDER: z.enum(['pdfkit', 'noop']).default('pdfkit'),
 
+    // F3.3.4 AC5 — how long the emailed EPA pack link works. Bounded by S3's
+    // presign ceiling (7 days) and, below, by "long enough to open the email".
+    EPA_PACK_EMAIL_LINK_TTL_SECONDS: z.coerce
+      .number()
+      .int()
+      .min(3600)
+      .max(604800)
+      .default(86400),
+
     DAS_BASE_URL: z.string().url().optional().default(''),
     DAS_TOKEN_URL: z.string().url().optional().default(''),
     DAS_CLIENT_ID: z.string().optional().default(''),

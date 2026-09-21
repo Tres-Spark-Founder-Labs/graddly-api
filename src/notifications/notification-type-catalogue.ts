@@ -76,7 +76,11 @@ export const NOTIFICATION_TYPE_CATALOGUE: Readonly<
     label: 'Levy expiring in 30 days',
     emailed: true,
   },
-  [NotificationType.PORTFOLIO]: { label: 'Portfolio updates', emailed: false },
+  [NotificationType.PORTFOLIO]: {
+    // F3.3.4 AC5 — the EPA evidence pack download link is emailed.
+    label: 'Portfolio: EPA evidence pack ready to download',
+    emailed: true,
+  },
   [NotificationType.ILR_SUBMISSION_SUCCEEDED]: {
     label: 'ILR submissions accepted',
     emailed: false,

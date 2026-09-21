@@ -2,6 +2,8 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
 import { ORGANISATION_ID_HEADER } from '../../src/common/constants/organisation-headers.js';
+import { EmailDispatchService } from '../../src/email/email-dispatch.service.js';
+import { EmailTemplate } from '../../src/email/email-template.enum.js';
 import { EpaPackJobStatus } from '../../src/portfolio/enums/epa-pack-job-status.enum.js';
 import { KsbKind } from '../../src/portfolio/enums/ksb-kind.enum.js';
 import { createE2eApp } from '../helpers/e2e-app.js';
@@ -106,12 +108,20 @@ describe('EPA evidence pack jobs (e2e)', () => {
     const jobId = (createPackRes.body as { data: { jobId: string } }).data
       .jobId;
 
-    await processEpaPackJobInApp(app, {
+    // F3.3.4 AC5 — the download link is also emailed. The email queue is the
+    // double; everything up to it (the claim, the presign, the preference
+    // check, the payload) is real.
+    const enqueue = jest
+      .spyOn(app.get(EmailDispatchService), 'enqueue')
+      .mockResolvedValue(undefined);
+
+    const payload = {
       jobId,
       organisationId: orgId,
       userId: apprentice.userId,
       enrolmentId,
-    });
+    };
+    await processEpaPackJobInApp(app, payload);
 
     const packStatusRes = await request(app.getHttpServer())
       .get(`/api/v1/portfolio/epa-pack-jobs/${jobId}`)
@@ -127,6 +137,7 @@ describe('EPA evidence pack jobs (e2e)', () => {
           outputKey: string;
           downloadUrl: string;
           manifest: Record<string, number>;
+          downloadEmailSentAt: string | null;
         };
       }
     ).data;
@@ -134,5 +145,40 @@ describe('EPA evidence pack jobs (e2e)', () => {
     expect(pack.outputKey).toContain('/export/');
     expect(pack.downloadUrl).toBeTruthy();
     expect(pack.manifest.knowledge).toBeGreaterThan(0);
+
+    // One email, to the requester, carrying a presigned link and its expiry.
+    expect(enqueue).toHaveBeenCalledTimes(1);
+    const [email] = enqueue.mock.calls[0];
+    expect(email.template).toBe(EmailTemplate.EPA_PACK_READY);
+    expect(email.to).toBe(apprentice.email);
+    const context = email.getTemplateContext() as {
+      downloadUrl: string;
+      expiresInLabel: string;
+      expiresAtLabel: string;
+    };
+    expect(decodeURIComponent(context.downloadUrl)).toContain(pack.outputKey);
+    expect(context.expiresInLabel).toBe('24 hours');
+    expect(context.expiresAtLabel).toMatch(
+      /^\d{1,2} \w{3,4} \d{4}, \d{2}:\d{2}$/u,
+    );
+    expect(pack.downloadEmailSentAt).toBeTruthy();
+
+    // A re-delivered job rebuilds the pack but does not email twice: the
+    // sent marker is persisted, not inferred from the queue.
+    await processEpaPackJobInApp(app, payload);
+    const retriedRes = await request(app.getHttpServer())
+      .get(`/api/v1/portfolio/epa-pack-jobs/${jobId}`)
+      .set('Authorization', `Bearer ${apprentice.accessToken}`)
+      .set(ORGANISATION_ID_HEADER, orgId)
+      .expect(200);
+    const retried = (
+      retriedRes.body as {
+        data: { status: string; downloadEmailSentAt: string | null };
+      }
+    ).data;
+    expect(retried.status).toBe(EpaPackJobStatus.COMPLETED);
+    expect(retried.downloadEmailSentAt).toBe(pack.downloadEmailSentAt);
+    expect(enqueue).toHaveBeenCalledTimes(1);
+    enqueue.mockRestore();
   });
 });

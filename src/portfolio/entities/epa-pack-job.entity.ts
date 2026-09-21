@@ -70,4 +70,13 @@ export class EpaPackJob {
 
   @Column({ type: 'jsonb', nullable: true })
   manifest!: Record<string, unknown> | null;
+
+  /**
+   * F3.3.4 AC5 — when the download-link email was claimed for this job. Set
+   * once, by a conditional UPDATE, before the email is queued; see
+   * EpaPackEmailService. Null means not emailed (not yet, or never: a failed
+   * job, or a requester with no address).
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  downloadEmailSentAt!: Date | null;
 }

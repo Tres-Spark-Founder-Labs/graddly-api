@@ -4,6 +4,7 @@ import { Job } from 'bullmq';
 import { EpaPackProcessor } from '../../src/bullmq/processors/epa-pack.processor.js';
 import { EpaPackJob } from '../../src/portfolio/entities/epa-pack-job.entity.js';
 import { EpaPackBuilderService } from '../../src/portfolio/epa-pack-builder.service.js';
+import { EpaPackEmailService } from '../../src/portfolio/epa-pack-email.service.js';
 import { EPA_PACK_JOB_BUILD } from '../../src/portfolio/epa-pack.constants.js';
 import { StorageKeyBuilder } from '../../src/storage/storage-key.builder.js';
 import { StorageService } from '../../src/storage/storage.service.js';
@@ -21,6 +22,7 @@ export async function processEpaPackJobInApp(
     app.get(StorageService),
     app.get(StorageKeyBuilder),
     app.get<Repository<EpaPackJob>>(getRepositoryToken(EpaPackJob)),
+    app.get(EpaPackEmailService),
   );
 
   const job = {

@@ -172,6 +172,9 @@ export default registerAs('app', () => {
     pdf: {
       provider: e.PDF_PROVIDER,
     },
+    epaPack: {
+      emailLinkTtlSeconds: e.EPA_PACK_EMAIL_LINK_TTL_SECONDS,
+    },
     das: {
       baseUrl: e.DAS_BASE_URL,
       tokenUrl: e.DAS_TOKEN_URL,

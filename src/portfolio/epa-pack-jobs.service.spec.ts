@@ -58,6 +58,7 @@ describe('EpaPackJobsService', () => {
         manifest: null,
         createdAt,
         completedAt: null,
+        downloadEmailSentAt: null,
       });
 
       const result = await service.create(user, { enrolmentId: 'enrol-1' });
@@ -78,6 +79,7 @@ describe('EpaPackJobsService', () => {
         manifest: null,
         createdAt: createdAt.toISOString(),
         completedAt: null,
+        downloadEmailSentAt: null,
       });
     });
   });
@@ -94,6 +96,7 @@ describe('EpaPackJobsService', () => {
         manifest: { knowledge: 2 },
         createdAt,
         completedAt: new Date('2026-01-02T00:00:00.000Z'),
+        downloadEmailSentAt: new Date('2026-01-02T00:00:01.000Z'),
       });
       storage.createDownloadUrl.mockResolvedValue({
         downloadUrl: 'https://download.example.com/pack.zip',
@@ -105,6 +108,8 @@ describe('EpaPackJobsService', () => {
       expect(result.jobId).toBe('job-1');
       expect(result.downloadUrl).toBe('https://download.example.com/pack.zip');
       expect(result.manifest).toEqual({ knowledge: 2 });
+      // F3.3.4 AC5 — the portal says "also emailed" only from this field.
+      expect(result.downloadEmailSentAt).toBe('2026-01-02T00:00:01.000Z');
     });
 
     it('throws when job is not found', async () => {

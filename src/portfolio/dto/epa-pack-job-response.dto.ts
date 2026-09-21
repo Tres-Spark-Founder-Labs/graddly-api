@@ -50,6 +50,13 @@ export class EpaPackJobResponseDto {
 
   @ApiProperty({
     nullable: true,
+    description:
+      'F3.3.4 AC5 — when the download link was emailed to the requester; null when it was not (not yet, switched off in their preferences, or no address).',
+  })
+  downloadEmailSentAt!: string | null;
+
+  @ApiProperty({
+    nullable: true,
     description: 'Presigned download URL when status is completed.',
   })
   downloadUrl?: string | null;

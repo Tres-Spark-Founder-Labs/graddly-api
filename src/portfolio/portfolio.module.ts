@@ -13,6 +13,7 @@ import { Standard } from '../programmes/entities/standard.entity.js';
 import { RedisModule } from '../redis/redis.module.js';
 import { Review } from '../reviews/entities/review.entity.js';
 import { StorageModule } from '../storage/storage.module.js';
+import { User } from '../users/entities/user.entity.js';
 
 import { EnrolmentKsbCoverage } from './entities/enrolment-ksb-coverage.entity.js';
 import { EpaPackJob } from './entities/epa-pack-job.entity.js';
@@ -21,6 +22,7 @@ import { KsEvidenceKsbMapping } from './entities/ks-evidence-ksb-mapping.entity.
 import { KsbDefinition } from './entities/ksb-definition.entity.js';
 import { EpaPackBuilderService } from './epa-pack-builder.service.js';
 import { EpaPackDispatchService } from './epa-pack-dispatch.service.js';
+import { EpaPackEmailService } from './epa-pack-email.service.js';
 import { EpaPackJobsController } from './epa-pack-jobs.controller.js';
 import { EpaPackJobsService } from './epa-pack-jobs.service.js';
 import { KsEvidenceItemsController } from './ks-evidence-items.controller.js';
@@ -54,6 +56,8 @@ import { PortfolioController } from './portfolio.controller.js';
       CommitmentStatement,
       CommitmentStatementGroup,
       OtjLogEntry,
+      // F3.3.4 AC5 — EpaPackEmailService addresses the pack's requester.
+      User,
     ]),
   ],
   controllers: [
@@ -73,6 +77,7 @@ import { PortfolioController } from './portfolio.controller.js';
     EpaPackDispatchService,
     EpaPackJobsService,
     EpaPackBuilderService,
+    EpaPackEmailService,
   ],
   exports: [
     TypeOrmModule,
@@ -80,6 +85,7 @@ import { PortfolioController } from './portfolio.controller.js';
     KsEvidenceItemsService,
     EpaPackBuilderService,
     EpaPackDispatchService,
+    EpaPackEmailService,
     PortfolioEnrolmentContext,
   ],
 })

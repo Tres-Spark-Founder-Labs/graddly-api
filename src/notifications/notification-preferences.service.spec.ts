@@ -263,6 +263,8 @@ describe('NotificationPreferencesService', () => {
           NotificationType.MESSAGE,
           NotificationType.COMMITMENT,
           NotificationType.EPA_DATE_UPDATED,
+          // F3.3.4 AC5 — the EPA pack download link is emailed.
+          NotificationType.PORTFOLIO,
         ]),
       );
       // Declared, not emitted: nothing to switch off yet.

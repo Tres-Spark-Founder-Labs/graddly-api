@@ -56,18 +56,23 @@ export class StorageService {
     };
   }
 
+  /**
+   * `options.expiresInSeconds` overrides the configured download TTL for a
+   * link that has to outlive a request — the emailed EPA pack link (F3.3.4
+   * AC5). Everything served to a signed-in browser keeps the short default.
+   */
   async createDownloadUrl(
     organisationId: string,
     dto: CreatePresignedDownloadDto,
+    options: { expiresInSeconds?: number } = {},
   ): Promise<PresignedDownloadResponseDto> {
     if (!this.keyBuilder.belongsToOrganisation(dto.key, organisationId)) {
       throw new ForbiddenException('Access denied for this object key');
     }
 
-    const expiresInSeconds = this.config.get<number>(
-      'app.storage.presignDownloadTtlSeconds',
-      300,
-    );
+    const expiresInSeconds =
+      options.expiresInSeconds ??
+      this.config.get<number>('app.storage.presignDownloadTtlSeconds', 300);
 
     const result = await this.storage.createDownloadUrl({
       key: dto.key,

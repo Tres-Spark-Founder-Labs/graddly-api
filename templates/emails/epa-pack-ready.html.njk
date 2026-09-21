@@ -1,0 +1,12 @@
+{% extends "layouts/base.html.njk" %}
+
+{% block title %}Your EPA evidence pack is ready{% endblock %}
+
+{% block content %}
+<p>Hi {{ firstName }},</p>
+<p>Your EPA evidence pack has been built and is ready to download.</p>
+<p><a href="{{ downloadUrl }}">Download your evidence pack</a></p>
+<p>This link works for {{ expiresInLabel }}, until {{ expiresAtLabel }} (UK time). After that, sign in to {{ appName }}{% if packPageUrl %} at <a href="{{ packPageUrl }}">{{ packPageUrl }}</a>{% endif %} and export the pack again for a fresh link.</p>
+<p>The pack is a ZIP of your accepted evidence, KSB coverage, reviews, off-the-job summary and commitment statement, ready to send to your end-point assessment organisation.</p>
+<p>Please keep this email to yourself: anyone with the link can download the pack until it expires.</p>
+{% endblock %}

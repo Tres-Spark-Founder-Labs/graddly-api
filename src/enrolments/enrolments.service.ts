@@ -162,7 +162,12 @@ export class EnrolmentsService {
 
     const [items, total] = await this.enrolmentRepo.findAndCount({
       where: ownIds === null ? where : { ...where, id: In(ownIds) },
-      order: { createdAt: 'DESC' },
+      // `id` breaks ties. Offset pages are separate queries, and rows that
+      // share a createdAt — everything inserted in one transaction, where
+      // now() is the transaction's start — came back in a different order on
+      // each, so a client reading every page (the employer roster, F1.2.1
+      // AC7) got some rows twice and others never.
+      order: { createdAt: 'DESC', id: 'DESC' },
       skip: (page - 1) * perPage,
       take: perPage,
     });

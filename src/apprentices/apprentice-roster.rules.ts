@@ -27,17 +27,20 @@ import {
 export type ApprenticeRosterStatus =
   | 'on_track'
   | 'at_risk'
-  | 'critically_behind';
+  | 'critically_behind'
+  | 'unknown';
 
 /** The badge text the screen shows (`statusMeta` in the portal). */
 export function rosterStatusLabel(status: ApprenticeRosterStatus): string {
   switch (status) {
+    case 'on_track':
+      return 'On track';
     case 'at_risk':
       return 'At risk';
     case 'critically_behind':
       return 'Critically behind';
     default:
-      return 'On track';
+      return 'Pace unknown';
   }
 }
 
@@ -60,21 +63,24 @@ export interface IApprenticeRosterRow {
 }
 
 /**
- * The stored pace level, as the portal translates it. Null (no planned
- * duration or end date) reads as on track for the reason `risk-status.js`
- * gives: a red flag for missing programme dates would be a false alarm about
- * the apprentice rather than a true one about the data.
+ * The stored pace level, as the portal translates it (`risk-status.js`).
+ * Absent means absent: a missing or unrecognised level is `unknown` and
+ * prints as "Pace unknown" — not a flag, and never "On track". It used to be
+ * on track, and on screen that let an at-risk apprentice render green when
+ * their enrolment fell off the first page of the list.
  */
 export function normalisePaceStatus(
   level: string | null | undefined,
 ): ApprenticeRosterStatus {
   switch (level) {
+    case 'on_track':
+      return 'on_track';
     case 'at_risk':
       return 'at_risk';
     case 'off_track':
       return 'critically_behind';
     default:
-      return 'on_track';
+      return 'unknown';
   }
 }
 

@@ -130,7 +130,13 @@ export class ApprenticesService {
     }
 
     const [items, total] = await qb
+      // `id` breaks ties. Offset pages are separate queries, and rows that
+      // share a createdAt — everything inserted in one transaction, where
+      // now() is the transaction's start — came back in a different order on
+      // each, so a client reading every page (the employer roster, F1.2.1
+      // AC7) got some rows twice and others never.
       .orderBy('apprentice.createdAt', 'DESC')
+      .addOrderBy('apprentice.id', 'DESC')
       .skip((page - 1) * perPage)
       .take(perPage)
       .getManyAndCount();

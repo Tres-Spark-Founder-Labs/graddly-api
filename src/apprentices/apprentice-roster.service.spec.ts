@@ -66,6 +66,7 @@ describe('ApprenticeRosterService', () => {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
       getMany,
     };
 
@@ -181,7 +182,7 @@ describe('ApprenticeRosterService', () => {
     ]);
   });
 
-  it('keeps the roster order when unsorted, and shows "—" for an apprentice with no enrolment', async () => {
+  it('keeps the roster order when unsorted, and shows "—" and "Pace unknown" for an apprentice with no enrolment', async () => {
     getMany.mockResolvedValue([apprentice('z', 'Zed'), apprentice('a', 'Ann')]);
     enrolmentFind.mockResolvedValue([enrolment('a')]);
 
@@ -196,7 +197,7 @@ describe('ApprenticeRosterService', () => {
       provider: '—',
       otjProgress: null,
       epaDate: null,
-      statusLabel: 'On track',
+      statusLabel: 'Pace unknown',
     });
     expect(content.filterSummary).toBeNull();
     expect(content.sortSummary).toBeNull();

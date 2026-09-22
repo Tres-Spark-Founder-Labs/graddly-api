@@ -174,12 +174,16 @@ export class ApprenticeRosterService {
          )`,
         { organisationId },
       )
+      // Same total order as GET /apprentices, ties broken on id, so the
+      // unsorted roster prints in the order the screen shows it.
       .orderBy('apprentice.createdAt', 'DESC')
+      .addOrderBy('apprentice.id', 'DESC')
       .getMany();
 
     const enrolments = await this.enrolmentRepo.find({
       where: { isDeleted: false, employerOrganisationId: organisationId },
-      order: { createdAt: 'DESC' },
+      // As GET /enrolments orders them, so "the first one" is the same one.
+      order: { createdAt: 'DESC', id: 'DESC' },
     });
     const enriched =
       await this.enrolmentsService.enrichEnrolmentsForDisplay(enrolments);

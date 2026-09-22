@@ -300,17 +300,20 @@ describe('sortRoster — F1.2.1 AC1 (sortable table)', () => {
 });
 
 describe('the pace vocabulary — F1.2.4 AC5 as the portal translates it', () => {
-  it('maps the stored level to the screen status, null reading as on track', () => {
+  it('maps the stored level to the screen status, a missing one to unknown — never on track', () => {
     expect(normalisePaceStatus('off_track')).toBe('critically_behind');
     expect(normalisePaceStatus('at_risk')).toBe('at_risk');
     expect(normalisePaceStatus('on_track')).toBe('on_track');
-    expect(normalisePaceStatus(null)).toBe('on_track');
+    expect(normalisePaceStatus(null)).toBe('unknown');
+    expect(normalisePaceStatus(undefined)).toBe('unknown');
+    expect(normalisePaceStatus('something_new')).toBe('unknown');
   });
 
   it('labels statuses as the badges do', () => {
     expect(rosterStatusLabel('critically_behind')).toBe('Critically behind');
     expect(rosterStatusLabel('at_risk')).toBe('At risk');
     expect(rosterStatusLabel('on_track')).toBe('On track');
+    expect(rosterStatusLabel('unknown')).toBe('Pace unknown');
   });
 
   it('counts days to EPA rounded up, and null for no date', () => {

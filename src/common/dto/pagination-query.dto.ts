@@ -45,6 +45,11 @@ export class PaginationQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  // Do not raise this to serve one screen. It is shared by every paginated
+  // endpoint. The employer roster (F1.2.1 AC7) needs 500 rows and reads them
+  // as five parallel pages instead: measured at 324 ms against 176 ms for one
+  // 500-row request. The 148 ms is the price of not changing every list in
+  // the platform (see fetchAllPages in the employer portal).
   @Max(100)
   perPage = 20;
 }

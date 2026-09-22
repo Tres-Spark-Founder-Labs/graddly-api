@@ -10,7 +10,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CronJob } from 'cron';
 import { In, Repository } from 'typeorm';
 
-import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
+import {
+  runWithTenantContext,
+  withRlsBootstrap,
+} from '../common/context/correlation-id-context.js';
 import { LevyTransfer } from '../levy-exchange/entities/levy-transfer.entity.js';
 import { LevyTransferStatus } from '../levy-exchange/enums/levy-transfer-status.enum.js';
 import { LevyTransferService } from '../levy-exchange/services/levy-transfer.service.js';
@@ -102,7 +105,24 @@ export class LevyTransferStatusCronService
           if (!transfer.esfaTransferReference) {
             continue;
           }
-          await this.transferService.syncTransferStatusFromDas(transfer);
+          /**
+           * In the donor's organisation, not the cron's empty one.
+           *
+           * The list above is bootstrapped, but the sync itself reads
+           * `das_donor_links` and saves the transfer — both organisation-keyed.
+           * Run as the cron it found no donor link, took its early return, and
+           * no in-flight transfer was ever updated while the job logged a
+           * clean run (proved by probe, 23 September). Same shape as the
+           * caseload and pace sweeps: bootstrap to discover, per-organisation
+           * context to act.
+           */
+          await runWithTenantContext(
+            {
+              label: `${LEVY_TRANSFER_STATUS_CRON_NAME}:${transfer.id}`,
+              organisationId: transfer.donorOrganisationId,
+            },
+            () => this.transferService.syncTransferStatusFromDas(transfer),
+          );
           synced += 1;
         }
 

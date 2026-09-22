@@ -1,4 +1,5 @@
 import { getQueueToken } from '@nestjs/bullmq';
+import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { QUEUE_EMAIL } from '../../src/bullmq/bullmq.constants.js';
@@ -45,6 +46,10 @@ import type { Repository } from 'typeorm';
  * through the email worker's processor, the real renderer and templates,
  * to the sender. Only the sender is a double, so what it receives is
  * exactly what would have gone out.
+ *
+ * The portal URLs are the one thing configured here, because .env.test sets
+ * none and the link would otherwise be "#": the employer and the flow portal
+ * get distinct hosts, so a link built from the wrong one cannot pass.
  */
 describe('F1.1.2 AC4 — levy expiry alert emails are sent (e2e)', () => {
   let app: INestApplication<App>;
@@ -94,10 +99,34 @@ describe('F1.1.2 AC4 — levy expiry alert emails are sent (e2e)', () => {
       }),
     );
 
+    const portalUrls = new Map([
+      ['employer', 'https://employer.portal.test/'],
+      ['flow', 'https://flow.portal.test'],
+    ]);
+    const config = app.get(ConfigService);
+    const realGet = config.get.bind(config);
+    const configSpy = jest
+      .spyOn(config, 'get')
+      .mockImplementation((key: string, defaultValue?: unknown) => {
+        if (key === 'app.frontend.portalUrls') {
+          return Object.fromEntries(portalUrls);
+        }
+        if (key.startsWith('app.frontend.portalUrls.')) {
+          return portalUrls.get(key.slice('app.frontend.portalUrls.'.length));
+        }
+        return defaultValue === undefined
+          ? realGet(key)
+          : realGet(key, defaultValue);
+      });
+
     // As the cron runs it: a context of its own, no organisation, no user.
-    await runWithTenantContext({ label: 'e2e:levy-expiry-alerts-cron' }, () =>
-      app.get(LevyExpiryAlertService).sendDueAlerts(),
-    );
+    try {
+      await runWithTenantContext({ label: 'e2e:levy-expiry-alerts-cron' }, () =>
+        app.get(LevyExpiryAlertService).sendDueAlerts(),
+      );
+    } finally {
+      configSpy.mockRestore();
+    }
 
     // Both alerts recorded as dispatched for this employer's tranches.
     const dispatches = await runWithTenantContext(
@@ -166,19 +195,34 @@ describe('F1.1.2 AC4 — levy expiry alert emails are sent (e2e)', () => {
       return message;
     };
 
+    // The amount as levy-roi-monthly writes one: a pound sign in HTML, GBP
+    // in the subject and the text part.
     const ninety = byDays(90);
     expect(ninety.to).toBe(ctx.user.email);
-    expect(ninety.subject).toContain('12500.00');
-    expect(ninety.text).toContain('12500.00');
+    expect(ninety.subject).toContain('GBP 12500.00');
+    expect(ninety.text).toContain('GBP 12500.00');
+    expect(ninety.html).toContain('<strong>£12500.00</strong>');
     expect(ninety.text).toContain(in90);
     expect(ninety.text).toContain('in 90 days');
     expect(ninety.html).toContain(`<strong>${in90}</strong>`);
 
     const thirty = byDays(30);
-    expect(thirty.subject).toContain('3400.50');
+    expect(thirty.subject).toContain('GBP 3400.50');
+    expect(thirty.text).toContain('GBP 3400.50');
+    expect(thirty.html).toContain('<strong>£3400.50</strong>');
     expect(thirty.text).toContain(in30);
     expect(thirty.text).toContain('in 30 days');
     for (const message of [ninety, thirty]) {
+      // The employer portal's Levy Transfer page — the recipients are the
+      // employer's owners and admins, not an SME in the flow portal.
+      expect(message.html).toContain(
+        'href="https://employer.portal.test/levy-transfer"',
+      );
+      expect(message.text).toContain(
+        'https://employer.portal.test/levy-transfer',
+      );
+      expect(message.html).not.toContain('flow.portal.test');
+      expect(message.text).not.toContain('flow.portal.test');
       expect(message.subject.trim()).not.toBe('');
       expect(message.text).not.toContain('{{');
       expect(message.html).not.toContain('{{');

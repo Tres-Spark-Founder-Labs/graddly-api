@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Between, In, Repository } from 'typeorm';
 
 import { withRlsBootstrap } from '../../common/context/correlation-id-context.js';
+import { resolvePortalFrontendUrl } from '../../common/utils/resolve-portal-url.util.js';
 import { EmailTemplate } from '../../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../../email/payloads/serialized-email.payload.js';
 import { NotificationType } from '../../notifications/enums/notification-type.enum.js';
@@ -11,6 +12,7 @@ import { NotificationsService } from '../../notifications/notifications.service.
 import { OrganisationMembership } from '../../organisations/entities/organisation-membership.entity.js';
 import { MembershipStatus } from '../../organisations/membership-status.enum.js';
 import { OrganisationRole } from '../../organisations/organisation-role.enum.js';
+import { PortalType } from '../../organisations/portal-type.enum.js';
 import { DasLevyTranche } from '../entities/das-levy-tranche.entity.js';
 import { LevyExpiryAlertDispatch } from '../entities/levy-expiry-alert-dispatch.entity.js';
 import { DasDonorLinkStatus } from '../enums/das-donor-link-status.enum.js';
@@ -238,14 +240,27 @@ export class LevyExpiryAlertService {
     return delivered > 0;
   }
 
+  /**
+   * The "initiate a transfer" link: the employer portal's Levy Transfer page,
+   * where F1.1.2 AC4 sends the in-app alert ("links directly to the Levy
+   * Transfer Hub (F1.1.4)") and where the dashboard's own expiry banner
+   * already points.
+   *
+   * Once per send, not per recipient: the recipients are the owners and
+   * admins of the organisation that holds the donor link, and the only UI
+   * that creates donor links is the employer portal's. The flow portal has
+   * no donor-side page to send anyone to — its `/levy-exchange/transfers` is
+   * the SME's list of transfers received, which is where this used to point.
+   */
   private resolveTransferCtaUrl(): string {
-    const base = this.config
-      .get<string>('app.frontend.portalUrls.flow', '')
-      ?.trim();
+    const base = resolvePortalFrontendUrl(
+      this.config,
+      PortalType.EMPLOYER,
+    ).trim();
     if (!base) {
       return '#';
     }
-    return `${base.replace(/\/$/, '')}/levy-exchange/transfers`;
+    return `${base.replace(/\/$/, '')}/levy-transfer`;
   }
 
   private utcDateOnly(date: Date): Date {

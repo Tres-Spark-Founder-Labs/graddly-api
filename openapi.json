@@ -19173,6 +19173,92 @@
         ]
       }
     },
+    "/ilr/learner-records/return-file": {
+      "get": {
+        "description": "Every learner record in the period, or an error: 409 when any record has not passed validation (with the count), 404 when the period has no records, 422 when the organisation has no UKPRN. The XML covers the v1 field mapping, not the full ESFA schema; the coverage field says so.",
+        "operationId": "IlrLearnerRecordsController_returnFile",
+        "parameters": [
+          {
+            "name": "x-organisation-id",
+            "in": "header",
+            "description": "Active organisation UUID (optional override)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "collectionPeriod",
+            "required": true,
+            "in": "query",
+            "description": "Collection period (YYYY-MM) whose learner records make up the return.",
+            "schema": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "example": "2025-10",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/IlrReturnFileDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No active organisation context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Some learner records have not passed validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Download the whole ILR return for a collection period as XML",
+        "tags": [
+          "ILR Learner Records"
+        ]
+      }
+    },
     "/ilr/learner-records/{id}": {
       "get": {
         "operationId": "IlrLearnerRecordsController_findOne",
@@ -33274,6 +33360,65 @@
           "requestPayload",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "IlrReturnFileDto": {
+        "type": "object",
+        "properties": {
+          "filename": {
+            "type": "string",
+            "example": "ILR-10000001-2526-20251005-101500-01.XML",
+            "description": "ESFA file name: ILR-{UKPRN}-{year}-{yyyymmdd}-{hhmmss}-{serial}.XML"
+          },
+          "ukprn": {
+            "type": "string",
+            "example": "10000001"
+          },
+          "academicYear": {
+            "type": "string",
+            "example": "2025-26"
+          },
+          "collectionPeriod": {
+            "type": "string",
+            "example": "2025-10"
+          },
+          "learnerCount": {
+            "type": "number",
+            "example": 42,
+            "description": "Learners in the file — every learner record in the period."
+          },
+          "mappingConfigVersions": {
+            "example": [
+              1
+            ],
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "coverage": {
+            "type": "string",
+            "description": "What the file does and does not cover. Shown on screen and written into the file."
+          },
+          "xml": {
+            "type": "string",
+            "description": "The ILR XML file content."
+          }
+        },
+        "required": [
+          "filename",
+          "ukprn",
+          "academicYear",
+          "collectionPeriod",
+          "learnerCount",
+          "mappingConfigVersions",
+          "generatedAt",
+          "coverage",
+          "xml"
         ]
       },
       "BuildIlrLearnerRecordDto": {

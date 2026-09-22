@@ -4,11 +4,11 @@ Builds monthly ILR learner rows from enrolment data using a **versioned mapping 
 
 ## Domain model
 
-| Table | Purpose |
-|-------|---------|
+| Table                 | Purpose                                                            |
+| --------------------- | ------------------------------------------------------------------ |
 | `ilr_mapping_configs` | Platform-wide versioned field/rule definitions (not tenant-scoped) |
-| `ilr_learner_records` | One row per enrolment + `collectionPeriod` (`YYYY-MM`) |
-| `ilr_submissions` | Submit/amend attempts with ESFA receipt storage |
+| `ilr_learner_records` | One row per enrolment + `collectionPeriod` (`YYYY-MM`)             |
+| `ilr_submissions`     | Submit/amend attempts with ESFA receipt storage                    |
 
 ## Status workflows
 
@@ -29,51 +29,76 @@ POST submit/amend returns **201** with `status: queued`. Poll `GET /api/v1/ilr/s
 
 ### Mapping configs
 
-| Method | Path |
-|--------|------|
-| `GET` | `/api/v1/ilr/mapping-configs` |
-| `GET` | `/api/v1/ilr/mapping-configs/active?academicYear=` |
+| Method | Path                                                                         |
+| ------ | ---------------------------------------------------------------------------- |
+| `GET`  | `/api/v1/ilr/mapping-configs`                                                |
+| `GET`  | `/api/v1/ilr/mapping-configs/active?academicYear=`                           |
 | `POST` | `/api/v1/ilr/mapping-configs` (owner/admin, `ILR_CONFIG_WRITE_ENABLED=true`) |
-| `POST` | `/api/v1/ilr/mapping-configs/:id/publish` |
+| `POST` | `/api/v1/ilr/mapping-configs/:id/publish`                                    |
 
 ### Learner records
 
-| Method | Path |
-|--------|------|
-| `POST` | `/api/v1/ilr/learner-records/build` |
-| `GET` | `/api/v1/ilr/learner-records` |
-| `GET` | `/api/v1/ilr/learner-records/:id` |
-| `PATCH` | `/api/v1/ilr/learner-records/:id` |
-| `POST` | `/api/v1/ilr/learner-records/:id/validate` |
-| `GET` | `/api/v1/ilr/learner-records/:id/validation-report` |
-| `POST` | `/api/v1/ilr/learner-records/:id/submit` (owner/admin, returns `queued`) |
-| `POST` | `/api/v1/ilr/learner-records/:id/amend` (owner/admin, returns `queued`) |
-| `GET` | `/api/v1/ilr/learner-records/:id/submissions` |
+| Method  | Path                                                                                         |
+| ------- | -------------------------------------------------------------------------------------------- |
+| `POST`  | `/api/v1/ilr/learner-records/build`                                                          |
+| `GET`   | `/api/v1/ilr/learner-records`                                                                |
+| `GET`   | `/api/v1/ilr/learner-records/:id`                                                            |
+| `PATCH` | `/api/v1/ilr/learner-records/:id`                                                            |
+| `POST`  | `/api/v1/ilr/learner-records/:id/validate`                                                   |
+| `GET`   | `/api/v1/ilr/learner-records/:id/validation-report`                                          |
+| `POST`  | `/api/v1/ilr/learner-records/:id/submit` (owner/admin, returns `queued`)                     |
+| `POST`  | `/api/v1/ilr/learner-records/:id/amend` (owner/admin, returns `queued`)                      |
+| `GET`   | `/api/v1/ilr/learner-records/:id/submissions`                                                |
+| `GET`   | `/api/v1/ilr/learner-records/return-file?collectionPeriod=YYYY-MM` (`submit_ilr` capability) |
+
+### Return file (5.4)
+
+`GET /api/v1/ilr/learner-records/return-file` returns the provider's whole
+return for one collection period as one ILR XML file, for upload to ESFA
+Submit Learner Data: one `<Message>` with the ESFA header, the provider once
+as `<LearningProvider>`, and one `<Learner>` per learner record with its
+learning delivery nested inside. File name
+`ILR-{UKPRN}-{year}-{yyyymmdd}-{hhmmss}-01.XML` (UK time). The body is JSON
+(`filename`, `learnerCount`, `coverage`, `xml`, …) because the portal's
+proxy drops response headers.
+
+Every learner record in the period, or a refusal — never a short file:
+
+| Status | When                                                                                                                     |
+| ------ | ------------------------------------------------------------------------------------------------------------------------ |
+| 404    | the period has no learner records                                                                                        |
+| 409    | any record in the period has not passed validation (the message gives the count), or the records span two academic years |
+| 422    | the organisation has no UKPRN                                                                                            |
+
+The XML uses the same field rendering as the per-record submit payload, so it
+carries the v1 mapping subset — shaped after the ESFA message, not validated
+against the annual XSD. `coverage` says so, on screen and in a comment at the
+top of the file.
 
 ### Submissions
 
-| Method | Path |
-|--------|------|
-| `GET` | `/api/v1/ilr/submissions/:id` (poll for receipt) |
+| Method | Path                                             |
+| ------ | ------------------------------------------------ |
+| `GET`  | `/api/v1/ilr/submissions/:id` (poll for receipt) |
 
 ## Environment
 
-| Variable | Default | Notes |
-|----------|---------|-------|
-| `ILR_ESFA_PROVIDER` | `noop` | `http` for OAuth REST stub |
-| `ILR_ESFA_BASE_URL` | — | Required when provider is `http` |
-| `ILR_ESFA_TOKEN_URL` | — | OAuth token endpoint |
-| `ILR_ESFA_CLIENT_ID` / `ILR_ESFA_CLIENT_SECRET` / `ILR_ESFA_SCOPE` | — | Client credentials |
-| `ILR_ESFA_SUBMIT_PATH` | `/api/v1/ilr/submit` | POST path |
-| `ILR_ESFA_TIMEOUT_MS` | `15000` | Request timeout |
-| `ILR_ESFA_PAYLOAD_FORMAT` | `xml` | `json` \| `xml` wire format when provider is `http` |
-| `ILR_CONFIG_WRITE_ENABLED` | `false` | Allow publishing new mapping config drafts |
+| Variable                                                           | Default              | Notes                                               |
+| ------------------------------------------------------------------ | -------------------- | --------------------------------------------------- |
+| `ILR_ESFA_PROVIDER`                                                | `noop`               | `http` for OAuth REST stub                          |
+| `ILR_ESFA_BASE_URL`                                                | —                    | Required when provider is `http`                    |
+| `ILR_ESFA_TOKEN_URL`                                               | —                    | OAuth token endpoint                                |
+| `ILR_ESFA_CLIENT_ID` / `ILR_ESFA_CLIENT_SECRET` / `ILR_ESFA_SCOPE` | —                    | Client credentials                                  |
+| `ILR_ESFA_SUBMIT_PATH`                                             | `/api/v1/ilr/submit` | POST path                                           |
+| `ILR_ESFA_TIMEOUT_MS`                                              | `15000`              | Request timeout                                     |
+| `ILR_ESFA_PAYLOAD_FORMAT`                                          | `xml`                | `json` \| `xml` wire format when provider is `http` |
+| `ILR_CONFIG_WRITE_ENABLED`                                         | `false`              | Allow publishing new mapping config drafts          |
 
 ## v1 limitations and roadmap
 
 - **Mapping config** seeds a minimal apprenticeship field subset for `2025-26` v1 — not the full ESFA specification. Annual updates = new published mapping config versions.
 - **Validation** runs config JSON rules only. Full ESFA rule spreadsheets and online-only checks (ULN, postcode) are future work.
-- **XML** covers the v1 seeded field subset only — not full annual ESFA XSD.
+- **XML** covers the v1 seeded field subset only — not full annual ESFA XSD. This applies to the return file too: Submit Learner Data may reject it until the mapping is complete.
 - **Submit** uses configurable REST client; official Submit Learner Data portal automation is future work.
 - **Domain gaps:** `Apprentice` lacks ULN/DOB/etc. — use `manualOverrides` on learner records until domain entities grow.
 

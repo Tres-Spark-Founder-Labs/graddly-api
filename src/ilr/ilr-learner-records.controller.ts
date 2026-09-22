@@ -39,11 +39,16 @@ import { PaginatedResult } from '../common/pagination/paginated-result.js';
 
 import { BuildIlrLearnerRecordDto } from './dto/build-ilr-learner-record.dto.js';
 import { IlrLearnerRecordResponseDto } from './dto/ilr-learner-record-response.dto.js';
+import {
+  IlrReturnFileDto,
+  IlrReturnFileQueryDto,
+} from './dto/ilr-return-file.dto.js';
 import { IlrSubmissionResponseDto } from './dto/ilr-submission-response.dto.js';
 import { IlrValidationReportResponseDto } from './dto/ilr-validation-report-response.dto.js';
 import { ListIlrLearnerRecordsQueryDto } from './dto/list-ilr-learner-records-query.dto.js';
 import { UpdateIlrLearnerRecordDto } from './dto/update-ilr-learner-record.dto.js';
 import { IlrLearnerRecordsService } from './ilr-learner-records.service.js';
+import { IlrReturnFileService } from './ilr-return-file.service.js';
 import { IlrSubmissionService } from './ilr-submission.service.js';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
@@ -53,6 +58,7 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
   IlrLearnerRecordResponseDto,
   IlrValidationReportResponseDto,
   IlrSubmissionResponseDto,
+  IlrReturnFileDto,
   PaginationMetaDto,
 )
 @Controller({ path: 'ilr/learner-records', version: '1' })
@@ -75,6 +81,7 @@ export class IlrLearnerRecordsController {
   constructor(
     private readonly learnerRecordsService: IlrLearnerRecordsService,
     private readonly submissionService: IlrSubmissionService,
+    private readonly returnFileService: IlrReturnFileService,
   ) {}
 
   @Post('build')
@@ -118,6 +125,44 @@ export class IlrLearnerRecordsController {
     @Query() query: ListIlrLearnerRecordsQueryDto,
   ): Promise<PaginatedResult<IlrLearnerRecordResponseDto>> {
     return this.learnerRecordsService.findAll(user, query);
+  }
+
+  /**
+   * 5.4 — the whole return for a collection period as one ILR XML file, for
+   * upload to ESFA Submit Learner Data. Declared before `:id` so the literal
+   * path wins. The same capability as submitting: producing the file is the
+   * funding claim, whichever way it reaches ESFA.
+   */
+  @Get('return-file')
+  @UseGuards(CapabilityGuard)
+  @RequiresCapability(Capability.SUBMIT_ILR)
+  @ResponseMessage('ILR return file generated successfully')
+  @ApiOperation({
+    summary: 'Download the whole ILR return for a collection period as XML',
+    description:
+      'Every learner record in the period, or an error: 409 when any record ' +
+      'has not passed validation (with the count), 404 when the period has ' +
+      'no records, 422 when the organisation has no UKPRN. The XML covers ' +
+      'the v1 field mapping, not the full ESFA schema; the coverage field says so.',
+  })
+  @ApiOkResponse({
+    schema: {
+      properties: {
+        message: { type: 'string' },
+        data: { $ref: getSchemaPath(IlrReturnFileDto) },
+      },
+    },
+  })
+  @ApiConflictResponse({
+    description: 'Some learner records have not passed validation',
+    type: ErrorResponseDto,
+  })
+  returnFile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: IlrReturnFileQueryDto,
+  ): Promise<IlrReturnFileDto> {
+    setCurrentUserId(user.id);
+    return this.returnFileService.build(user, query);
   }
 
   @Get(':id')

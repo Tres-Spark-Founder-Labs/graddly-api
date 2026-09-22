@@ -528,4 +528,134 @@ describe('ILR (e2e)', () => {
         .expect(404);
     });
   });
+
+  /**
+   * 5.4 — the whole return as one XML file. Every learner record in the
+   * period, or a refusal that says why: no file for an empty period, none
+   * while any record has not passed validation, and then every learner.
+   */
+  describe('return file', () => {
+    it('refuses an empty period and an unvalidated learner, then returns every learner in one file', async () => {
+      const suffix = Date.now();
+      const seed = await seedIlrOrgContext(app, suffix);
+      const as = (req: request.Test) =>
+        req
+          .set('Authorization', `Bearer ${seed.owner.accessToken}`)
+          .set(ORGANISATION_ID_HEADER, seed.orgId);
+
+      // A second learner in the same provider.
+      const apprenticeRes = await as(
+        request(app.getHttpServer()).post('/api/v1/apprentices'),
+      )
+        .send({
+          firstName: 'Second',
+          lastName: 'Learner',
+          email: `ilr-return-second-${suffix}@example.com`,
+        })
+        .expect(201);
+      const secondApprenticeId = (
+        apprenticeRes.body as { data: { id: string } }
+      ).data.id;
+      const enrolmentRes = await as(
+        request(app.getHttpServer()).post('/api/v1/enrolments'),
+      )
+        .send({
+          apprenticeId: secondApprenticeId,
+          standardId: seed.standardId,
+          plannedStartDate: '2025-01-15',
+          plannedEndDate: '2026-12-31',
+        })
+        .expect(201);
+      const secondEnrolmentId = (enrolmentRes.body as { data: { id: string } })
+        .data.id;
+      await as(
+        request(app.getHttpServer()).post(
+          `/api/v1/enrolments/${secondEnrolmentId}/activate`,
+        ),
+      ).expect(201);
+
+      const returnFile = () =>
+        as(
+          request(app.getHttpServer())
+            .get('/api/v1/ilr/learner-records/return-file')
+            .query({ collectionPeriod: '2025-10' }),
+        );
+
+      // Nothing built yet: no file, not an empty one.
+      await returnFile().expect(404);
+
+      const recordIds: string[] = [];
+      for (const enrolmentId of [seed.enrolmentId, secondEnrolmentId]) {
+        const built = await as(
+          request(app.getHttpServer()).post(
+            '/api/v1/ilr/learner-records/build',
+          ),
+        )
+          .send({
+            enrolmentId,
+            collectionPeriod: '2025-10',
+            academicYear: '2025-26',
+          })
+          .expect(201);
+        recordIds.push((built.body as { data: IlrRecordBody }).data.id);
+      }
+      const validate = async (recordId: string, uln: string | null) => {
+        if (uln) {
+          await as(
+            request(app.getHttpServer()).patch(
+              `/api/v1/ilr/learner-records/${recordId}`,
+            ),
+          )
+            .send({ manualOverrides: { ['Learner.ULN']: uln } })
+            .expect(200);
+        }
+        const res = await as(
+          request(app.getHttpServer()).post(
+            `/api/v1/ilr/learner-records/${recordId}/validate`,
+          ),
+        ).expect(201);
+        return (res.body as { data: IlrRecordBody }).data.status;
+      };
+
+      // One validated; the other built but not yet validated.
+      expect(await validate(recordIds[0], '1234567890')).toBe(
+        IlrLearnerRecordStatus.VALIDATED,
+      );
+
+      const refused = await returnFile().expect(409);
+      expect((refused.body as { message: string }).message).toContain(
+        '1 of 2 learner records for 2025-10 have not passed validation (0 failed, 1 not yet validated)',
+      );
+
+      expect(await validate(recordIds[1], '1234567891')).toBe(
+        IlrLearnerRecordStatus.VALIDATED,
+      );
+
+      const ok = await returnFile().expect(200);
+      expectSuccessEnvelope(ok.body);
+      const file = (
+        ok.body as {
+          data: {
+            filename: string;
+            learnerCount: number;
+            ukprn: string;
+            academicYear: string;
+            coverage: string;
+            xml: string;
+          };
+        }
+      ).data;
+      expect(file.learnerCount).toBe(2);
+      expect(file.ukprn).toBe(seed.ukprn);
+      expect(file.academicYear).toBe('2025-26');
+      expect(file.filename).toMatch(
+        new RegExp(`^ILR-${seed.ukprn}-2526-\\d{8}-\\d{6}-01\\.XML$`),
+      );
+      expect(file.xml.match(/<Learner>/g)).toHaveLength(2);
+      expect(file.xml).toContain(`<UKPRN>${seed.ukprn}</UKPRN>`);
+      expect(file.xml).toContain('<ULN>1234567890</ULN>');
+      expect(file.xml).toContain('<ULN>1234567891</ULN>');
+      expect(file.coverage).toContain('not the full annual schema');
+    });
+  });
 });

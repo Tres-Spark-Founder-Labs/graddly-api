@@ -27,6 +27,7 @@ import { IlrLearnerRecordsService } from './ilr-learner-records.service.js';
 import { IlrMappingConfigService } from './ilr-mapping-config.service.js';
 import { IlrMappingConfigsController } from './ilr-mapping-configs.controller.js';
 import { IlrPayloadSerializerService } from './ilr-payload-serializer.service.js';
+import { IlrReturnFileService } from './ilr-return-file.service.js';
 import { IlrRowBuilderService } from './ilr-row-builder.service.js';
 import { IlrSubmissionService } from './ilr-submission.service.js';
 import { IlrSubmissionsController } from './ilr-submissions.controller.js';
@@ -72,6 +73,8 @@ import type { IIlrEsfaClient } from './interfaces/ilr-esfa.client.interface.js';
     IlrValidationEngine,
     IlrLearnerRecordStatusService,
     IlrPayloadSerializerService,
+    // 5.4 — the whole return as one XML file.
+    IlrReturnFileService,
     IlrEsfaOAuthService,
     IlrEsfaNoopClient,
     IlrEsfaHttpClient,

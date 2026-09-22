@@ -10,6 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CronJob } from 'cron';
 import { Repository } from 'typeorm';
 
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { DigestDispatchService } from '../notifications/digest-dispatch.service.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { OtjLogStatus } from '../otj/enums/otj-log-status.enum.js';
@@ -93,12 +94,23 @@ export class DigestCronService implements OnModuleInit, OnModuleDestroy {
 
   async handleDigestCron(): Promise<void> {
     await this.cronLock.runExclusive(DIGEST_CRON_NAME, async () => {
-      const rows = await this.otjLogRepo
-        .createQueryBuilder('entry')
-        .select('DISTINCT entry.organisationId', 'organisationId')
-        .where('entry.status = :status', { status: OtjLogStatus.SUBMITTED })
-        .andWhere('entry.isDeleted = false')
-        .getRawMany<{ organisationId: string }>();
+      /**
+       * F1.2.3 AC6 — which organisations have entries awaiting approval.
+       *
+       * Under the bootstrap window: the cron has no organisation, and
+       * `otj_log_entries` is keyed on the owning one, so this returned no
+       * rows and no digest was ever queued (proved as graddly_app in a
+       * rolled-back probe). One named column, and nothing but the ids leaves
+       * this read: each job then runs in its own organisation's context.
+       */
+      const rows = await withRlsBootstrap(() =>
+        this.otjLogRepo
+          .createQueryBuilder('entry')
+          .select('DISTINCT entry.organisationId', 'organisationId')
+          .where('entry.status = :status', { status: OtjLogStatus.SUBMITTED })
+          .andWhere('entry.isDeleted = false')
+          .getRawMany<{ organisationId: string }>(),
+      );
 
       for (const row of rows) {
         await this.digestDispatch.enqueueWeeklyOtjDigest({

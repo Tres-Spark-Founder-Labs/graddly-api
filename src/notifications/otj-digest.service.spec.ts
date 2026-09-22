@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { getRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { OtjLogStatus } from '../otj/enums/otj-log-status.enum.js';
@@ -74,6 +75,38 @@ describe('OtjDigestService', () => {
       when,
     );
     expect(emailDispatchService.enqueue).toHaveBeenCalled();
+  });
+
+  it('reads the managers under the bootstrap window, by id, in three named columns', async () => {
+    // The job runs in the provider's organisation; the managers belong to
+    // the employer's, so without the window `users_select` hid every one.
+    otjLogRepo.find.mockResolvedValue([
+      {
+        status: OtjLogStatus.SUBMITTED,
+        loggedDate: '2026-01-10',
+        minutes: 60,
+        category: 'workplace',
+        activityName: 'Shadowing',
+        enrolment: {
+          employerManagerUserId: 'mgr-1',
+          apprentice: { firstName: 'Alex', lastName: 'Apprentice' },
+        },
+      },
+    ]);
+    let bootstrapped: boolean | undefined;
+    userRepo.find.mockImplementation(() => {
+      bootstrapped = getRlsBootstrap();
+      return Promise.resolve([
+        { id: 'mgr-1', firstName: 'Manager', email: 'mgr@example.com' },
+      ]);
+    });
+
+    await service.sendDigestForOrganisation('org-1');
+
+    expect(bootstrapped).toBe(true);
+    expect(userRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({ select: ['id', 'email', 'firstName'] }),
+    );
   });
 
   it('returns zero when no pending entries', async () => {

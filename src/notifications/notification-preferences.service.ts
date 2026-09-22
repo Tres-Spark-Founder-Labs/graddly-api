@@ -235,6 +235,44 @@ export class NotificationPreferencesService {
   }
 
   /**
+   * The digest cadence of someone who is not the actor — the send path.
+   *
+   * Read-only, as `isEnabledForRecipient` is for email and for the same
+   * reason: the digest worker runs with no user, so `getDigestFrequency`'s
+   * `ensureDefaults` inserted rows for the *recipient* as nobody, which the
+   * insert policy refuses — the job failed there (proved as graddly_app in a
+   * rolled-back probe). So: one row, three named columns, under the rule on
+   * `withRlsBootstrap`, the user id from a record the caller already read.
+   * An absent row is the default cadence, exactly as `getDigestFrequency`
+   * would have written it; nothing is written.
+   */
+  async getDigestFrequencyForRecipient(
+    userId: string,
+    type: NotificationType,
+  ): Promise<DigestFrequency> {
+    const preference = await withRlsBootstrap(() =>
+      this.preferenceRepo.findOne({
+        where: {
+          user: { id: userId },
+          organisation: IsNull(),
+          channel: NotificationChannel.DIGEST,
+          type,
+          isDeleted: false,
+        },
+        select: ['id', 'enabled', 'frequency'],
+      }),
+    );
+
+    if (!preference) {
+      return DEFAULT_DIGEST_FREQUENCY;
+    }
+    if (!preference.enabled) {
+      return DigestFrequency.OFF;
+    }
+    return preference.frequency ?? DEFAULT_DIGEST_FREQUENCY;
+  }
+
+  /**
    * Sets the digest cadence. OFF also clears `enabled` so the two
    * representations of "do not send" cannot disagree with each other.
    */
@@ -283,7 +321,7 @@ export class NotificationPreferencesService {
     type: NotificationType,
     when: Date,
   ): Promise<boolean> {
-    const frequency = await this.getDigestFrequency(userId, type);
+    const frequency = await this.getDigestFrequencyForRecipient(userId, type);
 
     if (frequency === DigestFrequency.OFF) {
       return false;

@@ -3,6 +3,7 @@ import { SchedulerRegistry } from '@nestjs/schedule';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { getRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { DigestDispatchService } from '../notifications/digest-dispatch.service.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 
@@ -14,6 +15,8 @@ describe('DigestCronService', () => {
   let service: DigestCronService;
   let digestDispatch: { enqueueWeeklyOtjDigest: jest.Mock };
   let otjLogRepo: { createQueryBuilder: jest.Mock };
+  /** `getRlsBootstrap()` as observed from inside each call. */
+  let observed: { read?: boolean; enqueue: boolean[] };
   let schedulerRegistry: jest.Mocked<
     Pick<
       SchedulerRegistry,
@@ -24,19 +27,24 @@ describe('DigestCronService', () => {
 
   beforeEach(async () => {
     cronJobs.clear();
+    observed = { enqueue: [] };
     digestDispatch = {
-      enqueueWeeklyOtjDigest: jest.fn().mockResolvedValue(undefined),
+      enqueueWeeklyOtjDigest: jest.fn(() => {
+        observed.enqueue.push(getRlsBootstrap());
+        return Promise.resolve(undefined);
+      }),
     };
     const qb = {
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      getRawMany: jest
-        .fn()
-        .mockResolvedValue([
+      getRawMany: jest.fn(() => {
+        observed.read = getRlsBootstrap();
+        return Promise.resolve([
           { organisationId: 'org-1' },
           { organisationId: 'org-2' },
-        ]),
+        ]);
+      }),
     };
     otjLogRepo = { createQueryBuilder: jest.fn(() => qb) };
     schedulerRegistry = {
@@ -95,6 +103,15 @@ describe('DigestCronService', () => {
     expect(digestDispatch.enqueueWeeklyOtjDigest).toHaveBeenCalledWith({
       organisationId: 'org-1',
     });
+  });
+
+  it('reads the organisations under the bootstrap window, and queues each job outside it', async () => {
+    // The cron has no organisation; without the window the read returned
+    // nothing and no digest was ever queued.
+    await service.handleDigestCron();
+
+    expect(observed.read).toBe(true);
+    expect(observed.enqueue).toEqual([false, false]);
   });
 
   it('registers the digest cron when enabled', () => {

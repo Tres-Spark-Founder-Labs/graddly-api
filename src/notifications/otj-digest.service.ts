@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
+import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
@@ -93,9 +94,20 @@ export class OtjDigestService {
       return 0;
     }
 
-    const managers = await this.userRepo.find({
-      where: { id: In([...byManager.keys()]), isDeleted: false },
-    });
+    /**
+     * The managers are the employer's line managers; the job runs in the
+     * provider's organisation, which owns the entries. `users_select` hides
+     * a user who is neither the actor nor a member of the current
+     * organisation, so this read found nobody and the digest reached no one.
+     * Under the bootstrap rule: three named columns, ids taken from the
+     * enrolments just read, and the rows used only to address this email.
+     */
+    const managers = await withRlsBootstrap(() =>
+      this.userRepo.find({
+        where: { id: In([...byManager.keys()]), isDeleted: false },
+        select: ['id', 'email', 'firstName'],
+      }),
+    );
 
     let sent = 0;
     for (const manager of managers) {

@@ -2,6 +2,8 @@ import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { getRlsBootstrap } from '../common/context/correlation-id-context.js';
+
 import { NotificationPreference } from './entities/notification-preference.entity.js';
 import { DigestFrequency } from './enums/digest-frequency.enum.js';
 import { NotificationChannel } from './enums/notification-channel.enum.js';
@@ -120,6 +122,29 @@ describe('NotificationPreferencesService', () => {
       await expect(
         service.shouldSendDigestOn('user-1', NotificationType.OTJ, TUESDAY),
       ).resolves.toBe(false);
+    });
+
+    it("reads the recipient's cadence under the bootstrap window and writes nothing", async () => {
+      // The digest worker runs with no user. The old path called
+      // ensureDefaults, which inserted the recipient's rows as nobody — the
+      // insert policy refused it and the job failed there.
+      let bootstrapped: boolean | undefined;
+      findOne.mockImplementation(() => {
+        bootstrapped = getRlsBootstrap();
+        return Promise.resolve(null);
+      });
+
+      // No row: the weekly default, and 2026-08-03 is a Monday.
+      await expect(
+        service.shouldSendDigestOn('user-1', NotificationType.OTJ, MONDAY),
+      ).resolves.toBe(true);
+      expect(bootstrapped).toBe(true);
+      expect(findOne).toHaveBeenCalledTimes(1);
+      expect(findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ select: ['id', 'enabled', 'frequency'] }),
+      );
+      expect(create).not.toHaveBeenCalled();
+      expect(save).not.toHaveBeenCalled();
     });
 
     it('never sends when off', async () => {

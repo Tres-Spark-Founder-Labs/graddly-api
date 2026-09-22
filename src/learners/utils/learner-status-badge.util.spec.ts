@@ -4,6 +4,7 @@ import { OtjPaceAlertLevel } from '../../otj/enums/otj-pace-alert-level.enum.js'
 import { ReviewStatus } from '../../reviews/enums/review-status.enum.js';
 
 import {
+  LEARNER_STATUS_BADGE_LABELS,
   LearnerStatusBadge,
   computeInterventionSeverity,
   deriveLearnerStatusBadge,
@@ -53,6 +54,51 @@ describe('learner-status-badge.util', () => {
           hasOverdueReview: false,
         }),
       ).toBe(LearnerStatusBadge.EPA_READY);
+    });
+  });
+
+  /**
+   * A missing pace level is not "On Track" (deviation D-01 from F2.2.1 AC3).
+   * The badges above it still win: an overdue review or a finished gateway is
+   * known, whatever the pace.
+   */
+  describe('deriveLearnerStatusBadge — pace unknown', () => {
+    const base = {
+      apprenticeStatus: ApprenticeStatus.ACTIVE,
+      enrolmentStatus: EnrolmentStatus.ACTIVE,
+      gatewayCompletionPercent: 0,
+      hasOverdueReview: false,
+    };
+
+    it('is on track only when the pace says on track', () => {
+      expect(
+        deriveLearnerStatusBadge({
+          ...base,
+          otjPaceAlertLevel: OtjPaceAlertLevel.ON_TRACK,
+        }),
+      ).toBe(LearnerStatusBadge.ON_TRACK);
+    });
+
+    it('is pace unknown, not on track, when the pace level is missing', () => {
+      expect(
+        deriveLearnerStatusBadge({ ...base, otjPaceAlertLevel: null }),
+      ).toBe(LearnerStatusBadge.PACE_UNKNOWN);
+    });
+
+    it('lets a known problem outrank an unknown pace', () => {
+      expect(
+        deriveLearnerStatusBadge({
+          ...base,
+          otjPaceAlertLevel: null,
+          hasOverdueReview: true,
+        }),
+      ).toBe(LearnerStatusBadge.OVERDUE);
+    });
+
+    it('labels it as the documents print it', () => {
+      expect(LEARNER_STATUS_BADGE_LABELS[LearnerStatusBadge.PACE_UNKNOWN]).toBe(
+        'Pace Unknown',
+      );
     });
   });
 

@@ -10,10 +10,18 @@ export enum LearnerStatusBadge {
   BREAK_IN_LEARNING = 'break_in_learning',
   WITHDRAWN = 'withdrawn',
   EPA_READY = 'epa_ready',
+  /**
+   * NOT in F2.2.1 AC3. A recorded deviation (docs/prd/DEVIATIONS.md, D-01):
+   * the learner's OTJ pace level is missing, so nothing is known to be wrong
+   * and nothing is known to be fine. It used to fall through to ON_TRACK,
+   * which told a provider a learner was on track when nobody knew.
+   */
+  PACE_UNKNOWN = 'pace_unknown',
 }
 
 /**
- * F2.2.1 AC3 wording, verbatim from the PRD. Exported so the CSV and PDF
+ * F2.2.1 AC3 wording, verbatim from the PRD — except "Pace Unknown", which
+ * the PRD does not list (see PACE_UNKNOWN). Exported so the CSV and PDF
  * exports print what the screen prints — a document that says `at_risk` where
  * the dashboard says "At Risk" invites the reader to wonder if they are the
  * same thing.
@@ -27,6 +35,7 @@ export const LEARNER_STATUS_BADGE_LABELS: Readonly<
   [LearnerStatusBadge.BREAK_IN_LEARNING]: 'Break in Learning',
   [LearnerStatusBadge.WITHDRAWN]: 'Withdrawn',
   [LearnerStatusBadge.EPA_READY]: 'EPA Ready',
+  [LearnerStatusBadge.PACE_UNKNOWN]: 'Pace Unknown',
 });
 
 export interface ILearnerStatusBadgeInput {
@@ -76,7 +85,12 @@ export function deriveLearnerStatusBadge(
   ) {
     return LearnerStatusBadge.AT_RISK;
   }
-  return LearnerStatusBadge.ON_TRACK;
+  // On track is a finding, so it needs the pace to say so. A missing (or
+  // unrecognised) level is unknown, not a default green.
+  if (input.otjPaceAlertLevel === OtjPaceAlertLevel.ON_TRACK) {
+    return LearnerStatusBadge.ON_TRACK;
+  }
+  return LearnerStatusBadge.PACE_UNKNOWN;
 }
 
 export function isGatewayStalled(

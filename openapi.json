@@ -13692,7 +13692,8 @@
                 "overdue",
                 "break_in_learning",
                 "withdrawn",
-                "epa_ready"
+                "epa_ready",
+                "pace_unknown"
               ]
             }
           },
@@ -13975,7 +13976,8 @@
                 "overdue",
                 "break_in_learning",
                 "withdrawn",
-                "epa_ready"
+                "epa_ready",
+                "pace_unknown"
               ]
             }
           },
@@ -29415,7 +29417,8 @@
               "overdue",
               "break_in_learning",
               "withdrawn",
-              "epa_ready"
+              "epa_ready",
+              "pace_unknown"
             ],
             "type": "string"
           },
@@ -29465,7 +29468,8 @@
               "overdue",
               "break_in_learning",
               "withdrawn",
-              "epa_ready"
+              "epa_ready",
+              "pace_unknown"
             ],
             "type": "string",
             "description": "Filter by derived status badge"

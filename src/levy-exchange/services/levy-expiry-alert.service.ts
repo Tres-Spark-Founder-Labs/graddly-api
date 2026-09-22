@@ -210,7 +210,8 @@ export class LevyExpiryAlertService {
         organisationId,
         type: notificationType,
         title: `Levy expiry alert (${daysAhead} days)`,
-        body: `${tranche.amount} from ${donorLabel} expires on ${tranche.expiresOn}.`,
+        // Plain text, so GBP as the email's text part writes it.
+        body: `GBP ${tranche.amount} from ${donorLabel} expires on ${tranche.expiresOn}.`,
         metadata: {
           trancheId: tranche.id,
           donorLinkId: tranche.donorLinkId,

@@ -1,6 +1,7 @@
 import { getQueueToken } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import request from 'supertest';
 
 import { QUEUE_EMAIL } from '../../src/bullmq/bullmq.constants.js';
 import { EmailSendProcessor } from '../../src/bullmq/processors/email-send.processor.js';
@@ -144,6 +145,23 @@ describe('F1.1.2 AC4 — levy expiry alert emails are sent (e2e)', () => {
     );
     expect(dispatches.map((d) => d.trancheId).sort()).toEqual(
       [t90.id, t30.id].sort(),
+    );
+
+    // The in-app notifications, read as the recipient: plain text, so the
+    // amount reads as the email's text part writes it.
+    const inApp = (
+      (
+        await request(app.getHttpServer())
+          .get('/api/v1/notifications')
+          .set(ctx.authHeaders)
+          .expect(200)
+      ).body as { data: { type: string; body: string }[] }
+    ).data.filter((n) => n.type.startsWith('levy_expiry'));
+    expect(inApp.map((n) => n.body).sort()).toEqual(
+      [
+        `GBP 12500.00 from Levy HQ expires on ${in90}.`,
+        `GBP 3400.50 from Levy HQ expires on ${in30}.`,
+      ].sort(),
     );
 
     // The jobs the sweep put on the real email queue for this recipient.

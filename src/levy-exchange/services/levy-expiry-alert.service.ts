@@ -79,9 +79,22 @@ export class LevyExpiryAlertService {
         continue;
       }
 
-      const existing = await this.dispatchRepo.findOne({
-        where: { trancheId: tranche.id, alertType },
-      });
+      /**
+       * The dispatch record is read and written under the bootstrap rule, as
+       * the tranche and recipient reads are: this runs from a cron with no
+       * organisation, and `levy_expiry_alert_dispatches` is keyed on the
+       * owning organisation. Without it the lookup below always found nothing
+       * (so the once-per-tranche guard never held) and the insert further
+       * down was refused by row-level security after the alert had gone out
+       * — proved by test/levy-exchange/levy-expiry-alert-email.e2e-spec.ts.
+       * Named columns and ids from the tranche just read.
+       */
+      const existing = await withRlsBootstrap(() =>
+        this.dispatchRepo.findOne({
+          where: { trancheId: tranche.id, alertType },
+          select: ['id'],
+        }),
+      );
       if (existing) {
         continue;
       }
@@ -116,14 +129,16 @@ export class LevyExpiryAlertService {
           continue;
         }
 
-        await this.dispatchRepo.save(
-          this.dispatchRepo.create({
-            organisationId: tranche.organisationId,
-            donorLinkId: tranche.donorLinkId,
-            trancheId: tranche.id,
-            alertType,
-            sentAt: new Date(),
-          }),
+        await withRlsBootstrap(() =>
+          this.dispatchRepo.save(
+            this.dispatchRepo.create({
+              organisationId: tranche.organisationId,
+              donorLinkId: tranche.donorLinkId,
+              trancheId: tranche.id,
+              alertType,
+              sentAt: new Date(),
+            }),
+          ),
         );
         sent++;
       } catch (error) {

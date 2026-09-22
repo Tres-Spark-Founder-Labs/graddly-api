@@ -1,8 +1,8 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
+import { DAS_CLIENT } from '../../src/das/das-client.constants.js';
 import { DasFundingSyncService } from '../../src/das/das-funding-sync.service.js';
-import { DasHttpClient } from '../../src/das/das-http.client.js';
 import { createE2eApp } from '../helpers/e2e-app.js';
 import { expectSuccessEnvelope } from '../helpers/e2e-response-contracts.js';
 import {
@@ -11,6 +11,7 @@ import {
 } from '../helpers/reporting-e2e.js';
 import { enterTenantContext } from '../helpers/tenant-context.js';
 
+import type { IDasClient } from '../../src/das/interfaces/das.client.interface.js';
 import type { App } from 'supertest/types';
 
 describe('SmeOverviewController (e2e)', () => {
@@ -61,7 +62,9 @@ describe('SmeOverviewController (e2e)', () => {
   it('reports clawback_pending when synced payments include clawback notices', async () => {
     const ctx = await createFlowSmeContext(app, 'funding-status');
 
-    const client = app.get(DasHttpClient);
+    // The client the app resolved (DAS_CLIENT), not DasHttpClient: this suite
+    // tests what consumes the DAS figures, so it passes under either client.
+    const client = app.get<IDasClient>(DAS_CLIENT);
     jest.spyOn(client, 'fetchFundingPayments').mockResolvedValue([
       {
         externalReference: 'fp-flow-1',

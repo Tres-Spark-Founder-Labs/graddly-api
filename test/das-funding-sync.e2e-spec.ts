@@ -1,14 +1,15 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
+import { DAS_CLIENT } from '../src/das/das-client.constants.js';
 import { DasFundingSyncService } from '../src/das/das-funding-sync.service.js';
-import { DasHttpClient } from '../src/das/das-http.client.js';
 
 import { createE2eApp } from './helpers/e2e-app.js';
 import { expectSuccessEnvelope } from './helpers/e2e-response-contracts.js';
 import { createEmployerReportingContext } from './helpers/reporting-e2e.js';
 import { enterTenantContext } from './helpers/tenant-context.js';
 
+import type { IDasClient } from '../src/das/interfaces/das.client.interface.js';
 import type { App } from 'supertest/types';
 
 describe('DAS funding sync (e2e)', () => {
@@ -25,7 +26,9 @@ describe('DAS funding sync (e2e)', () => {
   it('persists funding payments and exposes them via list + levy ROI summary', async () => {
     const ctx = await createEmployerReportingContext(app, 'funding-sync');
 
-    const client = app.get(DasHttpClient);
+    // The client the app resolved (DAS_CLIENT), not DasHttpClient: this suite
+    // tests what consumes the DAS figures, so it passes under either client.
+    const client = app.get<IDasClient>(DAS_CLIENT);
     jest.spyOn(client, 'fetchFundingPayments').mockResolvedValue([
       {
         externalReference: 'fp-e2e-1',

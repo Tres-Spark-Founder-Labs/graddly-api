@@ -3,6 +3,7 @@ import request from 'supertest';
 
 import { AuditAction } from '../src/audit/enums/audit-action.enum.js';
 import { ORGANISATION_ID_HEADER } from '../src/common/constants/organisation-headers.js';
+import { DAS_CLIENT } from '../src/das/das-client.constants.js';
 import { DasHttpClient } from '../src/das/das-http.client.js';
 import { DasLevySyncService } from '../src/das/das-levy-sync.service.js';
 
@@ -26,6 +27,15 @@ describe('DASController (e2e)', () => {
   });
 
   it('queues manual sync and returns persisted levy status', async () => {
+    // The ESFA-integrated path. POST /das/sync is refused (409) when DAS runs
+    // on manually-entered figures, so this suite needs the HTTP client —
+    // which the app builds only when DAS_BASE_URL is set (.env.test). Said
+    // here, so a missing URL fails on this line rather than as a 409. (By
+    // name: printing a whole client on failure trips over its repositories.)
+    expect(app.get<object>(DAS_CLIENT).constructor.name).toBe(
+      DasHttpClient.name,
+    );
+
     const suffix = Date.now();
     const owner = await createVerifiedUser(app, {
       email: `das-owner-${suffix}@example.com`,

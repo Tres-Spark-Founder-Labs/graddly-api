@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
-import { DasHttpClient } from '../../src/das/das-http.client.js';
+import { DAS_CLIENT } from '../../src/das/das-client.constants.js';
 import { DasLevySyncService } from '../../src/das/das-levy-sync.service.js';
 import { createE2eApp } from '../helpers/e2e-app.js';
 import { expectSuccessEnvelope } from '../helpers/e2e-response-contracts.js';
@@ -11,6 +11,7 @@ import {
 } from '../helpers/reporting-e2e.js';
 import { enterTenantContext } from '../helpers/tenant-context.js';
 
+import type { IDasClient } from '../../src/das/interfaces/das.client.interface.js';
 import type { App } from 'supertest/types';
 
 describe('LevyUtilisationController (e2e)', () => {
@@ -27,7 +28,9 @@ describe('LevyUtilisationController (e2e)', () => {
   it('GET /reporting/levy-utilisation returns series after levy sync', async () => {
     const ctx = await createEmployerReportingContext(app, 'utilisation');
 
-    const client = app.get(DasHttpClient);
+    // The client the app resolved (DAS_CLIENT), not DasHttpClient: this suite
+    // tests what consumes the DAS figures, so it passes under either client.
+    const client = app.get<IDasClient>(DAS_CLIENT);
     jest.spyOn(client, 'fetchLevyBalance').mockResolvedValue({
       accountId: 'das-account-1',
       balance: '5000.00',

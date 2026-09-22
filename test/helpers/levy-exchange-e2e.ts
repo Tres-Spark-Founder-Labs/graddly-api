@@ -2,7 +2,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import request from 'supertest';
 
 import { ORGANISATION_ID_HEADER } from '../../src/common/constants/organisation-headers.js';
-import { DasHttpClient } from '../../src/das/das-http.client.js';
+import { DAS_CLIENT } from '../../src/das/das-client.constants.js';
 import { DasDonorLink } from '../../src/levy-exchange/entities/das-donor-link.entity.js';
 import { DasDonorOAuthToken } from '../../src/levy-exchange/entities/das-donor-oauth-token.entity.js';
 import { DasLevyTranche } from '../../src/levy-exchange/entities/das-levy-tranche.entity.js';
@@ -15,6 +15,7 @@ import { buildOrgPayload } from './e2e-organisation.js';
 import { expectSuccessEnvelope } from './e2e-response-contracts.js';
 import { enterTenantContext } from './tenant-context.js';
 
+import type { IDasClient } from '../../src/das/interfaces/das.client.interface.js';
 import type { INestApplication } from '@nestjs/common';
 import type { App } from 'supertest/types';
 import type { Repository } from 'typeorm';
@@ -241,8 +242,14 @@ export async function seedConfirmedMatch(
   return { matchApplicationId };
 }
 
+/**
+ * Mocks the DAS client the app resolved (DAS_CLIENT), not DasHttpClient: the
+ * Levy Exchange consumes the IDasClient token, so its suites pass under
+ * either client — the HTTP one, or the manual one a deployment without ESFA
+ * credentials runs on.
+ */
 export function mockDasForLevyExchange(app: INestApplication<App>): void {
-  const client = app.get(DasHttpClient);
+  const client = app.get<IDasClient>(DAS_CLIENT);
   jest.spyOn(client, 'fetchLevyBalance').mockResolvedValue({
     accountId: 'das-account-1',
     balance: '50000.00',

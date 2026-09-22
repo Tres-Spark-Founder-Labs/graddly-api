@@ -5,6 +5,7 @@ import {
   type ExportApprenticeRosterDto,
 } from './dto/export-apprentice-roster.dto.js';
 
+// Twin: gradlly-frontend apps/employer/features/apprentices/utils/roster-export.js applies these rules to the table on screen — change one, change the other.
 /**
  * F1.2.1 AC6 — the roster's filter, search and sort rules, server-side.
  *

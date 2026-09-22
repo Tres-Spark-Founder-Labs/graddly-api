@@ -76,10 +76,11 @@ whether a missing pace may be shown as fine.
 **What the build does instead.**
 
 - **Fields.** The mapping config carries nine fields, not the full set a
-  funding-model-36 apprenticeship learner needs. Two of the nine are wrong:
-  `LearnAimRef` holds the standard's code where ESFA expects `ZPROG001`, and
-  dates are written `YYYYMMDD` where the XML schema expects `YYYY-MM-DD`. ULN
-  is entered by hand. The full list of what is missing, and what closing each
+  funding-model-36 apprenticeship learner needs. Two of the nine were wrong
+  and are corrected: `LearnAimRef` is `ZPROG001` for the programme aim (it
+  held the standard's code), and dates are written `YYYY-MM-DD` (they were
+  `YYYYMMDD`). The standard's own `StdCode` is not mapped: it is the LARS
+  code, which the platform does not hold. ULN is entered by hand. The full list of what is missing, and what closing each
   gap takes, is in [../ilr-field-gap.md](../ilr-field-gap.md).
 - **Validation.** Two config rules (`ILR001` UKPRN present, `ILR002` start
   not after planned end) against ESFA's several hundred. There is no XSD
@@ -106,7 +107,7 @@ funding claim.
 **What would close it.**
 
 1. The field-gap work: structure, data capture, reference data, derivations,
-   and the three v1 fixes (`LearnAimRef`, date format, serial number).
+   and the remaining v1 fix (serial number).
 2. ESFA's validation rules and XSD applied before a file is offered or sent.
 3. A decided submission route. Either a real ESFA integration, if one exists
    for third parties, or the client accepting file upload to Submit Learner

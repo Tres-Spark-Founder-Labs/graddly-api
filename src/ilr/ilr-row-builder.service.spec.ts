@@ -19,7 +19,10 @@ describe('IlrRowBuilderService', () => {
     expect(fields.Learner.GivenNames).toBe('Port');
     expect(fields.Learner.ULN).toBe('1234567890');
     expect(fields.Learner.LearnRefNumber).toHaveLength(12);
-    expect(fields.LearningDelivery.LearnStartDate).toBe('20250115');
+    expect(fields.LearningDelivery.LearnStartDate).toBe('2025-01-15');
+    expect(fields.LearningDelivery.LearnPlanEndDate).toBe('2026-12-31');
+    // The programme aim, not the standard's own code (that is StdCode).
+    expect(fields.LearningDelivery.LearnAimRef).toBe('ZPROG001');
     expect(fields.LearningDelivery.ProgType).toBe('25');
     expect(fields.Provider.UKPRN).toBe('10012345');
   });

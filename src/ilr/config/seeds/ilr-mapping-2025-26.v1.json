@@ -13,7 +13,11 @@
       "ULN": { "source": "manual", "required": false }
     },
     "LearningDelivery": {
-      "LearnAimRef": { "source": "standard.code", "required": true },
+      "LearnAimRef": {
+        "source": "constant",
+        "value": "ZPROG001",
+        "required": true
+      },
       "LearnStartDate": {
         "source": "enrolment.plannedStartDate",
         "transform": "ilrDate",

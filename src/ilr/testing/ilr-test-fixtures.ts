@@ -20,7 +20,7 @@ export const minimalMappingConfig: IlrMappingConfigDocument = {
       ULN: { source: 'manual', required: false },
     },
     LearningDelivery: {
-      LearnAimRef: { source: 'standard.code', required: true },
+      LearnAimRef: { source: 'constant', value: 'ZPROG001', required: true },
       LearnStartDate: {
         source: 'enrolment.plannedStartDate',
         transform: 'ilrDate',
@@ -65,9 +65,9 @@ export function buildSampleFieldMap(): IlrFieldMap {
       ULN: null,
     },
     LearningDelivery: {
-      LearnAimRef: 'ST0001',
-      LearnStartDate: '20250101',
-      LearnPlanEndDate: '20261231',
+      LearnAimRef: 'ZPROG001',
+      LearnStartDate: '2025-01-01',
+      LearnPlanEndDate: '2026-12-31',
       ProgType: '25',
     },
     Provider: {

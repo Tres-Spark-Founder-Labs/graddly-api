@@ -14,17 +14,17 @@ funding model 36** — the only kind of learner this platform holds.
 
 `src/ilr/config/seeds/ilr-mapping-2025-26.v1.json`: nine fields and two rules.
 
-| Field                               | Source                                            | Status                                                                                                      |
-| ----------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `Learner.LearnRefNumber`            | enrolment id, dashes removed, first 12 characters | OK                                                                                                          |
-| `Learner.FamilyName`                | apprentice                                        | OK                                                                                                          |
-| `Learner.GivenNames`                | apprentice                                        | OK                                                                                                          |
-| `Learner.ULN`                       | manual override only                              | Needs a source (see below)                                                                                  |
-| `LearningDelivery.LearnAimRef`      | `standard.code`                                   | **Wrong.** For a standard the programme aim is `ZPROG001`. The standard's identity goes in `StdCode`.       |
-| `LearningDelivery.LearnStartDate`   | enrolment planned start, `ilrDate`                | **Wrong format.** `ilrDate` writes `20250115`, but ILR XML dates are `2025-01-15`. The XSD would reject it. |
-| `LearningDelivery.LearnPlanEndDate` | enrolment planned end, `ilrDate`                  | Wrong format, as above                                                                                      |
-| `LearningDelivery.ProgType`         | constant `25`                                     | OK                                                                                                          |
-| `Provider.UKPRN`                    | organisation                                      | OK                                                                                                          |
+| Field                               | Source                                            | Status                                                                                              |
+| ----------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `Learner.LearnRefNumber`            | enrolment id, dashes removed, first 12 characters | OK                                                                                                  |
+| `Learner.FamilyName`                | apprentice                                        | OK                                                                                                  |
+| `Learner.GivenNames`                | apprentice                                        | OK                                                                                                  |
+| `Learner.ULN`                       | manual override only                              | Needs a source (see below)                                                                          |
+| `LearningDelivery.LearnAimRef`      | constant `ZPROG001`                               | OK (corrected from `standard.code`). The standard's identity goes in `StdCode`, not mapped (below). |
+| `LearningDelivery.LearnStartDate`   | enrolment planned start, `ilrDate`                | OK (corrected: `ilrDate` wrote `20250115`; it now writes `2025-01-15`, the `xs:date` pattern)       |
+| `LearningDelivery.LearnPlanEndDate` | enrolment planned end, `ilrDate`                  | OK, as above                                                                                        |
+| `LearningDelivery.ProgType`         | constant `25`                                     | OK                                                                                                  |
+| `Provider.UKPRN`                    | organisation                                      | OK                                                                                                  |
 
 Rules: `ILR001` checks that the UKPRN is present, and `ILR002` checks that the
 start date is not after the planned end. ESFA publishes several hundred rules.
@@ -66,7 +66,7 @@ skills maths and English where the learner takes them.
 | Field(s)                                                                                | Kind                         | Note                                                                                       |
 | --------------------------------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------ |
 | Several learning deliveries per learner                                                 | structure                    | v1 has exactly one `LearningDelivery` per record.                                          |
-| `LearnAimRef` = `ZPROG001` for the programme aim                                        | derivable                    | Fix of the mapping above. Component aims need LARS references.                             |
+| `LearnAimRef` for component aims                                                        | reference                    | The programme aim (`ZPROG001`) is mapped. Component aims need LARS references.             |
 | `AimType`, `AimSeqNumber`                                                               | derivable                    | Generated from the aims.                                                                   |
 | `FundModel` = `36`                                                                      | derivable                    | Constant.                                                                                  |
 | `StdCode`                                                                               | reference                    | The LARS numeric standard code, not the IfATE reference (`ST0116`) held on standards.      |
@@ -108,8 +108,8 @@ skills maths and English where the learner takes them.
    outcome codes, and the TNP1/TNP2 split of the agreed price.
 5. **Validation.** Load ESFA's published rules, or at least the rules for the
    fields produced, and validate the file against the XSD.
-6. **Fixes to v1.** `LearnAimRef` = `ZPROG001`, the date format, and the
-   serial number.
+6. **Fixes to v1.** The serial number. (`LearnAimRef` = `ZPROG001` and the
+   date format are corrected.)
 
 Items 1, 2 and 5 are each substantial on their own. Together they are what
 separates the current file (a demonstrator of the pipeline) from a return ESFA

@@ -49,7 +49,8 @@ describe('IlrPayloadSerializerService', () => {
     expect(xml).toContain('<Learner>');
     expect(xml).toContain('<FamilyName>Folio</FamilyName>');
     expect(xml).toContain('<LearningDelivery>');
-    expect(xml).toContain('<LearnAimRef>ST0001</LearnAimRef>');
+    expect(xml).toContain('<LearnAimRef>ZPROG001</LearnAimRef>');
+    expect(xml).toContain('<LearnStartDate>2025-01-01</LearnStartDate>');
     expect(xml).toContain('<Provider>');
     expect(xml).not.toContain('<ULN>');
   });

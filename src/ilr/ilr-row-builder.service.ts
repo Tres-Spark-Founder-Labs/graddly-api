@@ -101,8 +101,11 @@ export class IlrRowBuilderService {
     if (!transform) {
       return value;
     }
+    // ILR dates are xs:date, field length 10: "a valid date, using the date
+    // pattern YYYY-MM-DD". This wrote 20250115, which the schema rejects.
+    // Date columns arrive as YYYY-MM-DD; a timestamp keeps its date part.
     if (transform === 'ilrDate') {
-      return value.replace(/-/g, '');
+      return value.slice(0, 10);
     }
     if (transform === 'ilrRef') {
       return value.replace(/-/g, '').slice(0, 12).toUpperCase();

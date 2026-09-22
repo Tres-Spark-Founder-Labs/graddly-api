@@ -655,6 +655,16 @@ describe('ILR (e2e)', () => {
       expect(file.xml).toContain(`<UKPRN>${seed.ukprn}</UKPRN>`);
       expect(file.xml).toContain('<ULN>1234567890</ULN>');
       expect(file.xml).toContain('<ULN>1234567891</ULN>');
+      // v1 corrections: the programme aim, and dates as xs:date.
+      expect(
+        file.xml.match(/<LearnAimRef>ZPROG001<\/LearnAimRef>/g),
+      ).toHaveLength(2);
+      expect(
+        file.xml.match(/<LearnStartDate>2025-01-15<\/LearnStartDate>/g),
+      ).toHaveLength(2);
+      expect(
+        file.xml.match(/<LearnPlanEndDate>2026-12-31<\/LearnPlanEndDate>/g),
+      ).toHaveLength(2);
       expect(file.coverage).toContain('not the full annual schema');
     });
   });

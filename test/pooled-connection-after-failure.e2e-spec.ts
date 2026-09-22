@@ -1,5 +1,7 @@
 import { DataSource } from 'typeorm';
 
+import { runWithTenantContext } from '../src/common/context/correlation-id-context.js';
+
 /**
  * A connection that has been through a failed statement never serves another
  * request while its transaction is aborted.
@@ -117,10 +119,36 @@ describe('a failed statement does not poison the pooled connection (e2e)', () =>
     });
 
     expect(
-      (await ds.query('SELECT id FROM pool_probe ORDER BY id')).map(
-        (r) => r.id,
-      ),
+      (
+        await ds.query<{ id: number }[]>(
+          'SELECT id FROM pool_probe ORDER BY id',
+        )
+      ).map((r) => r.id),
     ).toEqual([3]);
+  });
+
+  /**
+   * SET TRANSACTION ISOLATION LEVEL must be the first statement of its
+   * transaction; the session-variable SELECT in front of it took a snapshot
+   * first, so every REPEATABLE READ or SERIALIZABLE transaction failed at
+   * its first statement. Nothing in src/ asks for one today (latent), and
+   * the exemption must not cost the statements after it their tenant.
+   */
+  it('opens a REPEATABLE READ transaction, and the statements inside it still carry the tenant', async () => {
+    const seen = await runWithTenantContext(
+      { label: 'e2e:isolation', organisationId: 'org-isolation' },
+      () =>
+        ds.transaction('REPEATABLE READ', async (em) => {
+          const [row] = await em.query(
+            `SELECT current_setting('transaction_isolation') AS level,
+                    current_setting('app.current_org', true) AS org`,
+          );
+          return row;
+        }),
+    );
+    expect(seen).toEqual({ level: 'repeatable read', org: 'org-isolation' });
+
+    await expect(ds.query('SELECT 1 AS ok')).resolves.toEqual([{ ok: 1 }]);
   });
 
   /**

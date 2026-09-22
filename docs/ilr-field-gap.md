@@ -63,24 +63,39 @@ Each field is marked by what closing it takes:
 There is at least one programme aim, plus component aims such as functional
 skills maths and English where the learner takes them.
 
-| Field(s)                                                                                | Kind                         | Note                                                                                       |
-| --------------------------------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------ |
-| Several learning deliveries per learner                                                 | structure                    | v1 has exactly one `LearningDelivery` per record.                                          |
-| `LearnAimRef` for component aims                                                        | reference                    | The programme aim (`ZPROG001`) is mapped. Component aims need LARS references.             |
-| `AimType`, `AimSeqNumber`                                                               | derivable                    | Generated from the aims.                                                                   |
-| `FundModel` = `36`                                                                      | derivable                    | Constant.                                                                                  |
-| `StdCode`                                                                               | reference                    | The LARS numeric standard code, not the IfATE reference (`ST0116`) held on standards.      |
-| `PHours` (planned off-the-job hours)                                                    | derivable                    | The OTJ target the pace calculation uses.                                                  |
-| `OTJActHours`                                                                           | derivable                    | Approved OTJ minutes, at completion or withdrawal.                                         |
-| `DelLocPostCode`                                                                        | capture                      | Delivery location.                                                                         |
-| `EPAOrgID`                                                                              | reference                    | ESFA EPAO ID (`EPA0001` form). Enrolments hold an EPAO name and UKPRN, not this ID.        |
-| `CompStatus`, `LearnActEndDate`, `WithdrawReason`                                       | derivable, partly            | Completion and cancellation dates exist. The ESFA withdrawal reason code does not.         |
-| `Outcome`, `AchDate`, `OutGrade`                                                        | derivable                    | From `epa_outcomes` (pass, merit, distinction, fail; assessed on).                         |
-| `PriorLearnFundAdj`, `OtherFundAdj`                                                     | capture                      | Recognition of prior learning.                                                             |
-| `OrigLearnStartDate`                                                                    | derivable, partly            | Restarts after a break. Breaks are recorded, restarts are not.                             |
-| `PartnerUKPRN`                                                                          | capture                      | Subcontracted delivery only.                                                               |
-| `LearningDeliveryFAM` (`ACT` contract type with dates, `SOF`, `LDM`, `RES`, and others) | capture, structure           | `ACT` (levy / non-levy) is mandatory and date-ranged. Repeatable.                          |
-| `AppFinRecord` (`TNP1` training price, `TNP2` EPA price, `PMR` employer payments)       | derivable, partly; structure | `agreedPrice` is one number. ILR splits it into training and EPA price. Repeatable, dated. |
+| Field(s)                                                                                | Kind                         | Note                                                                                             |
+| --------------------------------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------ |
+| Several learning deliveries per learner                                                 | structure                    | v1 has exactly one `LearningDelivery` per record.                                                |
+| `LearnAimRef` for component aims                                                        | reference                    | The programme aim (`ZPROG001`) is mapped. Component aims need LARS references.                   |
+| `AimType`, `AimSeqNumber`                                                               | derivable                    | Generated from the aims.                                                                         |
+| `FundModel` = `36`                                                                      | derivable                    | Constant.                                                                                        |
+| `StdCode`                                                                               | reference                    | The LARS numeric standard code, not the IfATE reference (`ST0116`) held on standards. See below. |
+| `PHours` (planned off-the-job hours)                                                    | derivable                    | The OTJ target the pace calculation uses.                                                        |
+| `OTJActHours`                                                                           | derivable                    | Approved OTJ minutes, at completion or withdrawal.                                               |
+| `DelLocPostCode`                                                                        | capture                      | Delivery location.                                                                               |
+| `EPAOrgID`                                                                              | reference                    | ESFA EPAO ID (`EPA0001` form). Enrolments hold an EPAO name and UKPRN, not this ID.              |
+| `CompStatus`, `LearnActEndDate`, `WithdrawReason`                                       | derivable, partly            | Completion and cancellation dates exist. The ESFA withdrawal reason code does not.               |
+| `Outcome`, `AchDate`, `OutGrade`                                                        | derivable                    | From `epa_outcomes` (pass, merit, distinction, fail; assessed on).                               |
+| `PriorLearnFundAdj`, `OtherFundAdj`                                                     | capture                      | Recognition of prior learning.                                                                   |
+| `OrigLearnStartDate`                                                                    | derivable, partly            | Restarts after a break. Breaks are recorded, restarts are not.                                   |
+| `PartnerUKPRN`                                                                          | capture                      | Subcontracted delivery only.                                                                     |
+| `LearningDeliveryFAM` (`ACT` contract type with dates, `SOF`, `LDM`, `RES`, and others) | capture, structure           | `ACT` (levy / non-levy) is mandatory and date-ranged. Repeatable.                                |
+| `AppFinRecord` (`TNP1` training price, `TNP2` EPA price, `PMR` employer payments)       | derivable, partly; structure | `agreedPrice` is one number. ILR splits it into training and EPA price. Repeatable, dated.       |
+
+**`StdCode` — two identifiers for one standard.** The platform stores one
+identifier per standard: `standards.code`, a free-text column (100
+characters) holding the IfATE reference, `ST0116`. The ILR wants a different
+one in `StdCode`: the LARS standard code, 5 characters, `xs:int`, "a valid
+entry from the apprenticeship standard code list which can be found in the
+LARS database". They name the same standard and neither can be derived from
+the other. So `StdCode` is left unmapped rather than filled with the IfATE
+reference, which the XSD would reject as not an integer. Closing it means one
+of:
+
+- a second column on the standard, the LARS code, entered by the provider
+  beside the IfATE reference (and validated as an integer); or
+- a LARS lookup at build time, keyed on the IfATE reference, against a copy of
+  the LARS standards list kept current.
 
 ### File and message
 

@@ -6,6 +6,7 @@ import {
   ApiHeader,
   ApiOkResponse,
   ApiOperation,
+  ApiPayloadTooLargeResponse,
   ApiProduces,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -29,6 +30,8 @@ import {
   type AuditExportCsvResult,
 } from './audit-export.service.js';
 import {
+  AuditCompleteExportDto,
+  AuditCompleteExportQueryDto,
   AuditExportQueryDto,
   AuditLogEntryDto,
 } from './dto/audit-export-query.dto.js';
@@ -45,7 +48,7 @@ function isCsvResult(
 }
 
 @ApiTags('Audit')
-@ApiExtraModels(AuditLogEntryDto, PaginationMetaDto)
+@ApiExtraModels(AuditLogEntryDto, PaginationMetaDto, AuditCompleteExportDto)
 @Controller({ path: 'audit', version: '1' })
 @UseGuards(JwtAuthGuard, ActiveOrganisationGuard, CapabilityGuard)
 @RequiresCapability(Capability.READ_AUDIT_TRAIL)
@@ -65,6 +68,61 @@ function isCsvResult(
 })
 export class AuditController {
   constructor(private readonly auditExportService: AuditExportService) {}
+
+  /**
+   * Every entry in scope as one file, or an error. Declared before `export`
+   * for readability; the paths are distinct. The provider's export panel uses
+   * this; the paginated `export` below stays for API clients that page.
+   */
+  @Get('export/all')
+  @ResponseMessage('Complete audit log export retrieved successfully')
+  @ApiOperation({
+    summary: 'Export every audit entry in scope (JSON or CSV), unpaged',
+    description:
+      'Same filters as GET /audit/export, no paging. Responds with the whole ' +
+      'export or an error: 413 when the scope holds more than ' +
+      'AUDIT_EXPORT_MAX_ROWS entries, with the count in the message.',
+  })
+  @ApiProduces('application/json', 'text/csv')
+  @ApiOkResponse({
+    description: 'The complete export, with its scope and total',
+    schema: {
+      oneOf: [
+        {
+          properties: {
+            message: { type: 'string' },
+            data: { $ref: getSchemaPath(AuditCompleteExportDto) },
+          },
+        },
+        { type: 'string', format: 'binary' },
+      ],
+    },
+  })
+  @ApiPayloadTooLargeResponse({
+    description: 'More entries in scope than one export may hold',
+    type: ErrorResponseDto,
+  })
+  async exportAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: AuditCompleteExportQueryDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuditCompleteExportDto | string> {
+    setCurrentUserId(user.id);
+
+    const result = await this.auditExportService.exportAll(user, query);
+    res.setHeader('X-Total-Count', String(result.total));
+
+    if (query.format === AuditExportFormat.CSV) {
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="audit-export-${result.organisationId}-complete.csv"`,
+      );
+      return this.auditExportService.completeExportToCsv(result);
+    }
+
+    return result;
+  }
 
   @Get('export')
   @ResponseMessage('Audit log export retrieved successfully')

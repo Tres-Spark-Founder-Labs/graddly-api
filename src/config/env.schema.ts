@@ -237,6 +237,15 @@ export const envSchema = z
       .max(604800)
       .default(86400),
 
+    // The most audit entries one complete export may hold. Above it the
+    // export is refused with 413 and the count, never cut short.
+    AUDIT_EXPORT_MAX_ROWS: z.coerce
+      .number()
+      .int()
+      .min(1000)
+      .max(500000)
+      .default(50000),
+
     DAS_BASE_URL: z.string().url().optional().default(''),
     DAS_TOKEN_URL: z.string().url().optional().default(''),
     DAS_CLIENT_ID: z.string().optional().default(''),

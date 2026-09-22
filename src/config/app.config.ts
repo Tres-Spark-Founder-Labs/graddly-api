@@ -175,6 +175,9 @@ export default registerAs('app', () => {
     epaPack: {
       emailLinkTtlSeconds: e.EPA_PACK_EMAIL_LINK_TTL_SECONDS,
     },
+    audit: {
+      exportMaxRows: e.AUDIT_EXPORT_MAX_ROWS,
+    },
     das: {
       baseUrl: e.DAS_BASE_URL,
       tokenUrl: e.DAS_TOKEN_URL,

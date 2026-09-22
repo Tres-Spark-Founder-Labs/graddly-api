@@ -31,6 +31,24 @@ import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialE
 
 @EventSubscriber()
 export class AuditLogSubscriber implements EntitySubscriberInterface {
+  /**
+   * Written in the audited write's own transaction, and not caught.
+   *
+   * ── IF THE AUDIT INSERT FAILS, THE WRITE FAILS (task 6.5) ────────────────
+   *
+   * Deliberately. The trail is evidence — "all data mutations logged ...
+   * logs immutable" (NFR audit logging), the Ofsted-ready trail of F1.3.3 —
+   * and a change that lands without its entry makes the trail silently
+   * incomplete, which is worse than the change being refused: the person
+   * sees an error and can retry, whereas a gap in the trail is found, if
+   * ever, by an inspector. Capturing the failure "elsewhere" would be a
+   * second store the trail does not include.
+   *
+   * No other request is affected: the rollback that follows is sent (see
+   * isRollbackStatement in postgres-query-runner.patch.ts) and the
+   * connection goes back to the pool clean. Proved in
+   * test/pooled-connection-after-failure.e2e-spec.ts.
+   */
   private async insertAuditEntry(
     manager: EntityManager,
     row: QueryDeepPartialEntity<AuditLogEntry>,

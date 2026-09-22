@@ -99,6 +99,7 @@ top of the file.
 - **Mapping config** seeds a minimal apprenticeship field subset for `2025-26` v1 — not the full ESFA specification. Annual updates = new published mapping config versions.
 - **Validation** runs config JSON rules only. Full ESFA rule spreadsheets and online-only checks (ULN, postcode) are future work.
 - **XML** covers the v1 seeded field subset only — not full annual ESFA XSD. This applies to the return file too: Submit Learner Data may reject it until the mapping is complete.
+- **Field gap:** every omitted ESFA field, the two v1 fields that are wrong, and what completing the map involves are in [ilr-field-gap.md](ilr-field-gap.md); the PRD deviation is [D-03](prd/DEVIATIONS.md).
 - **Submit** uses configurable REST client; official Submit Learner Data portal automation is future work.
 - **Domain gaps:** `Apprentice` lacks ULN/DOB/etc. — use `manualOverrides` on learner records until domain entities grow.
 

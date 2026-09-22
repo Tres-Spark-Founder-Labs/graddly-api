@@ -151,6 +151,7 @@ export class IlrLearnerRecordsService {
     }
 
     qb.orderBy('record.createdAt', 'DESC')
+      .addOrderBy('record.id', 'DESC')
       .skip((page - 1) * perPage)
       .take(perPage);
 

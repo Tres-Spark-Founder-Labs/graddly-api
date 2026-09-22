@@ -39,7 +39,7 @@ export class RetentionRunLogService {
     const perPage = query.perPage ?? 20;
 
     const [items, total] = await this.runLogRepo.findAndCount({
-      order: { ranAt: 'DESC' },
+      order: { ranAt: 'DESC', id: 'DESC' },
       skip: (page - 1) * perPage,
       take: perPage,
     });

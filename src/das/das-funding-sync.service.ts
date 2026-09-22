@@ -147,7 +147,8 @@ export class DasFundingSyncService {
       .createQueryBuilder('payment')
       .where('payment.organisationId = :organisationId', { organisationId })
       .andWhere('payment.isDeleted = false')
-      .orderBy('payment.paymentDate', 'DESC');
+      .orderBy('payment.paymentDate', 'DESC')
+      .addOrderBy('payment.id', 'DESC');
 
     if (query.from) {
       qb.andWhere('payment.paymentDate >= :from', { from: query.from });

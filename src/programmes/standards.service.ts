@@ -63,7 +63,7 @@ export class StandardsService {
     const perPage = query.perPage ?? 20;
     const [items, total] = await this.standardRepo.findAndCount({
       where: { organisationId: user.organisationId! },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'DESC' },
       skip: (page - 1) * perPage,
       take: perPage,
     });

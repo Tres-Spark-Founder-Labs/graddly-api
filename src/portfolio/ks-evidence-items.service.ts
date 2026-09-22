@@ -177,6 +177,7 @@ export class KsEvidenceItemsService {
     }
 
     qb.orderBy('item.createdAt', 'DESC')
+      .addOrderBy('item.id', 'DESC')
       .skip((page - 1) * perPage)
       .take(perPage);
 

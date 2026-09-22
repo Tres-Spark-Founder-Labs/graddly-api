@@ -88,7 +88,7 @@ export class DasLevyMonthlyService {
   ): Promise<DasLevyMonthlyEntry[]> {
     return this.monthlyRepo.find({
       where: { organisationId, isDeleted: false },
-      order: { month: 'DESC' },
+      order: { month: 'DESC', id: 'DESC' },
       take: limit,
     });
   }

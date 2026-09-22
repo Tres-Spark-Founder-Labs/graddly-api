@@ -232,6 +232,7 @@ export class ReviewsService {
       qb.andWhere('review.scheduledAt <= :to', { to: new Date(query.to) });
 
     qb.orderBy('review.scheduledAt', 'ASC')
+      .addOrderBy('review.id', 'ASC')
       .skip((page - 1) * perPage)
       .take(perPage);
 

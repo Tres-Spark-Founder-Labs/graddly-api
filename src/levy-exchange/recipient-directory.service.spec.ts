@@ -15,6 +15,7 @@ const queryBuilder = {
   where: qbWhere,
   andWhere: qbAndWhere,
   orderBy: qbOrderBy,
+  addOrderBy: jest.fn().mockReturnThis(),
   skip: qbSkip,
   take: qbTake,
   getManyAndCount: qbGetManyAndCount,

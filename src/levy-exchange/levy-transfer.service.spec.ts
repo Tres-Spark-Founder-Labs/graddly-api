@@ -82,6 +82,7 @@ describe('LevyTransferService', () => {
       where: qbWhere.mockReturnThis(),
       andWhere: qbAndWhere.mockReturnThis(),
       orderBy: qbOrderBy.mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
       skip: qbSkip.mockReturnThis(),
       take: qbTake.mockReturnThis(),
       getManyAndCount: qbGetManyAndCount,

@@ -127,6 +127,7 @@ export class LevyRecipientProfileService {
 
     const [rows, total] = await qb
       .orderBy('p.updatedAt', 'DESC')
+      .addOrderBy('p.id', 'DESC')
       .skip((page - 1) * perPage)
       .take(perPage)
       .getManyAndCount();

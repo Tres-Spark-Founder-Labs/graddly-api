@@ -165,6 +165,7 @@ export class AuditExportService {
       .createQueryBuilder('audit')
       .where('audit.organisationId = :organisationId', { organisationId })
       .orderBy('audit.createdAt', 'DESC')
+      .addOrderBy('audit.id', 'DESC')
       .skip(skip)
       .take(perPage);
 

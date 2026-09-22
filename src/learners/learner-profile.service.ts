@@ -189,7 +189,7 @@ export class LearnerProfileService {
        */
       this.otjRepo.find({
         where: { organisationId, enrolmentId, isDeleted: false },
-        order: { loggedDate: 'DESC' },
+        order: { loggedDate: 'DESC', id: 'DESC' },
         take: LEARNER_PROFILE_OTJ_LIMIT,
       }),
       this.otjRepo.count({

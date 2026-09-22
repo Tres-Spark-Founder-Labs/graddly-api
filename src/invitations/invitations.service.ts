@@ -147,7 +147,7 @@ export class InvitationsService {
         isDeleted: false,
       },
       relations: ['invitedBy'],
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'DESC' },
       skip: (page - 1) * perPage,
       take: perPage,
     });

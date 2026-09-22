@@ -57,7 +57,7 @@ describe('RetentionRunLogService', () => {
     const result = await service.listRuns({ page: 1, perPage: 20 });
 
     expect(findAndCount).toHaveBeenCalledWith({
-      order: { ranAt: 'DESC' },
+      order: { ranAt: 'DESC', id: 'DESC' },
       skip: 0,
       take: 20,
     });

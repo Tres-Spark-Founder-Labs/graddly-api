@@ -359,7 +359,9 @@ export class LearnerCohortService {
       const bv = this.sortValue(b, sortBy);
       if (av < bv) return -1 * order;
       if (av > bv) return 1 * order;
-      return 0;
+      // Rows that tie on the column keep one order on every request, or a
+      // page boundary through the tie repeats some learners and drops others.
+      return a.enrolmentId.localeCompare(b.enrolmentId);
     });
     return sorted;
   }

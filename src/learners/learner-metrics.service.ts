@@ -67,7 +67,7 @@ export class LearnerMetricsService {
         isDeleted: false,
       },
       relations: ['apprentice', 'standard', 'employerOrganisation'],
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'DESC' },
     });
   }
 

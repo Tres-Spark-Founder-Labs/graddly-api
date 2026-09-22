@@ -181,6 +181,7 @@ export class CommitmentStatementsService {
     }
 
     qb.orderBy('statement.createdAt', 'DESC')
+      .addOrderBy('statement.id', 'DESC')
       .skip((page - 1) * perPage)
       .take(perPage);
 

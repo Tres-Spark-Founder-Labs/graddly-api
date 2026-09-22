@@ -181,6 +181,7 @@ export class NotificationsService {
     }
 
     qb.orderBy('n.createdAt', 'DESC')
+      .addOrderBy('n.id', 'DESC')
       .skip((page - 1) * perPage)
       .take(perPage);
 

@@ -147,6 +147,7 @@ export class OtjLogEntriesService {
     if (query.to) qb.andWhere('otj.loggedDate <= :to', { to: query.to });
 
     qb.orderBy('otj.createdAt', 'DESC')
+      .addOrderBy('otj.id', 'DESC')
       .skip((page - 1) * perPage)
       .take(perPage);
     const [rows, total] = await qb.getManyAndCount();

@@ -58,7 +58,7 @@ export class InterventionActionsService {
   ): Promise<InterventionActionResponseDto[]> {
     const rows = await this.repo.find({
       where: { organisationId, enrolmentId, isDeleted: false },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'DESC' },
       take: limit,
     });
     return rows.map((row) => this.toResponse(row));

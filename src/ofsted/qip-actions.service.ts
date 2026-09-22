@@ -113,6 +113,7 @@ export class QipActionsService {
       'ASC',
     )
       .addOrderBy('qip.targetCompletionDate', 'ASC')
+      .addOrderBy('qip.id', 'ASC')
       .skip((page - 1) * perPage)
       .take(perPage);
 

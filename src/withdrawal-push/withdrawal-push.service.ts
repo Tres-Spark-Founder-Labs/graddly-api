@@ -160,7 +160,7 @@ export class WithdrawalPushService {
         status: WithdrawalPushStatus.FAILED,
         isDeleted: false,
       },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'DESC' },
       skip: (page - 1) * perPage,
       take: perPage,
     });

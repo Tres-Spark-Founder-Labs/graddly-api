@@ -138,7 +138,12 @@ export class EmployerDirectoryService {
     }
 
     rows = this.applyFilters(rows, query);
-    rows.sort((a, b) => a.organisationName.localeCompare(b.organisationName));
+    rows.sort(
+      (a, b) =>
+        a.organisationName.localeCompare(b.organisationName) ||
+        // Two employers can share a name; the page boundary must not.
+        a.employerOrganisationId.localeCompare(b.employerOrganisationId),
+    );
 
     const total = rows.length;
     const start = (page - 1) * perPage;

@@ -131,6 +131,7 @@ export class LevyMatchApplicationService {
     }
 
     qb.orderBy('application.createdAt', 'DESC')
+      .addOrderBy('application.id', 'DESC')
       .skip((page - 1) * perPage)
       .take(perPage);
 

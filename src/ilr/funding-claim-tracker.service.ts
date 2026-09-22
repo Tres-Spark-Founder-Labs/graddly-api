@@ -69,7 +69,7 @@ export class FundingClaimTrackerService {
         status: In([EnrolmentStatus.ACTIVE, EnrolmentStatus.COMPLETED]),
       },
       relations: ['apprentice', 'standard'],
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'DESC' },
       skip: (page - 1) * perPage,
       take: perPage,
     });

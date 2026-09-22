@@ -55,7 +55,7 @@ export class MessagesService {
         isDeleted: false,
       },
       relations: ['attachments'],
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'DESC' },
       skip: (page - 1) * perPage,
       take: perPage,
     });

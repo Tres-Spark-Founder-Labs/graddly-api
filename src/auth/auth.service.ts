@@ -345,6 +345,7 @@ export class AuthService {
     const row = await qb
       .orderBy(this.membershipRoleOrder, 'ASC')
       .addOrderBy('m.joinedAt', 'ASC')
+      .addOrderBy('m.id', 'ASC')
       .limit(1)
       .getRawOne<MembershipRow>();
 

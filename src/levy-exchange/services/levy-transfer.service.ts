@@ -189,6 +189,7 @@ export class LevyTransferService {
     }
 
     qb.orderBy('transfer.createdAt', 'DESC')
+      .addOrderBy('transfer.id', 'DESC')
       .skip((page - 1) * perPage)
       .take(perPage);
 

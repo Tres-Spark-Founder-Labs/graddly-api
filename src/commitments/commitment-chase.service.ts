@@ -133,7 +133,7 @@ export class CommitmentChaseService {
         organisationId,
         status: CommitmentSignatureStatus.PENDING,
       },
-      order: { signOrder: 'ASC' },
+      order: { signOrder: 'ASC', id: 'ASC' },
       take: 1,
     });
     const pending = pendingRows[0];

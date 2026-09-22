@@ -102,7 +102,7 @@ export class SmeOverviewService {
         isDeleted: false,
       },
       relations: ['enrolment', 'enrolment.apprentice'],
-      order: { loggedDate: 'DESC' },
+      order: { loggedDate: 'DESC', id: 'DESC' },
       take: PENDING_OTJ_CAP,
     });
 

@@ -30,19 +30,33 @@ export class ReviewsReminderService {
     private readonly config: ConfigService,
   ) {}
 
-  async sendDueReminders(): Promise<number> {
+  /**
+   * F2.2.3 AC3 — the 7-day, 1-day and 48-hour reminders.
+   *
+   * `now` is injectable for the same reason the digest's is: the two
+   * day-based reminders only go out on the 07:00 UTC run, so with the clock
+   * read inside this method they could not be driven at all — a test either
+   * ran at 07:00 or exercised the 48-hour path alone, which is what happened
+   * (the job probe of 23 September could only reach one of the three). An
+   * hour gate that makes two paths untestable is a design fault, not a
+   * testing inconvenience.
+   *
+   * Production passes nothing and gets the real clock.
+   */
+  async sendDueReminders(now: Date = new Date()): Promise<number> {
     let sent = 0;
-    const utcHour = new Date().getUTCHours();
+    const utcHour = now.getUTCHours();
 
     if (utcHour === 7) {
-      sent += await this.sendForKind(ReviewReminderKind.SEVEN_DAYS, 7);
-      sent += await this.sendForKind(ReviewReminderKind.ONE_DAY, 1);
+      sent += await this.sendForKind(ReviewReminderKind.SEVEN_DAYS, 7, now);
+      sent += await this.sendForKind(ReviewReminderKind.ONE_DAY, 1, now);
     }
 
     sent += await this.sendForHourOffset(
       ReviewReminderKind.FORTY_EIGHT_HOURS,
       48,
       1,
+      now,
     );
 
     return sent;
@@ -51,8 +65,9 @@ export class ReviewsReminderService {
   private async sendForKind(
     kind: ReviewReminderKind,
     daysAhead: number,
+    now: Date,
   ): Promise<number> {
-    const targetDay = this.utcDateOnly(new Date());
+    const targetDay = this.utcDateOnly(now);
     targetDay.setUTCDate(targetDay.getUTCDate() + daysAhead);
     const dayStart = new Date(targetDay);
     const dayEnd = new Date(targetDay);
@@ -88,8 +103,9 @@ export class ReviewsReminderService {
     kind: ReviewReminderKind,
     hoursAhead: number,
     toleranceHours: number,
+    asOf: Date,
   ): Promise<number> {
-    const now = Date.now();
+    const now = asOf.getTime();
     const windowStart = new Date(
       now + (hoursAhead - toleranceHours) * 60 * 60 * 1000,
     );

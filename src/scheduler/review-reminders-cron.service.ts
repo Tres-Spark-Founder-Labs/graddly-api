@@ -53,9 +53,15 @@ export class ReviewRemindersCronService
     this.schedulerRegistry.deleteCronJob(REVIEW_REMINDERS_CRON_NAME);
   }
 
-  async handleReviewRemindersCron(): Promise<void> {
+  /**
+   * `now` is a parameter so the cron itself can be driven at a chosen hour:
+   * the 7-day and 1-day reminders only go out on the 07:00 UTC run, and a
+   * test that cannot choose the hour can only reach the 48-hour path
+   * (test/review-reminders.e2e-spec.ts). Production passes nothing.
+   */
+  async handleReviewRemindersCron(now: Date = new Date()): Promise<void> {
     await this.cronLock.runExclusive(REVIEW_REMINDERS_CRON_NAME, async () => {
-      const sent = await this.reminderService.sendDueReminders();
+      const sent = await this.reminderService.sendDueReminders(now);
       this.logger.log(`Review reminders cron sent ${sent} reminder batches`);
     });
   }

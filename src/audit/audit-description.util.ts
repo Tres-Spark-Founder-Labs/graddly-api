@@ -33,6 +33,7 @@ const ENTITY_LABELS: Record<string, string> = {
   review_records: 'review record',
   review_signatures: 'review signature',
   ks_evidence_items: 'portfolio evidence item',
+  users: 'user account',
 };
 
 export function entityLabel(entityType: string): string {

@@ -72,9 +72,18 @@ describe('Milestone notifications cron (e2e)', () => {
   /**
    * An activated enrolment with two reviews: one held, one scheduled.
    *
-   * `reachable: false` gives the enrolment an apprentice who holds no
-   * membership and has no email address — the pre-membership state of F1.2.5
-   * AC3/AC5, where nothing can reach them.
+   * `reachable: false` gives the enrolment an apprentice no channel can
+   * deliver to: no membership, so `createForUser` returns null (the
+   * pre-membership state of F1.2.5 AC3/AC5), and the F3.4.3 AC3 email
+   * preference for this type switched off, so `sendEmail` answers
+   * `suppressed`.
+   *
+   * Deliberately *not* the blank-email trick `review-reminders.e2e-spec.ts`
+   * uses. `users.email` is unique, so two suites blanking an address in the
+   * same run collide on the constraint — which is exactly what happened when
+   * this suite copied it, and it fails whichever suite gets there second. A
+   * switched-off preference is a real production state and is scoped to one
+   * user.
    */
   const seedJourney = async (
     label: string,
@@ -101,11 +110,14 @@ describe('Milestone notifications cron (e2e)', () => {
         email: `milestone-outsider-${suffix}@example.com`,
       });
       apprenticeUserId = outsider.userId;
-      apprenticeEmail = '';
-      // users.email is NOT NULL, so blank is how "no address" is stored.
-      await sudo.query(`UPDATE users SET email = '' WHERE id = $1`, [
-        outsider.userId,
-      ]);
+      apprenticeEmail = outsider.email;
+      // The per-user default row — organisationId NULL — is the one
+      // `isEnabledForRecipient` reads at send time.
+      await sudo.query(
+        `INSERT INTO notification_preferences ("userId", channel, type, enabled)
+         VALUES ($1, 'email', 'milestone_completed', false)`,
+        [outsider.userId],
+      );
     }
 
     const apprentice = await sudo.query<{ id: string }>(
@@ -410,6 +422,8 @@ describe('Milestone notifications cron (e2e)', () => {
     expect(keyed(afterFirstAttempt)).toEqual([]);
     expect(keyed(afterSecondAttempt)).toEqual([]);
     expect(await milestoneNotifications(fixture)).toEqual([]);
+    // And the switched-off preference was honoured rather than worked around.
+    expect(await milestoneEmails(fixture)).toEqual([]);
   });
 
   /**

@@ -58,7 +58,14 @@ export class AuditEventService {
    * which should be their decision rather than an implementation default.
    */
   async record(params: {
-    user: AuthenticatedUser;
+    /**
+     * The actor. Widened from `AuthenticatedUser` to the one field this reads,
+     * so a service that only has the request context — `UsersService`, where
+     * the MFA and password writes live — can record without inventing a user
+     * object. Null is meaningful: a password reset arrives on a token rather
+     * than a session, and claiming the subject acted would be a guess.
+     */
+    user?: Pick<AuthenticatedUser, 'id'> | { id?: string | null } | null;
     action: AuditAction;
     entityType: string;
     entityId: string;

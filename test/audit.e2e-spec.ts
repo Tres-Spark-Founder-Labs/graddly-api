@@ -237,4 +237,85 @@ describe('AuditController (e2e)', () => {
       spy.mockRestore();
     }
   });
+
+  /**
+   * `users` is audited, and a user belongs to no organisation.
+   *
+   * Two things have to hold at once, and only a real request through the
+   * export can show either. The row must be *retrievable* — `programmes` was
+   * audited with a null organisation for months, and since both the RLS
+   * policy and `audit-export.service.ts` compare `organisationId` to the
+   * caller's organisation, and `NULL = uuid` is never true, the rows existed
+   * where no tenant could read them. And the payload must not carry the
+   * password or the MFA secret, because this table is append-only for seven
+   * years.
+   */
+  it('exports the users row an email or profile change produced, with no credential in it', async () => {
+    const suffix = Date.now();
+    const owner = await createVerifiedUser(app, {
+      email: `audit-user-owner-${suffix}@example.com`,
+    });
+    const orgRes = await request(app.getHttpServer())
+      .post('/api/v1/organisations')
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send(buildOrgPayload(`Audit User Org ${suffix}`))
+      .expect(201);
+    const organisationId = (orgRes.body as { data: { id: string } }).data.id;
+
+    const { accessToken } = await loginVerifiedUser(
+      app,
+      owner.email,
+      owner.password,
+    );
+    // Computed keys: the naming-convention rule rejects header names as
+    // literal properties, as at line 155.
+    const auth = {
+      ['Authorization']: `Bearer ${accessToken}`,
+      ['X-Organisation-Id']: organisationId,
+    };
+
+    await request(app.getHttpServer())
+      .patch('/api/v1/auth/me')
+      .set(auth)
+      .send({ jobTitle: `Quality Lead ${suffix}` })
+      .expect(200);
+
+    const exported = await request(app.getHttpServer())
+      .get('/api/v1/audit/export')
+      .query({ entityType: 'users' })
+      .set(auth)
+      .expect(200);
+
+    const rows = (
+      exported.body as {
+        data: {
+          entityId: string;
+          organisationId: string | null;
+          action: string;
+          changes: Record<string, { from?: unknown; to?: unknown }>;
+        }[];
+      }
+    ).data;
+
+    const mine = rows.filter((row) => row.entityId === owner.userId);
+    expect(mine.length).toBeGreaterThan(0);
+
+    const update = mine.find((row) => row.action === 'update');
+    expect(update).toBeDefined();
+    // Resolved through the acting organisation, so the tenant export reaches
+    // it. A null here is the Programme fault repeating.
+    expect(update?.organisationId).toBe(organisationId);
+    expect(update?.changes.jobTitle).toEqual({
+      from: null,
+      to: `Quality Lead ${suffix}`,
+    });
+
+    for (const row of mine) {
+      const fields = Object.keys(row.changes);
+      expect(fields).not.toContain('password');
+      expect(fields).not.toContain('mfaSecret');
+      expect(fields).not.toContain('mfaRecoveryCodes');
+      expect(JSON.stringify(row.changes)).not.toMatch(/\$2[aby]\$\d{2}\$/);
+    }
+  });
 });

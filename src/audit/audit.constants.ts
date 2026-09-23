@@ -11,6 +11,19 @@ import { OrganisationMembership } from '../organisations/entities/organisation-m
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 
+/**
+ * NOT the switch. Adding a class here audits nothing.
+ *
+ * `isAuditedEntity` in `audit-organisation-id.resolver.ts` is what
+ * `AuditLogSubscriber` actually calls; this set predates it and nothing
+ * imports it. It is kept only because the reasoning below — the test applied
+ * to each entity, and why each one passed it — is worth having, and three of
+ * these five are audited today through the resolver instead.
+ *
+ * If you are adding audit coverage, add the class to `isAuditedEntity` and
+ * its table name to `resolveAuditOrganisationId`, and `audit-coverage.spec.ts`
+ * will hold the two lists together.
+ */
 export const AUDITED_ENTITIES = new Set([
   Organisation,
   OrganisationMembership,
@@ -99,9 +112,60 @@ export const AUDITED_ENTITIES = new Set([
   EmployerVisit,
 ]);
 
+/**
+ * Fields that never reach `audit_log_entries.changes`.
+ *
+ * ── THE CREDENTIALS ARE NOT HOUSEKEEPING ────────────────────────────────────
+ *
+ * `changes` is before/after JSON, the table is append-only by trigger
+ * (migration 1781100000027 — UPDATE and DELETE are rejected outright for
+ * everything except the GDPR pseudonymisation of three named columns), and
+ * retention is seven years. A credential written into it cannot be corrected,
+ * cleaned up, or deleted. It is simply there, in a table designed so that
+ * nothing can be taken out of it, for seven years.
+ *
+ * That is the asymmetry worth understanding: personal data in a payload is
+ * recoverable, because `scrubAuditChanges` in `audit-scrub.util.ts` rewrites
+ * names and email addresses on an erasure request. A password hash, a TOTP
+ * secret or an OAuth token has no such route out, so it must never go in.
+ *
+ *   password, passwordHash            the login credential.
+ *   mfaSecret                         the AES-GCM encrypted TOTP seed. Anyone
+ *                                     holding it plus the key generates valid
+ *                                     codes.
+ *   mfaRecoveryCodes                  bcrypt hashes of single-use codes that
+ *                                     bypass MFA.
+ *   accessTokenEncrypted,             DAS donor OAuth tokens.
+ *   refreshTokenEncrypted             `DasDonorOAuthToken` is audited, its
+ *                                     `upsertToken` path persists through
+ *                                     `repo.save()`, and both columns are
+ *                                     ordinary selected text — so before
+ *                                     this exclusion any successful token
+ *                                     write carried both values into
+ *                                     `changes`. Measured on 23 Sep 2026: no
+ *                                     row in either local database ever
+ *                                     did. See AUDIT-COVERAGE.md for the
+ *                                     numbers and for the query to run
+ *                                     against a database this machine
+ *                                     cannot reach.
+ *
+ * `audit-credential-scrub.spec.ts` asserts no audited payload can carry any
+ * of them, and fails when an audited entity gains a credential-shaped column
+ * that is not listed here — so the next one is a decision rather than an
+ * omission.
+ */
 export const AUDIT_EXCLUDED_FIELDS = new Set([
   'password',
   'passwordHash',
+  'mfaSecret',
+  'mfaRecoveryCodes',
+  'accessTokenEncrypted',
+  'refreshTokenEncrypted',
+  // Web Push keys on `push_subscriptions`, listed before anything audits that
+  // entity. Neither name contains "key", "secret" or "token", so the pattern
+  // in `audit-credential-scrub.spec.ts` would not catch them on its own.
+  'p256dh',
+  'auth',
   'updatedAt',
   'createdAt',
   'deletedAt',

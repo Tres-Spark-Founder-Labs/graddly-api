@@ -3,15 +3,21 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AuthModule } from '../auth/auth.module.js';
 
-import { AuditEventService } from './audit-event.service.js';
+import { AuditEventModule } from './audit-event.module.js';
 import { AuditExportService } from './audit-export.service.js';
 import { AuditController } from './audit.controller.js';
 import { AuditLogEntry } from './entities/audit-log-entry.entity.js';
 
 @Module({
-  imports: [AuthModule, TypeOrmModule.forFeature([AuditLogEntry])],
+  imports: [
+    AuthModule,
+    // Re-exported below, so anything importing AuditModule still gets
+    // AuditEventService. See AuditEventModule for why it is not declared here.
+    AuditEventModule,
+    TypeOrmModule.forFeature([AuditLogEntry]),
+  ],
   controllers: [AuditController],
-  providers: [AuditExportService, AuditEventService],
-  exports: [AuditExportService, AuditEventService],
+  providers: [AuditExportService],
+  exports: [AuditExportService, AuditEventModule],
 })
 export class AuditModule {}

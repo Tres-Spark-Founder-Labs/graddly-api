@@ -62,6 +62,67 @@ describe('Review reminders at the cron (e2e)', () => {
       app.get(ReviewsReminderService),
     );
 
+  /**
+   * A second, smaller fixture for the cross-tenant guard test: one
+   * organisation with one review inside the 48-hour window and an apprentice
+   * who is a member, so the reminder has somebody to reach.
+   */
+  const seedReviewInWindow = async (
+    label: string,
+  ): Promise<{ orgId: string; reviewId: string; apprenticeUserId: string }> => {
+    const suffix = `${Date.now()}-${label}`;
+    const owner = await createVerifiedUser(app, {
+      email: `reminder-${suffix}@example.com`,
+    });
+    const orgRes = await request(app.getHttpServer())
+      .post('/api/v1/organisations')
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send(buildOrgPayload(`Reminder Scope ${suffix}`))
+      .expect(201);
+    const orgId = (orgRes.body as { data: { id: string } }).data.id;
+
+    const apprenticeRow = await sudo.query<{ id: string }>(
+      `INSERT INTO apprentices ("organisationId", "firstName", "lastName", email)
+       VALUES ($1, 'Scope', 'Apprentice', $2) RETURNING id`,
+      [orgId, `reminder-scope-appr-${suffix}@example.com`],
+    );
+    const programme = await sudo.query<{ id: string }>(
+      `INSERT INTO programmes ("organisationId", code, title)
+       VALUES ($1, $2, 'Scope Programme') RETURNING id`,
+      [orgId, `REM-SCOPE-PROG-${suffix}`],
+    );
+    const standard = await sudo.query<{ id: string }>(
+      `INSERT INTO standards ("organisationId", "programmeId", code, title)
+       VALUES ($1, $2, $3, 'Scope Standard') RETURNING id`,
+      [orgId, programme.rows[0].id, `REM-SCOPE-STD-${suffix}`],
+    );
+    const enrolment = await sudo.query<{ id: string }>(
+      `INSERT INTO enrolments ("organisationId", "apprenticeId", "standardId", status, "apprenticeUserId")
+       VALUES ($1, $2, $3, 'active', $4) RETURNING id`,
+      [orgId, apprenticeRow.rows[0].id, standard.rows[0].id, owner.userId],
+    );
+    const review = await sudo.query<{ id: string }>(
+      `INSERT INTO reviews
+         ("organisationId", "enrolmentId", "apprenticeId", "scheduledAt", title,
+          status, "apprenticeUserId", "tutorUserId", "employerManagerUserId")
+       VALUES ($1, $2, $3, $4, $5, 'scheduled', $6, $6, $6) RETURNING id`,
+      [
+        orgId,
+        enrolment.rows[0].id,
+        apprenticeRow.rows[0].id,
+        FORTY_EIGHT_HOURS_AT,
+        `scope review ${suffix}`,
+        owner.userId,
+      ],
+    );
+
+    return {
+      orgId,
+      reviewId: review.rows[0].id,
+      apprenticeUserId: owner.userId,
+    };
+  };
+
   beforeAll(async () => {
     app = await createE2eApp();
     sudo = createE2ePgClient();
@@ -273,6 +334,53 @@ describe('Review reminders at the cron (e2e)', () => {
       [[sevenDayReviewId, oneDayReviewId, fortyEightHourReviewId]],
     );
     expect(Number(after.rows[0].n)).toBe(3);
+  });
+
+  /**
+   * The guard, now that `review_reminder_dispatches` carries an organisation
+   * and a policy (migration 1781100000062).
+   *
+   * One organisation's recorded reminder must not suppress another's, and
+   * must still suppress its own. Read with no organisation the guard matches
+   * nothing and every run reminds again; read across tenants it matches a
+   * row that is not its own and that reminder never goes out.
+   */
+  it("does not let one organisation's recorded reminder suppress another's", async () => {
+    const first = await seedReviewInWindow('sup-a');
+    const second = await seedReviewInWindow('sup-b');
+
+    // The first organisation's own dispatch row, as a previous run would
+    // have left it.
+    await sudo.query(
+      `INSERT INTO review_reminder_dispatches ("organisationId", "reviewId", "reminderKind")
+       VALUES ($1, $2, '48h')`,
+      [first.orgId, first.reviewId],
+    );
+
+    await cron().handleReviewRemindersCron(NOW);
+
+    const rows = await sudo.query<{
+      reviewId: string;
+      organisationId: string;
+    }>(
+      `SELECT "reviewId", "organisationId" FROM review_reminder_dispatches
+        WHERE "reviewId" = ANY($1::uuid[])`,
+      [[first.reviewId, second.reviewId]],
+    );
+    // The second organisation is reminded; the first is not reminded twice.
+    expect(rows.rows.filter((r) => r.reviewId === second.reviewId)).toEqual([
+      { reviewId: second.reviewId, organisationId: second.orgId },
+    ]);
+    expect(rows.rows.filter((r) => r.reviewId === first.reviewId)).toHaveLength(
+      1,
+    );
+    // And no notification for the already-reminded one.
+    const notified = await sudo.query<{ n: string }>(
+      `SELECT count(*) AS n FROM notifications
+        WHERE "organisationId" = $1 AND type = 'review' AND metadata->>'reviewId' = $2`,
+      [first.orgId, first.reviewId],
+    );
+    expect(Number(notified.rows[0].n)).toBe(0);
   });
 
   it('sends no day-based reminder on a run at any other hour', async () => {

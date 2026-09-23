@@ -3,7 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, In, Repository } from 'typeorm';
 
-import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
+import {
+  runWithTenantContext,
+  withRlsBootstrap,
+} from '../common/context/correlation-id-context.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
@@ -135,72 +138,102 @@ export class ReviewsReminderService {
   ): Promise<number> {
     let sent = 0;
     for (const review of reviews) {
-      /**
-       * Security hardening pass, item 7 — the "already reminded?" guard is
-       * itself a tenant-scoped read.
-       *
-       * With no organisation context this returned null for every review, so
-       * the guard silently stopped guarding. Bootstrapped alongside the
-       * delivery below, because a duplicate reminder and a missing one are
-       * both failures of the same lookup.
-       */
-      const existing: ReviewReminderDispatch | null = await withRlsBootstrap(
-        () =>
-          this.dispatchRepo.findOne({
-            where: { reviewId: review.id, reminderKind: kind },
-          }),
+      sent += await runWithTenantContext(
+        {
+          label: `review-reminders:${review.id}`,
+          organisationId: review.organisationId,
+        },
+        () => this.dispatchForReview(review, kind, timing),
       );
-      if (existing) {
-        continue;
-      }
-
-      try {
-        /**
-         * Security hardening pass, item 7 — write the dispatch row only once
-         * delivery is confirmed.
-         *
-         * Both notify paths could reach nobody and return normally:
-         * `notifyApprenticeOnly` returns early when the apprentice user record
-         * is missing, and `notifySigners` skips any signer it cannot resolve.
-         * The dispatch row was written regardless, and it is the `existing`
-         * guard above — so a review whose reminder silently failed could
-         * **never be reminded again**.
-         *
-         * The same shape as otj-pace's weekly recurrence and the levy expiry
-         * alert. Left un-stamped, the review stays eligible for the next run.
-         */
-        const delivered =
-          kind === ReviewReminderKind.FORTY_EIGHT_HOURS
-            ? await this.notifyApprenticeOnly(
-                review,
-                kind,
-                timing.hoursAhead ?? 48,
-              )
-            : await this.notifySigners(review, kind, timing.daysAhead ?? 0);
-
-        if (!delivered) {
-          this.logger.warn(
-            `Review reminder ${kind} reached nobody for review ${review.id}; leaving it eligible for the next run`,
-          );
-          continue;
-        }
-
-        await this.dispatchRepo.save(
-          this.dispatchRepo.create({
-            reviewId: review.id,
-            reminderKind: kind,
-            sentAt: new Date(),
-          }),
-        );
-        sent++;
-      } catch (error) {
-        this.logger.warn(
-          `Failed review reminder ${kind} for ${review.id}: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
     }
 
     return sent;
+  }
+
+  /**
+   * One review's reminder, in that review's own organisation.
+   *
+   * The reviews above are found under the bootstrap window — the sweep has no
+   * organisation — but the guard and the dispatch row are tenant rows since
+   * migration 1781100000062, so they run in the review's context, scoped by
+   * `app.current_org` like any request. The recipient reads inside
+   * `notifySigners` / `notifyApprenticeOnly` keep their own windows: a
+   * signer may belong to another organisation.
+   */
+  private async dispatchForReview(
+    review: Review,
+    kind: ReviewReminderKind,
+    timing: { daysAhead?: number; hoursAhead?: number },
+  ): Promise<number> {
+    /**
+     * The "already reminded?" guard, scoped by this review's organisation.
+     *
+     * It reads what it will write: before 1781100000062 the table had no
+     * organisation and no policy, so this lookup was the one read in the
+     * sweep that no tenant applied to. Read with no organisation it matches
+     * nothing and the guard stops guarding (a duplicate reminder every
+     * run); scoped to the wrong organisation it matches nothing it should
+     * and the row it writes suppresses that reminder permanently. Both
+     * directions are proved in test/review-reminders.e2e-spec.ts.
+     */
+    const existing: ReviewReminderDispatch | null =
+      await this.dispatchRepo.findOne({
+        where: {
+          organisationId: review.organisationId,
+          reviewId: review.id,
+          reminderKind: kind,
+        },
+      });
+    if (existing) {
+      return 0;
+    }
+
+    try {
+      /**
+       * Security hardening pass, item 7 — write the dispatch row only once
+       * delivery is confirmed.
+       *
+       * Both notify paths could reach nobody and return normally:
+       * `notifyApprenticeOnly` returns early when the apprentice user record
+       * is missing, and `notifySigners` skips any signer it cannot resolve.
+       * The dispatch row was written regardless, and it is the `existing`
+       * guard above — so a review whose reminder silently failed could
+       * **never be reminded again**.
+       *
+       * The same shape as otj-pace's weekly recurrence and the levy expiry
+       * alert. Left un-stamped, the review stays eligible for the next run.
+       */
+      const delivered =
+        kind === ReviewReminderKind.FORTY_EIGHT_HOURS
+          ? await this.notifyApprenticeOnly(
+              review,
+              kind,
+              timing.hoursAhead ?? 48,
+            )
+          : await this.notifySigners(review, kind, timing.daysAhead ?? 0);
+
+      if (!delivered) {
+        this.logger.warn(
+          `Review reminder ${kind} reached nobody for review ${review.id}; leaving it eligible for the next run`,
+        );
+        return 0;
+      }
+
+      await this.dispatchRepo.save(
+        this.dispatchRepo.create({
+          organisationId: review.organisationId,
+          reviewId: review.id,
+          reminderKind: kind,
+          sentAt: new Date(),
+        }),
+      );
+      return 1;
+    } catch (error) {
+      this.logger.warn(
+        `Failed review reminder ${kind} for ${review.id}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return 0;
+    }
   }
 
   private async notifySigners(

@@ -157,7 +157,13 @@ export class OtjInactivityService {
       `It has been ${OTJ_INACTIVITY_DAYS} days since you last logged a ` +
       'session. Log one now to keep on pace for your EPA.';
 
-    await this.notificationsService.createForUser({
+    /**
+     * Null when the apprentice is not yet a member (F1.2.5). The comment on
+     * this method already said the stamp is written "only once the in-app row
+     * landed"; it was not checked, so an invited-but-not-joined apprentice was
+     * stamped and then not alerted again for the whole inactivity window.
+     */
+    const notification = await this.notificationsService.createForUser({
       userId: apprenticeUserId,
       organisationId: enrolment.organisationId,
       type: NotificationType.OTJ,
@@ -171,13 +177,6 @@ export class OtjInactivityService {
       },
     });
 
-    enrolment.otjInactivityAlertedAt = now;
-    await withRlsBootstrap(() =>
-      this.enrolmentRepo.update(enrolment.id, {
-        otjInactivityAlertedAt: now,
-      }),
-    );
-
     const { outcome } = await this.notificationsService.sendPush({
       userId: apprenticeUserId,
       type: NotificationType.OTJ,
@@ -188,6 +187,19 @@ export class OtjInactivityService {
         tag: 'otj-inactivity',
       },
     });
+
+    // One channel is enough to count as alerted; neither leaves the
+    // apprentice eligible on the next sweep rather than stamped in silence.
+    const reached = notification !== null || outcome === 'sent';
+    if (reached) {
+      enrolment.otjInactivityAlertedAt = now;
+      await withRlsBootstrap(() =>
+        this.enrolmentRepo.update(enrolment.id, {
+          otjInactivityAlertedAt: now,
+        }),
+      );
+    }
+
     return outcome === 'sent';
   }
 }

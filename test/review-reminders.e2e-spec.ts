@@ -1,10 +1,13 @@
+import { getQueueToken } from '@nestjs/bullmq';
 import { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 
+import { QUEUE_EMAIL } from '../src/bullmq/bullmq.constants.js';
 import { ORGANISATION_ID_HEADER } from '../src/common/constants/organisation-headers.js';
+import { EmailTemplate } from '../src/email/email-template.enum.js';
 import { RedisService } from '../src/redis/redis.service.js';
 import { ReviewReminderKind } from '../src/reviews/enums/review-reminder-kind.enum.js';
 import { ReviewsReminderService } from '../src/reviews/reviews-reminder.service.js';
@@ -16,6 +19,8 @@ import { createVerifiedUser } from './helpers/e2e-http.js';
 import { buildOrgPayload } from './helpers/e2e-organisation.js';
 import { createE2ePgClient } from './helpers/rls-db.js';
 
+import type { IEmailJobPayload } from '../src/email/email-job.payload.js';
+import type { Queue } from 'bullmq';
 import type { Client } from 'pg';
 import type { App } from 'supertest/types';
 
@@ -63,9 +68,11 @@ describe('Review reminders at the cron (e2e)', () => {
     );
 
   /**
-   * A second, smaller fixture for the cross-tenant guard test: one
-   * organisation with one review inside the 48-hour window and an apprentice
-   * who is a member, so the reminder has somebody to reach.
+   * A smaller fixture: one organisation with one review inside the 48-hour
+   * window, and a participant who is **not** a member of it — the
+   * pre-membership state (F1.2.5), which is what the reminder has to cope
+   * with. The organisation's owner is a separate user, because an owner is a
+   * member of their own organisation and would hide that state.
    */
   const seedReviewInWindow = async (
     label: string,
@@ -73,6 +80,9 @@ describe('Review reminders at the cron (e2e)', () => {
     const suffix = `${Date.now()}-${label}`;
     const owner = await createVerifiedUser(app, {
       email: `reminder-${suffix}@example.com`,
+    });
+    const participant = await createVerifiedUser(app, {
+      email: `reminder-participant-${suffix}@example.com`,
     });
     const orgRes = await request(app.getHttpServer())
       .post('/api/v1/organisations')
@@ -99,7 +109,12 @@ describe('Review reminders at the cron (e2e)', () => {
     const enrolment = await sudo.query<{ id: string }>(
       `INSERT INTO enrolments ("organisationId", "apprenticeId", "standardId", status, "apprenticeUserId")
        VALUES ($1, $2, $3, 'active', $4) RETURNING id`,
-      [orgId, apprenticeRow.rows[0].id, standard.rows[0].id, owner.userId],
+      [
+        orgId,
+        apprenticeRow.rows[0].id,
+        standard.rows[0].id,
+        participant.userId,
+      ],
     );
     const review = await sudo.query<{ id: string }>(
       `INSERT INTO reviews
@@ -112,14 +127,14 @@ describe('Review reminders at the cron (e2e)', () => {
         apprenticeRow.rows[0].id,
         FORTY_EIGHT_HOURS_AT,
         `scope review ${suffix}`,
-        owner.userId,
+        participant.userId,
       ],
     );
 
     return {
       orgId,
       reviewId: review.rows[0].id,
-      apprenticeUserId: owner.userId,
+      apprenticeUserId: participant.userId,
     };
   };
 
@@ -235,20 +250,16 @@ describe('Review reminders at the cron (e2e)', () => {
       .expect(201);
 
     /**
-     * The three recipients are members of the organisation.
+     * No membership rows, deliberately.
      *
-     * `app_create_notification` treats "recipient is not a member yet" as a
-     * normal pre-membership state and returns null (F1.2.5), so without
-     * these rows the reminder writes no in-app notification and the suite
-     * would be asserting the pre-membership path instead of AC3's.
+     * Between the employer creating a profile and the apprentice creating
+     * their account (F1.2.5 AC1/AC3/AC5) a named participant holds no
+     * membership, so `app_create_notification` writes nothing and returns
+     * null. That is the population F2.2.3's reminders and F3.4.1 AC6's chase
+     * exist for, and it is the state this suite runs in: the reminder has to
+     * reach them by email, and the dispatch row has to reflect that rather
+     * than a notification that never landed.
      */
-    for (const userId of [apprentice.userId, tutor.userId, manager.userId]) {
-      await sudo.query(
-        `INSERT INTO organisation_memberships ("organisationId", "userId", role, status)
-         VALUES ($1, $2, 'member', 'active')`,
-        [orgId, userId],
-      );
-    }
 
     const createReview = async (
       title: string,
@@ -305,27 +316,41 @@ describe('Review reminders at the cron (e2e)', () => {
       ].sort(),
     );
 
-    // AC3 names learner, employer and tutor for the day-based reminders; the
-    // 48-hour one is the apprentice's alone.
-    const recipients = async (reviewId: string): Promise<string[]> => {
-      const r = await sudo.query<{ userId: string }>(
-        `SELECT "userId" FROM notifications
-          WHERE "organisationId" = $1 AND type = 'review'
-            AND metadata->>'reviewId' = $2`,
-        [orgId, reviewId],
-      );
-      return r.rows.map((row) => row.userId).sort();
-    };
+    /**
+     * AC3 names learner, employer and tutor for the day-based reminders; the
+     * 48-hour one is the apprentice's alone. None of them is a member yet, so
+     * the channel that reaches them is email — asserted on the real queue.
+     */
+    const emailQueue = app.get<Queue<IEmailJobPayload>>(
+      getQueueToken(QUEUE_EMAIL),
+    );
+    const reminderEmails = (
+      await emailQueue.getJobs(['waiting', 'delayed', 'prioritized', 'paused'])
+    ).filter((job) => job.data.template === EmailTemplate.REVIEW_REMINDER);
+    const recipientsOf = (title: string): string[] =>
+      reminderEmails
+        .filter((job) => String(job.data.context.reviewTitle) === title)
+        .map((job) => job.data.to)
+        .sort();
 
-    expect(await recipients(sevenDayReviewId)).toEqual(
-      [apprentice.userId, tutor.userId, manager.userId].sort(),
+    expect(recipientsOf(`7-day reminder review ${suffix}`)).toEqual(
+      [apprentice.email, tutor.email, manager.email].sort(),
     );
-    expect(await recipients(oneDayReviewId)).toEqual(
-      [apprentice.userId, tutor.userId, manager.userId].sort(),
+    expect(recipientsOf(`1-day reminder review ${suffix}`)).toEqual(
+      [apprentice.email, tutor.email, manager.email].sort(),
     );
-    expect(await recipients(fortyEightHourReviewId)).toEqual([
-      apprentice.userId,
+    expect(recipientsOf(`48-hour reminder review ${suffix}`)).toEqual([
+      apprentice.email,
     ]);
+
+    // And no in-app notification for any of them: not members yet, so
+    // app_create_notification wrote nothing and said so.
+    const inApp = await sudo.query<{ n: string }>(
+      `SELECT count(*) AS n FROM notifications
+        WHERE "organisationId" = $1 AND type = 'review'`,
+      [orgId],
+    );
+    expect(Number(inApp.rows[0].n)).toBe(0);
 
     // The guard: a second run at the same hour sends nothing further.
     await cron().handleReviewRemindersCron(NOW);
@@ -381,6 +406,60 @@ describe('Review reminders at the cron (e2e)', () => {
       [first.orgId, first.reviewId],
     );
     expect(Number(notified.rows[0].n)).toBe(0);
+  });
+
+  /**
+   * Reached nobody: no dispatch row, and the reminder stays eligible.
+   *
+   * `notifySigners` used to count `createForUser`'s null — the
+   * pre-membership state — as a delivery, and the caller writes the dispatch
+   * row on that count. The dispatch row is the already-sent guard, so a
+   * recipient who could not be reached had their reminder recorded as sent
+   * and suppressed for good: exactly the invited-but-not-joined apprentice
+   * the reminder exists for.
+   *
+   * The decision recorded here: **no dispatch row, retry on the next sweep**.
+   * The pre-membership gap is temporary by design (F1.2.5 AC3/AC5), so an
+   * un-stamped review is delivered as soon as a channel opens, with no new
+   * column and no second retry rule to get wrong. The cost is honest and
+   * bounded: a retry only helps while the review is still inside its window
+   * (that UTC day, or 48±1 hours), so if no channel opens before the window
+   * closes the reminder is missed — which is better than recorded as sent.
+   */
+  it('records nothing when no channel reached the recipient, and stays eligible', async () => {
+    const scope = await seedReviewInWindow('unreachable');
+
+    // Not a member (so no in-app row) and no email address: nothing can
+    // reach them. users.email is NOT NULL, so blank is the reachable state.
+    await sudo.query(`UPDATE users SET email = '' WHERE id = $1`, [
+      scope.apprenticeUserId,
+    ]);
+
+    await cron().handleReviewRemindersCron(NOW);
+
+    const dispatches = await sudo.query<{ n: string }>(
+      `SELECT count(*) AS n FROM review_reminder_dispatches WHERE "reviewId" = $1`,
+      [scope.reviewId],
+    );
+    expect(Number(dispatches.rows[0].n)).toBe(0);
+    const notifications = await sudo.query<{ n: string }>(
+      `SELECT count(*) AS n FROM notifications WHERE "organisationId" = $1`,
+      [scope.orgId],
+    );
+    expect(Number(notifications.rows[0].n)).toBe(0);
+
+    // Still eligible: once a channel opens, the next sweep delivers it.
+    await sudo.query(`UPDATE users SET email = $2 WHERE id = $1`, [
+      scope.apprenticeUserId,
+      `reminder-reachable-${Date.now()}@example.com`,
+    ]);
+    await cron().handleReviewRemindersCron(NOW);
+
+    const after = await sudo.query<{ n: string }>(
+      `SELECT count(*) AS n FROM review_reminder_dispatches WHERE "reviewId" = $1`,
+      [scope.reviewId],
+    );
+    expect(Number(after.rows[0].n)).toBe(1);
   });
 
   it('sends no day-based reminder on a run at any other hour', async () => {

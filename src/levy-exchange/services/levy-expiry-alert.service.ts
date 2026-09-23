@@ -205,7 +205,14 @@ export class LevyExpiryAlertService {
         continue;
       }
 
-      await this.notificationsService.createForUser({
+      /**
+       * Null when this owner or admin holds no membership yet — the
+       * pre-membership state, not a failure. Counting it as delivered let
+       * the caller write `levy_expiry_alert_dispatches`, which is the
+       * already-alerted guard: the tranche would never be warned about
+       * again. Same fault as the review reminder's.
+       */
+      const notification = await this.notificationsService.createForUser({
         userId: user.id,
         organisationId,
         type: notificationType,
@@ -220,7 +227,7 @@ export class LevyExpiryAlertService {
           amount: tranche.amount,
         },
       });
-      delivered += 1;
+      let reached = notification !== null;
 
       if (user.email) {
         await this.notificationsService.sendEmail({
@@ -235,6 +242,11 @@ export class LevyExpiryAlertService {
             transferCtaUrl,
           }),
         });
+        reached = true;
+      }
+
+      if (reached) {
+        delivered += 1;
       }
     }
 

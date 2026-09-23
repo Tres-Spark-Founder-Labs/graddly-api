@@ -261,7 +261,21 @@ export class ReviewsReminderService {
         continue;
       }
 
-      await this.notificationsService.createForUser({
+      /**
+       * `createForUser` returns null when the recipient holds no membership
+       * of the organisation yet — the normal state between invitation and
+       * account creation (F1.2.5 AC3/AC5), not a failure. This loop used to
+       * count that null as a delivery, and the caller writes the dispatch
+       * row on the strength of the count. The dispatch row is the
+       * already-sent guard, so an invited-but-not-yet-joined apprentice had
+       * their reminder recorded as sent and then suppressed for good.
+       *
+       * Reached means one channel landed: the in-app row, or an email
+       * accepted by the send-time preference check (`suppressed` counts —
+       * it is the recipient's own choice, and they were reached in-app or
+       * would have been).
+       */
+      const notification = await this.notificationsService.createForUser({
         userId: signer.id,
         organisationId: review.organisationId,
         type: NotificationType.REVIEW,
@@ -269,7 +283,7 @@ export class ReviewsReminderService {
         body: `${title} is scheduled in ${daysAhead} day(s).`,
         metadata: { reviewId: review.id, reminderKind: kind },
       });
-      delivered += 1;
+      let reached = notification !== null;
 
       if (signer.email) {
         await this.notificationsService.sendEmail({
@@ -288,6 +302,11 @@ export class ReviewsReminderService {
             },
           ),
         });
+        reached = true;
+      }
+
+      if (reached) {
+        delivered += 1;
       }
     }
 
@@ -313,7 +332,10 @@ export class ReviewsReminderService {
     const scheduledLabel = review.scheduledAt.toISOString();
     const title = review.title ?? `Review on ${scheduledLabel.slice(0, 10)}`;
 
-    await this.notificationsService.createForUser({
+    // Null when the apprentice is not yet a member of the organisation: the
+    // pre-membership state, which this used to report as reached. See
+    // `notifySigners` above for what that cost.
+    const notification = await this.notificationsService.createForUser({
       userId: apprentice.id,
       organisationId: review.organisationId,
       type: NotificationType.REVIEW,
@@ -339,10 +361,13 @@ export class ReviewsReminderService {
           },
         ),
       });
+      // The email is a delivery in its own right, whatever the in-app row did.
+      return true;
     }
 
-    // Reached the apprentice: the caller may record the reminder as sent.
-    return true;
+    // Reached the apprentice only if the in-app row landed; otherwise the
+    // caller must leave the reminder eligible for the next sweep.
+    return notification !== null;
   }
 
   private utcDateOnly(date: Date): Date {

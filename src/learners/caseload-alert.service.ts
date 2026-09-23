@@ -146,7 +146,9 @@ export class CaseloadAlertService {
 
         let sent = 0;
         for (const manager of managers) {
-          await this.notificationsService.createForUser({
+          // Null when the manager holds no membership yet: counted as sent,
+          // this sweep reported alerts it had not delivered.
+          const notification = await this.notificationsService.createForUser({
             userId: manager.user.id,
             organisationId,
             type: NotificationType.CASELOAD_AT_RISK,
@@ -164,7 +166,9 @@ export class CaseloadAlertService {
               })),
             },
           });
-          sent += 1;
+          if (notification) {
+            sent += 1;
+          }
         }
 
         return sent;

@@ -332,7 +332,10 @@ export class OtjPaceService {
      * `false` here reports "not delivered" without pretending nothing happened.
      */
     try {
-      await this.notificationsService.createForUser({
+      // Null when the apprentice has no membership yet (F1.2.5): reported as
+      // not delivered, so the caller does not stamp `otjPaceAlertedAt` and
+      // the alert is tried again on the next sweep rather than waiting a week.
+      const notification = await this.notificationsService.createForUser({
         userId: enrolment.apprenticeUserId,
         organisationId: enrolment.organisationId,
         type: NotificationType.OTJ,
@@ -345,6 +348,7 @@ export class OtjPaceService {
           action: 'log_otj',
         },
       });
+      return notification !== null;
     } catch (error) {
       this.logger.warn(
         `OTJ pace apprentice notification failed for enrolment ${enrolment.id}: ${
@@ -353,7 +357,6 @@ export class OtjPaceService {
       );
       return false;
     }
-    return true;
   }
 
   /**

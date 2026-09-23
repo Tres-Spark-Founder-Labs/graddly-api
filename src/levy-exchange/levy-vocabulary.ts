@@ -65,11 +65,28 @@ export const LEVY_SECTOR_SUGGESTIONS = Object.freeze([
   'Health & Social Care',
 ] as const);
 
-/** Suggestions only. */
+/**
+ * Suggestions only — but the code and title are the register's, checked on
+ * 23 September 2026, and the spelling is load-bearing.
+ *
+ * Matching against a donor's preferences is exact and case-sensitive (see
+ * `normaliseOpenVocabularyValue` below, which only trims and collapses
+ * whitespace), so a recipient who picks a suggestion and a donor who types
+ * the same programme in title case never meet. That is why these carry the
+ * register's own sentence-case titles rather than prettier ones.
+ *
+ * The three codes here previously named a mineral processing weighbridge
+ * operator, a standard that does not exist, and an assistant practitioner
+ * (health) respectively.
+ *
+ * https://skillsengland.education.gov.uk/apprenticeships/ST0457
+ * https://skillsengland.education.gov.uk/apprenticeships/ST0116
+ * https://skillsengland.education.gov.uk/apprenticeships/ST0217
+ */
 export const LEVY_PROGRAMME_TYPE_SUGGESTIONS = Object.freeze([
-  'ST0145 Engineering Technician',
-  'ST0415 Software Developer',
-  'ST0215 Senior Healthcare Support Worker',
+  'ST0457 Engineering technician',
+  'ST0116 Software developer',
+  'ST0217 Senior healthcare support worker',
 ] as const);
 
 /**

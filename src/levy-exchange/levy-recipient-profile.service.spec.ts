@@ -65,7 +65,7 @@ describe('LevyRecipientProfileService', () => {
       sector: 'Construction',
       region: 'London',
       employeeCountBand: '50-249',
-      programmeType: 'ST0415 Software Developer',
+      programmeType: 'ST0116 Software developer',
       transferAmountRequired: '10000.00',
       hasDasAccount: false,
       createdAt: new Date('2026-01-01'),
@@ -140,7 +140,7 @@ describe('LevyRecipientProfileService', () => {
       sector: '  Digital   &  Technology ',
       region: 'North West',
       employeeCountBand: '10-49',
-      programmeType: ' ST0415	Software   Developer',
+      programmeType: ' ST0116	Software   developer',
       transferAmountRequired: '15000.00',
       hasDasAccount: false,
     });
@@ -149,7 +149,7 @@ describe('LevyRecipientProfileService', () => {
       sector: 'Digital & Technology',
       region: 'North West',
       employeeCountBand: '10-49',
-      programmeType: 'ST0415 Software Developer',
+      programmeType: 'ST0116 Software developer',
     });
   });
 });

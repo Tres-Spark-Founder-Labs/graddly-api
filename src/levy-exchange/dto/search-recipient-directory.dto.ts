@@ -41,8 +41,10 @@ export class SearchRecipientDirectoryDto extends PaginationQueryDto {
   @MaxLength(100)
   region?: string;
 
+  // Example from the register: ST0116 Software developer, checked 23 Sep 2026
+  // https://skillsengland.education.gov.uk/apprenticeships/ST0116
   @ApiPropertyOptional({
-    example: 'ST0415 Software Developer',
+    example: 'ST0116 Software developer',
     description:
       'Filter by apprenticeship programme type, compared exactly. An open ' +
       'vocabulary field: GET /levy-exchange/vocabulary open.programmeType ' +

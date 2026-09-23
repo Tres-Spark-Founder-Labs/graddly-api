@@ -113,85 +113,128 @@ import type { EntityManager } from 'typeorm';
 
 // ─── Reference data (appendix, page 20) ──────────────────────────────────────
 
+/**
+ * The ten programmes the demo shows, checked against the Skills England
+ * register — which has replaced IfATE — on 23 September 2026. Every row names
+ * the page its values were read from.
+ *
+ * ── WHY EACH FIELD IS WHAT IT IS ────────────────────────────────────────────
+ *
+ * `code`, `title`, `level`, `months` and `funding` are the register's values
+ * for the standard's current version: the reference number, the published
+ * title, the level, the typical duration and the maximum funding band.
+ *
+ * Titles are the register's own spelling — sentence case, and "and" rather
+ * than "&". Three of these strings are also served as Levy Exchange matching
+ * suggestions, where matching is exact and case-sensitive, so a second
+ * spelling of one programme is a silent non-match.
+ *
+ * `otjHours` is **not** from the register. The register publishes no
+ * off-the-job figure, and the real minimum is a calculation in the ESFA
+ * funding rules rather than a per-standard value. These are a demo
+ * convention of 15 hours per month of typical duration, applied uniformly;
+ * nothing should read them as a sourced figure.
+ *
+ * ── WHAT WAS WRONG BEFORE, AND WHY IT MATTERED ──────────────────────────────
+ *
+ * Every code here was real, resolved on the register, and named a different
+ * standard. Seven of the ten pointed at an unrelated occupation and two did
+ * not exist at all: `ST0145`, seeded as "Engineering Technician", is a
+ * mineral processing weighbridge operator, retired in November 2023. Only
+ * `ST0005` was right. A wrong code is not a wrong label on a screen —
+ * `StdCode` goes into the ILR, so it becomes a wrong value submitted to the
+ * ESFA.
+ */
 const STANDARDS = [
   {
-    code: 'ST0145',
-    title: 'Engineering Technician',
-    level: 3,
-    months: 36,
-    funding: 21000,
-    otjHours: 525,
-  },
-  {
-    code: 'ST0459',
-    title: 'Maintenance & Operations Engineering Technician',
+    // https://skillsengland.education.gov.uk/apprenticeships/ST0457 (23 Sep 2026)
+    code: 'ST0457',
+    title: 'Engineering technician',
     level: 3,
     months: 42,
-    funding: 27000,
+    funding: 26000,
     otjHours: 630,
   },
   {
-    code: 'ST0016',
-    title: 'Data Analyst',
+    // https://skillsengland.education.gov.uk/apprenticeships/ST0154 (23 Sep 2026)
+    code: 'ST0154',
+    title: 'Maintenance and operations engineering technician',
+    level: 3,
+    months: 36,
+    funding: 26000,
+    otjHours: 540,
+  },
+  {
+    // https://skillsengland.education.gov.uk/apprenticeships/ST0118 (23 Sep 2026)
+    code: 'ST0118',
+    title: 'Data analyst',
     level: 4,
-    months: 27,
+    months: 24,
     funding: 15000,
-    otjHours: 405,
-  },
-  {
-    code: 'ST0415',
-    title: 'Software Developer',
-    level: 4,
-    months: 24,
-    funding: 27000,
     otjHours: 360,
   },
   {
-    code: 'ST0023',
-    title: 'Financial Services Professional',
+    // https://skillsengland.education.gov.uk/apprenticeships/ST0116 (23 Sep 2026)
+    code: 'ST0116',
+    title: 'Software developer',
     level: 4,
-    months: 30,
-    funding: 10000,
-    otjHours: 450,
+    months: 24,
+    funding: 18000,
+    otjHours: 360,
   },
   {
-    code: 'ST0162',
-    title: 'Insurance Practitioner',
+    // https://skillsengland.education.gov.uk/apprenticeships/ST0472 (23 Sep 2026)
+    code: 'ST0472',
+    title: 'Financial services professional',
+    level: 6,
+    months: 42,
+    funding: 18000,
+    otjHours: 630,
+  },
+  {
+    // https://skillsengland.education.gov.uk/apprenticeships/ST0240 (23 Sep 2026)
+    code: 'ST0240',
+    title: 'Insurance practitioner',
     level: 3,
-    months: 24,
-    funding: 5000,
-    otjHours: 360,
+    months: 12,
+    funding: 8000,
+    otjHours: 180,
   },
   {
+    // The one code that was already right; the band was three versions old.
+    // https://skillsengland.education.gov.uk/apprenticeships/ST0005 (23 Sep 2026)
     code: 'ST0005',
-    title: 'Adult Care Worker',
+    title: 'Adult care worker',
     level: 2,
-    months: 15,
-    funding: 3000,
-    otjHours: 225,
+    months: 12,
+    funding: 4500,
+    otjHours: 180,
   },
   {
-    code: 'ST0215',
-    title: 'Senior Healthcare Support Worker',
+    // https://skillsengland.education.gov.uk/apprenticeships/ST0217 (23 Sep 2026)
+    code: 'ST0217',
+    title: 'Senior healthcare support worker',
+    level: 3,
+    months: 24,
+    funding: 9000,
+    otjHours: 360,
+  },
+  {
+    // https://skillsengland.education.gov.uk/apprenticeships/ST0239 (23 Sep 2026)
+    code: 'ST0239',
+    title: 'HR support',
     level: 3,
     months: 18,
-    funding: 4000,
+    funding: 4500,
     otjHours: 270,
   },
   {
-    code: 'ST0184',
-    title: 'HR Support',
-    level: 3,
-    months: 18,
-    funding: 5000,
-    otjHours: 270,
-  },
-  {
-    code: 'ST0456',
-    title: 'Network Engineer',
+    // https://skillsengland.education.gov.uk/apprenticeships/ST0127 (23 Sep 2026)
+    code: 'ST0127',
+    title: 'Network engineer',
     level: 4,
     months: 24,
-    funding: 21000,
+    funding: 19000,
     otjHours: 360,
   },
 ];
@@ -345,7 +388,7 @@ const APPRENTICES = [
     password: 'TylerTest2026!',
     employer: 'meridian-engineering',
     provider: 'northern-futures',
-    standard: 'ST0145',
+    standard: 'ST0457',
     start: '2024-09-02',
     end: '2027-09-01',
     otjHours: 312,
@@ -360,7 +403,7 @@ const APPRENTICES = [
     password: 'JoelTest2026!',
     employer: 'meridian-engineering',
     provider: 'northern-futures',
-    standard: 'ST0459',
+    standard: 'ST0154',
     start: '2025-01-06',
     end: '2028-07-05',
     otjHours: 89,
@@ -376,7 +419,7 @@ const APPRENTICES = [
     password: 'CaitlinTest2026!',
     employer: 'meridian-engineering',
     provider: 'northern-futures',
-    standard: 'ST0145',
+    standard: 'ST0457',
     start: '2023-09-04',
     end: '2026-09-03',
     otjHours: 524,
@@ -392,7 +435,7 @@ const APPRENTICES = [
     password: 'MarcusTest2026!',
     employer: 'meridian-engineering',
     provider: 'aldgate-skills',
-    standard: 'ST0459',
+    standard: 'ST0154',
     start: '2022-09-05',
     end: '2026-03-04',
     otjHours: 630,
@@ -409,7 +452,7 @@ const APPRENTICES = [
     password: 'AmaraTest2026!',
     employer: 'nexvault-financial',
     provider: 'aldgate-skills',
-    standard: 'ST0016',
+    standard: 'ST0118',
     start: '2024-01-08',
     end: '2026-04-07',
     otjHours: 401,
@@ -425,7 +468,7 @@ const APPRENTICES = [
     password: 'LucasTest2026!',
     employer: 'nexvault-financial',
     provider: 'castlegate-institute',
-    standard: 'ST0415',
+    standard: 'ST0116',
     start: '2024-09-16',
     end: '2026-09-15',
     otjHours: 198,
@@ -441,7 +484,7 @@ const APPRENTICES = [
     password: 'ZaraTest2026!',
     employer: 'nexvault-financial',
     provider: 'castlegate-institute',
-    standard: 'ST0023',
+    standard: 'ST0472',
     start: '2024-03-11',
     end: '2026-09-10',
     otjHours: 287,
@@ -456,7 +499,7 @@ const APPRENTICES = [
     password: 'RhysTest2026!',
     employer: 'nexvault-financial',
     provider: 'aldgate-skills',
-    standard: 'ST0016',
+    standard: 'ST0118',
     start: '2022-06-01',
     end: '2024-09-01',
     otjHours: 405,
@@ -472,7 +515,7 @@ const APPRENTICES = [
     password: 'FatimaTest2026!',
     employer: 'nexvault-financial',
     provider: 'castlegate-institute',
-    standard: 'ST0415',
+    standard: 'ST0116',
     start: '2024-01-15',
     end: '2026-01-14',
     otjHours: 142,
@@ -488,7 +531,7 @@ const APPRENTICES = [
     password: 'PriyankaTest2026!',
     employer: 'brightfield-care',
     provider: 'northern-futures',
-    standard: 'ST0215',
+    standard: 'ST0217',
     start: '2024-04-15',
     end: '2025-10-14',
     otjHours: 270,
@@ -520,7 +563,7 @@ const APPRENTICES = [
     password: 'KofiTest2026!',
     employer: 'brightfield-care',
     provider: 'northern-futures',
-    standard: 'ST0215',
+    standard: 'ST0217',
     start: '2025-04-07',
     end: '2026-10-06',
     otjHours: 120,
@@ -551,7 +594,7 @@ const APPRENTICES = [
     password: 'DanTest2026!',
     employer: 'veridia-construction',
     provider: 'northern-futures',
-    standard: 'ST0145',
+    standard: 'ST0457',
     start: '2025-02-03',
     end: '2028-02-02',
     otjHours: 134,
@@ -566,7 +609,7 @@ const APPRENTICES = [
     password: 'LeilaTest2026!',
     employer: 'veridia-construction',
     provider: 'northern-futures',
-    standard: 'ST0184',
+    standard: 'ST0239',
     start: '2025-06-09',
     end: '2026-12-08',
     otjHours: 77,

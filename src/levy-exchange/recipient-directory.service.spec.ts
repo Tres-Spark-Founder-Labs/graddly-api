@@ -35,7 +35,7 @@ const row = (overrides: Partial<LevyRecipientProfile> = {}) =>
     sector: 'Manufacturing',
     region: 'West Midlands',
     employeeCountBand: '10-49',
-    programmeType: 'ST0415 Software Developer',
+    programmeType: 'ST0116 Software developer',
     transferAmountRequired: '15000.00',
     hasDasAccount: true,
     isListed: true,
@@ -83,7 +83,7 @@ describe('LevyRecipientProfileService — directory (F1.1.4 AC2)', () => {
       perPage: 20,
       sector: 'Manufacturing',
       region: 'West Midlands',
-      programmeType: 'ST0415 Software Developer',
+      programmeType: 'ST0116 Software developer',
     });
 
     const clauses = (qbAndWhere.mock.calls as unknown as [string][]).map(
@@ -163,7 +163,7 @@ describe('LevyRecipientProfileService — listing opt-in', () => {
     sector: 'Manufacturing',
     region: 'West Midlands',
     employeeCountBand: '10-49',
-    programmeType: 'ST0415 Software Developer',
+    programmeType: 'ST0116 Software developer',
     transferAmountRequired: '15000.00',
     hasDasAccount: true,
   };

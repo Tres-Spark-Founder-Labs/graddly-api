@@ -16794,7 +16794,7 @@
             "description": "Filter by apprenticeship programme type, compared exactly. An open vocabulary field: GET /levy-exchange/vocabulary open.programmeType carries the suggestions.",
             "schema": {
               "maxLength": 100,
-              "example": "ST0415 Software Developer",
+              "example": "ST0116 Software developer",
               "type": "string"
             }
           }
@@ -24864,7 +24864,7 @@
           "standardDisplayName": {
             "type": "string",
             "nullable": true,
-            "example": "Software Developer (ST0123)",
+            "example": "Software developer (ST0116)",
             "description": "Standard title and code for display"
           },
           "status": {
@@ -31094,7 +31094,7 @@
           },
           "code": {
             "type": "string",
-            "example": "ST0123",
+            "example": "ST0116",
             "description": "Standard code when groupBy=standard"
           },
           "activeApprenticeCount": {
@@ -32160,7 +32160,7 @@
           "programmeType": {
             "type": "string",
             "maxLength": 100,
-            "example": "ST0415 Software Developer",
+            "example": "ST0116 Software developer",
             "description": "Open field: any value, normalised on write. Suggestions from GET /levy-exchange/vocabulary (open.programmeType)."
           },
           "transferAmountRequired": {
@@ -32314,7 +32314,7 @@
           },
           "programmeTypes": {
             "example": [
-              "ST0415 Software Developer"
+              "ST0116 Software developer"
             ],
             "description": "Open field: any values, each normalised on write. Suggestions from GET /levy-exchange/vocabulary (open.programmeType). Empty accepts every programme type.",
             "type": "array",
@@ -33049,9 +33049,9 @@
           },
           "programmeType": {
             "example": [
-              "ST0145 Engineering Technician",
-              "ST0415 Software Developer",
-              "ST0215 Senior Healthcare Support Worker"
+              "ST0457 Engineering technician",
+              "ST0116 Software developer",
+              "ST0217 Senior healthcare support worker"
             ],
             "description": "Suggestions for the recipient profile’s `programmeType` and the donor preference’s `programmeTypes`. Any value is accepted.",
             "type": "array",

@@ -374,7 +374,7 @@ describe('PdfKitPdfRenderer', () => {
         {
           name: 'Priya Sharma',
           employeeId: 'EMP-04821',
-          standard: 'Software Developer (ST0116)',
+          standard: 'Software developer (ST0116)',
           provider: 'Midlands Technical College',
           otjProgress: '62%',
           epaDate: '12 Oct 2026',
@@ -426,7 +426,7 @@ describe('PdfKitPdfRenderer', () => {
       rows: Array.from({ length: 500 }, (_, i) => ({
         name: `Apprentice Number ${i + 1}`,
         employeeId: `EMP-${String(i).padStart(5, '0')}`,
-        standard: 'Engineering Technician (ST0457)',
+        standard: 'Engineering technician (ST0457)',
         provider: `Provider ${i % 8}`,
         otjProgress: null,
         epaDate: '01 Dec 2026',

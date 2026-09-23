@@ -34,7 +34,7 @@ const profile = (overrides: Record<string, unknown> = {}) => ({
   sector: 'Construction',
   region: 'North West',
   employeeCountBand: '10-49',
-  programmeType: 'ST0415 Software Developer',
+  programmeType: 'ST0116 Software developer',
   transferAmountRequired: '15000.00',
   hasDasAccount: false,
   ...overrides,
@@ -44,7 +44,7 @@ const preferences = (overrides: Record<string, unknown> = {}) => ({
   sectors: ['Construction'],
   regions: ['North West'],
   sizeBands: ['10-49'],
-  programmeTypes: ['ST0415 Software Developer'],
+  programmeTypes: ['ST0116 Software developer'],
   maxPerRecipient: null,
   openMatching: false,
   anonymousMatching: false,
@@ -145,11 +145,23 @@ describe('the Levy Exchange vocabulary', () => {
       }
     });
 
+    /**
+     * `ST0415` is a reference number that does not exist: it returns 404 on
+     * the register and appears in none of its 2024 entries, checked on
+     * 23 September 2026 at
+     * https://skillsengland.education.gov.uk/apprenticeships/ST0415
+     *
+     * That is the point. This fixture is a value outside the suggestions, so
+     * it has to be one nobody could mistake for a real programme. It used to
+     * be `ST0999 Butcher` — and ST0999 is the live "Lead engineering
+     * maintenance technician", a real code wearing a fictional title, which
+     * is the same fault the seed's standards table was carrying.
+     */
     it('accepts any sector and programme type — suggestions are not constraints', async () => {
       await expect(
         errorsOf(
           UpsertRecipientProfileDto,
-          profile({ sector: 'Retail', programmeType: 'ST0999 Butcher' }),
+          profile({ sector: 'Retail', programmeType: 'ST0415 Butcher' }),
         ),
       ).resolves.toEqual({});
     });
@@ -194,13 +206,14 @@ describe('the Levy Exchange vocabulary', () => {
       });
     });
 
+    /** `ST0415` is deliberately not a real reference number; see above. */
     it('accepts any sectors and programme types', async () => {
       await expect(
         errorsOf(
           UpsertTransferPreferencesDto,
           preferences({
             sectors: ['Retail'],
-            programmeTypes: ['ST0999 Butcher'],
+            programmeTypes: ['ST0415 Butcher'],
           }),
         ),
       ).resolves.toEqual({});

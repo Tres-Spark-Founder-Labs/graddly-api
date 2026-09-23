@@ -52,7 +52,7 @@ const DEFAULT_RECIPIENT_PROFILE = {
   sector: 'Construction',
   region: 'North West',
   employeeCountBand: '10-49',
-  programmeType: 'ST0415 Software Developer',
+  programmeType: 'ST0116 Software developer',
   transferAmountRequired: '15000.00',
   hasDasAccount: true,
 };
@@ -61,7 +61,7 @@ const DEFAULT_TRANSFER_PREFERENCES = {
   sectors: ['Construction'],
   regions: ['North West'],
   sizeBands: ['10-49'],
-  programmeTypes: ['ST0415 Software Developer'],
+  programmeTypes: ['ST0116 Software developer'],
   maxPerRecipient: '20000.00',
   openMatching: false,
   anonymousMatching: false,

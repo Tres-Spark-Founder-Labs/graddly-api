@@ -66,9 +66,11 @@ export class UpsertRecipientProfileDto {
   })
   employeeCountBand!: string;
 
+  // Example from the register: ST0116 Software developer, checked 23 Sep 2026
+  // https://skillsengland.education.gov.uk/apprenticeships/ST0116
   @ApiProperty({
     maxLength: 100,
-    example: 'ST0415 Software Developer',
+    example: 'ST0116 Software developer',
     description:
       'Open field: any value, normalised on write. Suggestions from GET ' +
       '/levy-exchange/vocabulary (open.programmeType).',

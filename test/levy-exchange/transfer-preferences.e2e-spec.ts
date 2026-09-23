@@ -33,7 +33,7 @@ describe('Levy Exchange transfer preferences (e2e)', () => {
         sectors: ['  Construction '],
         regions: ['North West'],
         sizeBands: ['10-49'],
-        programmeTypes: ['ST0415   Software Developer'],
+        programmeTypes: ['ST0116   Software developer'],
         maxPerRecipient: '20000.00',
         openMatching: false,
         anonymousMatching: false,
@@ -57,7 +57,7 @@ describe('Levy Exchange transfer preferences (e2e)', () => {
       ).data,
     ).toMatchObject({
       sectors: ['Construction'],
-      programmeTypes: ['ST0415 Software Developer'],
+      programmeTypes: ['ST0116 Software developer'],
     });
 
     const closed = await request(app.getHttpServer())

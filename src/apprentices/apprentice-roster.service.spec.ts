@@ -50,7 +50,7 @@ describe('ApprenticeRosterService', () => {
     otjPaceAlertLevel: 'on_track',
     epaDate: null,
     plannedStartDate: '2025-09-01',
-    standardDisplayName: 'Software Developer (ST0116)',
+    standardDisplayName: 'Software developer (ST0116)',
     providerOrganisationName: 'Midlands Technical College',
     ...overrides,
   });

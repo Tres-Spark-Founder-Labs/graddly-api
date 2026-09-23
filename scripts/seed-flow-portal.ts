@@ -297,7 +297,7 @@ async function main() {
           sector: 'Engineering & Manufacturing',
           region: 'Yorkshire and the Humber',
           employeeCountBand: '50-249',
-          programmeType: 'ST0145 Engineering Technician',
+          programmeType: 'ST0457 Engineering technician',
           transferAmountRequired: '21000.00',
           hasDasAccount: true,
           isListed: true,
@@ -318,7 +318,7 @@ async function main() {
           sectors: ['Engineering & Manufacturing', 'Health & Social Care'],
           regions: ['Yorkshire and the Humber', 'North West'],
           sizeBands: ['10-49', '50-249'],
-          programmeTypes: ['ST0145 Engineering Technician'],
+          programmeTypes: ['ST0457 Engineering technician'],
           maxPerRecipient: '25000.00',
           openMatching: true,
           anonymousMatching: false,
@@ -406,7 +406,7 @@ async function main() {
           matchApplicationId: application.id,
           amount: '21000.00',
           programmeDetails: {
-            standard: 'ST0145',
+            standard: 'ST0457',
             title: 'Engineering Technician L3',
           },
           status: LevyTransferStatus.PENDING_SIGNATURES,
@@ -423,7 +423,7 @@ async function main() {
           recipientOrganisationId: recipient.id,
           amount: '27000.00',
           programmeDetails: {
-            standard: 'ST0415',
+            standard: 'ST0116',
             title: 'Software Developer L4',
           },
           status: LevyTransferStatus.CONFIRMED,
@@ -470,7 +470,7 @@ async function main() {
       }
 
       const standard = await m.findOne(Standard, {
-        where: { organisationId: provider.id, code: 'ST0415' },
+        where: { organisationId: provider.id, code: 'ST0116' },
       });
 
       if (

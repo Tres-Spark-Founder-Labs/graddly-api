@@ -163,7 +163,7 @@ describe('LevyTransferPreferenceService', () => {
       sectors: ['  Digital   &  Technology ', '   '],
       regions: ['North West'],
       sizeBands: ['10-49'],
-      programmeTypes: [' ST0415	Software   Developer'],
+      programmeTypes: [' ST0116	Software   developer'],
       maxPerRecipient: null,
       openMatching: false,
       anonymousMatching: false,
@@ -173,7 +173,7 @@ describe('LevyTransferPreferenceService', () => {
       sectors: ['Digital & Technology'],
       regions: ['North West'],
       sizeBands: ['10-49'],
-      programmeTypes: ['ST0415 Software Developer'],
+      programmeTypes: ['ST0116 Software developer'],
     });
   });
 });

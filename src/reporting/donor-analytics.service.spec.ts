@@ -203,7 +203,7 @@ describe('DonorAnalyticsService', () => {
           amount: '1000.00',
           recipientOrganisationId: 'sme-a',
           // A nested object rendered into a chart label is worse than nothing.
-          programmeDetails: { title: { nested: true }, standard: 'ST0145' },
+          programmeDetails: { title: { nested: true }, standard: 'ST0457' },
         },
       ]);
       recipientProfileRepo.find.mockResolvedValue([]);
@@ -211,7 +211,7 @@ describe('DonorAnalyticsService', () => {
       const result = await service.getBreakdown(DONOR);
 
       expect(result.byProgrammeType).toEqual([
-        { label: 'ST0145', amount: 1000 },
+        { label: 'ST0457', amount: 1000 },
       ]);
     });
 

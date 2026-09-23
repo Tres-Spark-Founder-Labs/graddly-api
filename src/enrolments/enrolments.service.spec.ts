@@ -291,7 +291,7 @@ describe('EnrolmentsService', () => {
       { id: 'app-1', firstName: 'Jane', lastName: 'Smith' },
     ]);
     standardFind.mockResolvedValue([
-      { id: 'std-1', title: 'Software Developer', code: 'ST0123' },
+      { id: 'std-1', title: 'Software developer', code: 'ST0116' },
     ]);
     organisationFind.mockResolvedValue([
       { id: 'emp-1', name: 'Acme Ltd' },
@@ -306,7 +306,7 @@ describe('EnrolmentsService', () => {
     // This used to be null, and an employer's roster showed it as "—".
     expect(result.providerOrganisationName).toBe('Provider Co');
     expect(result.apprenticeDisplayName).toBe('Jane Smith');
-    expect(result.standardDisplayName).toBe('Software Developer (ST0123)');
+    expect(result.standardDisplayName).toBe('Software developer (ST0116)');
   });
 
   it('resolves employer organisation by UKPRN for provider portal', async () => {

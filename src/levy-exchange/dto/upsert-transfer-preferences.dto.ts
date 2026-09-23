@@ -71,9 +71,11 @@ export class UpsertTransferPreferencesDto {
   })
   sizeBands!: string[];
 
+  // Example from the register: ST0116 Software developer, checked 23 Sep 2026
+  // https://skillsengland.education.gov.uk/apprenticeships/ST0116
   @ApiProperty({
     type: [String],
-    example: ['ST0415 Software Developer'],
+    example: ['ST0116 Software developer'],
     description:
       'Open field: any values, each normalised on write. Suggestions from GET ' +
       '/levy-exchange/vocabulary (open.programmeType). Empty accepts every ' +

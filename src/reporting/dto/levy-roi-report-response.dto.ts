@@ -228,8 +228,10 @@ export class LevyRoiBreakdownEntryResponseDto {
   })
   label!: string;
 
+  // A real reference number, checked 23 Sep 2026:
+  // https://skillsengland.education.gov.uk/apprenticeships/ST0116
   @ApiPropertyOptional({
-    example: 'ST0123',
+    example: 'ST0116',
     description: 'Standard code when groupBy=standard',
   })
   code?: string;

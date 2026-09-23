@@ -25,9 +25,11 @@ export class EnrolmentResponseDto {
   })
   apprenticeDisplayName!: string | null;
 
+  // The code and title are the register's, checked 23 Sep 2026:
+  // https://skillsengland.education.gov.uk/apprenticeships/ST0116
   @ApiProperty({
     nullable: true,
-    example: 'Software Developer (ST0123)',
+    example: 'Software developer (ST0116)',
     description: 'Standard title and code for display',
   })
   standardDisplayName!: string | null;

@@ -35,7 +35,7 @@ describe('Levy Exchange recipient profile (e2e)', () => {
         sector: '  Construction ',
         region: 'North West',
         employeeCountBand: '10-49',
-        programmeType: 'ST0415   Software Developer',
+        programmeType: 'ST0116   Software developer',
         transferAmountRequired: '15000.00',
         hasDasAccount: true,
       })
@@ -48,7 +48,7 @@ describe('Levy Exchange recipient profile (e2e)', () => {
         .data,
     ).toMatchObject({
       sector: 'Construction',
-      programmeType: 'ST0415 Software Developer',
+      programmeType: 'ST0116 Software developer',
     });
 
     const getRes = await request(app.getHttpServer())
@@ -97,7 +97,7 @@ describe('Levy Exchange recipient profile (e2e)', () => {
         sector: 'Construction',
         region: 'north_west',
         employeeCountBand: '10-49',
-        programmeType: 'ST0415 Software Developer',
+        programmeType: 'ST0116 Software developer',
         transferAmountRequired: '15000.00',
         hasDasAccount: false,
       })

@@ -25,8 +25,10 @@ import { EnrolmentProvisioningService } from './enrolment-provisioning.service.j
 import { EnrolmentsController } from './enrolments.controller.js';
 import { EnrolmentsService } from './enrolments.service.js';
 import { BreakInLearning } from './entities/break-in-learning.entity.js';
+import { EnrolmentMilestoneNotification } from './entities/enrolment-milestone-notification.entity.js';
 import { Enrolment } from './entities/enrolment.entity.js';
 import { EpaOutcomeRecord } from './entities/epa-outcome.entity.js';
+import { MilestoneNotificationsService } from './milestone-notifications.service.js';
 
 @Module({
   imports: [
@@ -51,6 +53,8 @@ import { EpaOutcomeRecord } from './entities/epa-outcome.entity.js';
       Review,
       // F2.2.4 AC6 — break-in-learning history.
       BreakInLearning,
+      // F3.4.3 AC2 — the milestone notification markers.
+      EnrolmentMilestoneNotification,
     ]),
   ],
   controllers: [EnrolmentsController],
@@ -60,6 +64,7 @@ import { EpaOutcomeRecord } from './entities/epa-outcome.entity.js';
     EnrolmentPipelineService,
     EnrolmentProvisioningService,
     BreakInLearningService,
+    MilestoneNotificationsService,
   ],
   exports: [
     TypeOrmModule,
@@ -69,6 +74,8 @@ import { EpaOutcomeRecord } from './entities/epa-outcome.entity.js';
     EnrolmentProvisioningService,
     // F2.2.4 AC6 — the learner profile reads the open break.
     BreakInLearningService,
+    // F3.4.3 AC2 — the sweep, driven by its cron in SchedulerModule.
+    MilestoneNotificationsService,
   ],
 })
 export class EnrolmentsModule {}

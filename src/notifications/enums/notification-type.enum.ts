@@ -18,8 +18,11 @@ export enum NotificationType {
   EPA_DATE_UPDATED = 'epa_date_updated',
   /**
    * F3.4.3 AC2 — a milestone on the apprentice's journey was completed.
-   * Declared, not yet emitted: journey milestones are computed on read, so
-   * there is no transition to emit from (see NOTIFICATION_TYPE_CATALOGUE).
+   *
+   * Journey milestones are computed on read, so there is no transition to
+   * emit from. `MilestoneNotificationsService` recomputes the journey on a
+   * schedule and compares it against a marker per enrolment per milestone,
+   * which is also what keeps this to one notification per milestone.
    */
   MILESTONE_COMPLETED = 'milestone_completed',
 }

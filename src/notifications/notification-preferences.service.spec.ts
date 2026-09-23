@@ -277,7 +277,8 @@ describe('NotificationPreferencesService', () => {
         .find((t) => t.type === NotificationType.OTJ)
         ?.channels.find((c) => c.channel === NotificationChannel.PUSH);
       expect(otjPush?.configurable).toBe(true);
-      // The F3.4.3 AC2 types that are emailed today are switchable.
+      // F3.4.3 AC2/AC3 — every type the criterion names is emailed, so
+      // every one of them has an email switch a learner can turn off.
       const switchable = matrix.types
         .filter((t) => t.channels.some((c) => c.configurable))
         .map((t) => t.type);
@@ -290,10 +291,11 @@ describe('NotificationPreferencesService', () => {
           NotificationType.EPA_DATE_UPDATED,
           // F3.3.4 AC5 — the EPA pack download link is emailed.
           NotificationType.PORTFOLIO,
+          // F3.4.3 AC2 — emitted by MilestoneNotificationsService, and
+          // emailed, so the AC3 preference gates something real.
+          NotificationType.MILESTONE_COMPLETED,
         ]),
       );
-      // Declared, not emitted: nothing to switch off yet.
-      expect(switchable).not.toContain(NotificationType.MILESTONE_COMPLETED);
     });
   });
 

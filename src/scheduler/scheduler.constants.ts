@@ -40,5 +40,9 @@ export const EIF_SNAPSHOT_CRON_NAME = 'eif-score-snapshot-nightly';
 /** Weekly GDPR data retention purge cron. */
 export const RETENTION_CRON_NAME = 'data-retention-weekly';
 
+/** F3.4.3 AC2 — daily sweep announcing completed journey milestones. */
+export const MILESTONE_NOTIFICATIONS_CRON_NAME =
+  'milestone-notifications-daily';
+
 /** F2.2.5 AC3 — daily tutor at-risk caseload threshold alert. */
 export const CASELOAD_ALERTS_CRON_NAME = 'caseload-at-risk-alerts-daily';

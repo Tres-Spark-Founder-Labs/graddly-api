@@ -18,6 +18,7 @@ export const DEPLOYED_CRON_FLAGS_DEFAULT_TRUE = [
   'CRON_LEVY_ROI_MONTHLY_ENABLED',
   'CRON_EIF_SNAPSHOT_ENABLED',
   'CRON_CASELOAD_ALERTS_ENABLED',
+  'CRON_MILESTONE_NOTIFICATIONS_ENABLED',
   'CRON_RETENTION_ENABLED',
 ] as const;
 
@@ -374,6 +375,20 @@ export const envSchema = z
       .transform((v) => v === 'true'),
 
     CRON_CASELOAD_ALERTS_SCHEDULE: z.string().min(1).default('30 7 * * *'),
+
+    // F3.4.3 AC2 — announce completed journey milestones. 06:00, after the
+    // nightly jobs that can complete one (review overdue, OTJ pace) and
+    // before the working day, so a learner reads it with their morning.
+    CRON_MILESTONE_NOTIFICATIONS_ENABLED: z
+      .string()
+      .optional()
+      .default('false')
+      .transform((v) => v === 'true'),
+
+    CRON_MILESTONE_NOTIFICATIONS_SCHEDULE: z
+      .string()
+      .min(1)
+      .default('0 6 * * *'),
 
     // The at-risk count above which a tutor is flagged. Configurable per the
     // criterion, which names 5 as the default.

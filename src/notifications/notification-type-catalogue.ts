@@ -63,10 +63,11 @@ export const NOTIFICATION_TYPE_CATALOGUE: Readonly<
     emailed: true,
   },
   [NotificationType.MILESTONE_COMPLETED]: {
-    // Declared for F3.4.3 AC2; nothing emits it yet, so there is nothing to
-    // switch off. See the note on the enum value.
+    // F3.4.3 AC2 names six notification types and AC3 asks for a per-type
+    // email switch, so this one is emailed: a preference that gates nothing
+    // is a preference in name only. Emitted by the milestone sweep.
     label: 'Milestones completed',
-    emailed: false,
+    emailed: true,
   },
   [NotificationType.LEVY_EXPIRY_90]: {
     label: 'Levy expiring in 90 days',

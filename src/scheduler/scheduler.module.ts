@@ -8,6 +8,7 @@ import { CommitmentsModule } from '../commitments/commitments.module.js';
 import { DasModule } from '../das/das.module.js';
 import { DataRetentionCronService } from '../data-retention/data-retention-cron.service.js';
 import { DataRetentionModule } from '../data-retention/data-retention.module.js';
+import { EnrolmentsModule } from '../enrolments/enrolments.module.js';
 import { RedisHealthIndicator } from '../health/redis-health.indicator.js';
 import { LearnersModule } from '../learners/learners.module.js';
 import { LevyTransfer } from '../levy-exchange/entities/levy-transfer.entity.js';
@@ -32,6 +33,7 @@ import { HealthCronService } from './health-cron.service.js';
 import { LevyExpiryAlertsCronService } from './levy-expiry-alerts-cron.service.js';
 import { LevyRoiMonthlyCronService } from './levy-roi-monthly-cron.service.js';
 import { LevyTransferStatusCronService } from './levy-transfer-status-cron.service.js';
+import { MilestoneNotificationsCronService } from './milestone-notifications-cron.service.js';
 import { OtjInactivityCronService } from './otj-inactivity-cron.service.js';
 import { OtjPaceCronService } from './otj-pace-cron.service.js';
 import { ReviewOverdueCronService } from './review-overdue-cron.service.js';
@@ -74,6 +76,8 @@ import { ReviewRemindersCronService } from './review-reminders-cron.service.js';
     ReportingModule,
     // F2.2.5 AC3 — the tutor at-risk caseload alert sweep.
     LearnersModule,
+    // F3.4.3 AC2 — supplies MilestoneNotificationsService to its cron.
+    EnrolmentsModule,
     TypeOrmModule.forFeature([Organisation, LevyTransfer, OtjLogEntry]),
   ],
   providers: [
@@ -94,6 +98,7 @@ import { ReviewRemindersCronService } from './review-reminders-cron.service.js';
     CaseloadAlertCronService,
     LevyTransferStatusCronService,
     DataRetentionCronService,
+    MilestoneNotificationsCronService,
   ],
   exports: [CronLockService],
 })

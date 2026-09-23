@@ -84,6 +84,39 @@ export class EnrolmentJourneyService {
     return journey;
   }
 
+  /**
+   * F3.4.3 AC2 — the derived milestones, with their stable keys, for the
+   * milestone notification sweep.
+   *
+   * Takes the entity rather than a user because a cron has neither, and goes
+   * through `buildJourney`, which has no side effects: the gateway
+   * reconciliation and its notification live in `getJourney`, so a sweep
+   * cannot stamp `gatewayReadyAt` or mail a provider by looking.
+   *
+   * One derivation, one timeline: the sweep compares this against its
+   * markers rather than keeping a second copy of milestone state. The cost is
+   * one extra reviews read per enrolment per sweep, because `gatewayReady`
+   * comes from the journey and the keyed list is then built from it.
+   */
+  async milestonesForNotification(enrolment: Enrolment): Promise<
+    {
+      code: string;
+      title: string;
+      date: string | null;
+      status: JourneyMilestoneStatus;
+      notificationKey: string;
+    }[]
+  > {
+    const organisationId = enrolment.organisationId;
+    const gatewayReady = (await this.buildJourney(enrolment)).gatewayReady;
+    return this.buildMilestones(
+      enrolment,
+      organisationId,
+      gatewayReady,
+      new Date(),
+    );
+  }
+
   /** Provider ops: gateway % without side effects (no gateway-ready notification). */
   async getGatewayCompletionPercent(enrolment: Enrolment): Promise<number> {
     const journey = await this.buildJourney(enrolment);
@@ -314,7 +347,10 @@ export class EnrolmentJourneyService {
         completedAt: enrolment.completedAt,
         now,
       }),
-      milestones,
+      // The stable notification key is internal: see `milestone()`.
+      milestones: milestones.map(
+        ({ notificationKey: _notificationKey, ...milestone }) => milestone,
+      ),
       gatewayChecklist,
       gatewayCompletionPercent,
       gatewayReady,
@@ -427,6 +463,7 @@ export class EnrolmentJourneyService {
           review.reviewType,
           review.scheduledAt.toISOString().slice(0, 10),
           this.reviewMilestoneStatus(review, now),
+          `review:${review.id}`,
         ),
       ),
       this.milestone(
@@ -498,14 +535,26 @@ export class EnrolmentJourneyService {
       : JourneyMilestoneStatus.UPCOMING;
   }
 
+  /**
+   * `notificationKey` is the milestone's stable identity, and it is
+   * deliberately not `code`.
+   *
+   * `code` is positional for reviews — `review_1`, `review_2` … in
+   * `scheduledAt` order — so a rescheduled review inserted earlier reassigns
+   * the codes of the ones after it. That is fine for a response nobody
+   * stores, and wrong for anything persisted, so the milestone notification
+   * marker keys on this instead (`review:<reviewId>`). It is stripped from
+   * the response in `buildJourney`: the API surface does not change.
+   */
   private milestone(
     code: string,
     title: string,
     description: string | null,
     date: string | null,
     status: JourneyMilestoneStatus,
+    notificationKey: string = code,
   ) {
-    return { code, title, description, date, status };
+    return { code, title, description, date, status, notificationKey };
   }
 
   private async sumApprovedMinutes(
@@ -592,6 +641,23 @@ export class EnrolmentJourneyService {
    * unopened for a week, those differ by a week. Closing that gap needs a
    * sweep like `otj-pace-cron.service.ts`, which is scoped in
    * OPEN_QUESTIONS.md rather than smuggled in here.
+   *
+   * ── THE MILESTONE SWEEP DELIBERATELY DOES THE OPPOSITE ───────────────────
+   *
+   * `milestone-notifications.service.ts` also compares derived state against
+   * a notified marker, and its marker never clears. A completed milestone
+   * that regresses — a review rescheduled after it was marked complete — is
+   * not announced a second time when it completes again.
+   *
+   * The two differ because the notifications are about different things.
+   * Gateway readiness is a **state** a provider acts on: re-entering it is
+   * worth another notification, because the first one led nowhere if
+   * readiness lapsed (Q3b above). A milestone completion is an **event** on a
+   * learner timeline: announcing it twice implies something new happened,
+   * when the timeline already shows the reschedule truthfully.
+   *
+   * So neither is a template for the other, and changing one does not make
+   * the other wrong. Read both comments before making them agree.
    */
   private async reconcileGatewayReadiness(
     enrolment: Enrolment,

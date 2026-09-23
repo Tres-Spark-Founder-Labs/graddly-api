@@ -26,7 +26,7 @@
  *
  *   - it boots the application twice and seeds two full learner scopes, a
  *     levy-exchange donor context, a commitment statement and a report
- *     subscription, then drives 25 jobs: minutes, not seconds;
+ *     subscription, then drives 26 jobs: minutes, not seconds;
  *   - it deliberately writes across most of the schema and deletes what it
  *     wrote, including suspending the append-only trigger on
  *     `audit_log_entries` to clear its own rows. That is safe here and
@@ -84,6 +84,7 @@ import { DasSyncDispatchService } from '../src/das/das-sync-dispatch.service.js'
 import { EMAIL_JOB_SEND } from '../src/email/email-job.constants.js';
 import { EmailPayloadFactory } from '../src/email/email-payload.factory.js';
 import { EmailService } from '../src/email/email.service.js';
+import { MilestoneNotificationsService } from '../src/enrolments/milestone-notifications.service.js';
 import { RedisHealthIndicator } from '../src/health/redis-health.indicator.js';
 import { CaseloadAlertService } from '../src/learners/caseload-alert.service.js';
 import { LevyTransfer } from '../src/levy-exchange/entities/levy-transfer.entity.js';
@@ -112,6 +113,7 @@ import { HealthCronService } from '../src/scheduler/health-cron.service.js';
 import { LevyExpiryAlertsCronService } from '../src/scheduler/levy-expiry-alerts-cron.service.js';
 import { LevyRoiMonthlyCronService } from '../src/scheduler/levy-roi-monthly-cron.service.js';
 import { LevyTransferStatusCronService } from '../src/scheduler/levy-transfer-status-cron.service.js';
+import { MilestoneNotificationsCronService } from '../src/scheduler/milestone-notifications-cron.service.js';
 import { OtjInactivityCronService } from '../src/scheduler/otj-inactivity-cron.service.js';
 import { OtjPaceCronService } from '../src/scheduler/otj-pace-cron.service.js';
 import { ReviewOverdueCronService } from '../src/scheduler/review-overdue-cron.service.js';
@@ -231,7 +233,7 @@ describe('RLS probe: every scheduled job, driven where the real system enters', 
     });
   });
 
-  it('drives all fourteen cron services', async () => {
+  it('drives all fifteen cron services', async () => {
     const scope = await createLearnerScopeContext(app, 'rlsprobe');
     created.orgIds.push(scope.providerOrgId, scope.employerOrgId);
     created.userIds.push(
@@ -671,6 +673,44 @@ describe('RLS probe: every scheduled job, driven where the real system enters', 
       'cron: health',
       () => healthCron.handleHealthCheckCron(),
       () => Promise.resolve('no tenant table read; DB ping + Redis ping only'),
+    );
+
+    // ── 15. milestone-notifications ────────────────────────────────────────
+    /**
+     * Driven twice, because one run proves nothing here. The first observes
+     * the scope and records what is already complete *without* sending —
+     * that is the rule that stops shipping the sweep announcing months of
+     * history. The learner's review is then held, and the second run is the
+     * one that has to announce. An emitter that only ever seeds looks busy in
+     * its marker table and reaches nobody, which is exactly the class of
+     * fault this probe exists to catch.
+     */
+    const milestoneCron = new MilestoneNotificationsCronService(
+      ...cronDeps(),
+      app.get(MilestoneNotificationsService),
+    );
+    await milestoneCron.handleMilestoneNotificationsCron();
+    await sudo.query(`UPDATE reviews SET status = 'completed' WHERE id = $1`, [
+      scope.learnerA.reviewId,
+    ]);
+    await drive(
+      'cron: milestone-notifications',
+      () => milestoneCron.handleMilestoneNotificationsCron(),
+      async () => {
+        const m = await sudo.query<{ milestoneKey: string; outcome: string }>(
+          `SELECT "milestoneKey", outcome FROM enrolment_milestone_notifications
+            WHERE "enrolmentId" = $1 ORDER BY outcome, "milestoneKey"`,
+          [scope.learnerA.enrolmentId],
+        );
+        const n = await sudo.query<{ n: string }>(
+          `SELECT count(*) AS n FROM notifications
+            WHERE "userId" = $1 AND type = 'milestone_completed'`,
+          [scope.learnerA.userId],
+        );
+        return `markers = [${m.rows
+          .map((r) => `${r.milestoneKey}=${r.outcome}`)
+          .join(', ')}], milestone_completed notifications = ${n.rows[0].n}`;
+      },
     );
 
     console.log(`\n=== cron summary ===\n${JSON.stringify(results, null, 2)}`);

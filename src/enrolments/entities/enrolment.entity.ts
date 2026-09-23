@@ -197,4 +197,21 @@ export class Enrolment extends BaseEntity {
 
   @Column({ type: 'timestamptz', nullable: true })
   gatewayReadyNotifiedAt!: Date | null;
+
+  /**
+   * F3.4.3 AC2 — when the milestone notification sweep first looked at this
+   * enrolment.
+   *
+   * The same kind of fact as `gatewayReadyNotifiedAt` above: it exists only
+   * so a notification does not fire when it should not. Everything already
+   * complete at that moment is recorded as seeded and never announced, which
+   * is what stopped shipping the sweep from greeting every existing learner
+   * with a notification per milestone they finished months ago.
+   *
+   * It is a separate column rather than an inference from the marker rows
+   * because an enrolment with nothing complete yet leaves no markers, and
+   * would otherwise look identical on its second sweep to one never seen.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  milestonesObservedAt!: Date | null;
 }

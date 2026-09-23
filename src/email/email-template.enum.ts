@@ -19,4 +19,6 @@ export enum EmailTemplate {
   EPA_DATE_UPDATED = 'epa-date-updated',
   /** F3.3.4 AC5 — the EPA evidence pack is built; here is the download link. */
   EPA_PACK_READY = 'epa-pack-ready',
+  /** F3.4.3 AC2 — a milestone on the apprentice's journey was completed. */
+  MILESTONE_COMPLETED = 'milestone-completed',
 }

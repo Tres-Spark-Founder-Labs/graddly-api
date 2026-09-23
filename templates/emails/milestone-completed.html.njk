@@ -1,0 +1,9 @@
+{% extends "layouts/base.html.njk" %}
+
+{% block title %}Milestone complete{% endblock %}
+
+{% block content %}
+<p>Hi {{ firstName }},</p>
+<p>You have completed <strong>{{ milestoneTitle }}</strong> on your apprenticeship journey{% if milestoneDate %} ({{ milestoneDate }}){% endif %}.</p>
+<p>Sign in to {{ appName }} to see your journey so far and what comes next.</p>
+{% endblock %}

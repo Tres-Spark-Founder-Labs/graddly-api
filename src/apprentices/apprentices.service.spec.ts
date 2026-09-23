@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
 import { WithdrawalPushService } from '../withdrawal-push/withdrawal-push.service.js';
@@ -74,7 +75,7 @@ describe('ApprenticesService', () => {
     });
   });
 
-  const user = { id: 'u-1', organisationId: 'org-1' } as const;
+  const user = testAuthenticatedUser({ id: 'u-1', organisationId: 'org-1' });
 
   it('creates apprentice with normalized email', async () => {
     findOne.mockResolvedValue(null);

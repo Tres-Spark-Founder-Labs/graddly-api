@@ -2,6 +2,8 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
+
 import { ReviewRecord } from './entities/review-record.entity.js';
 import { Review } from './entities/review.entity.js';
 import { ReviewStatus } from './enums/review-status.enum.js';
@@ -46,7 +48,7 @@ describe('ReviewRecordsService', () => {
     jest.clearAllMocks();
   });
 
-  const user = { id: 'u-1', organisationId: 'org-1' } as const;
+  const user = testAuthenticatedUser({ id: 'u-1', organisationId: 'org-1' });
   const payload = {
     smartGoals: [
       {

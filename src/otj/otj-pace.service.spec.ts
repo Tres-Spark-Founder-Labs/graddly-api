@@ -8,7 +8,10 @@ import { EmailTemplate } from '../email/email-template.enum.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
-import { NotificationsService } from '../notifications/notifications.service.js';
+import {
+  NotificationsService,
+  type NotificationEmailOutcome,
+} from '../notifications/notifications.service.js';
 import { User } from '../users/entities/user.entity.js';
 
 import { OtjLogEntry } from './entities/otj-log-entry.entity.js';
@@ -32,10 +35,16 @@ describe('OtjPaceService', () => {
   // preference on. The gate itself is tested in notifications.service.spec.
   const notifications = {
     createForUser: jest.fn(),
-    sendEmail: jest.fn(async ({ payload }: { payload: unknown }) => {
-      await emailDispatchService.enqueue(payload);
-      return 'queued' as const;
-    }),
+    sendEmail: jest.fn(
+      async ({
+        payload,
+      }: {
+        payload: unknown;
+      }): Promise<NotificationEmailOutcome> => {
+        await emailDispatchService.enqueue(payload);
+        return 'queued';
+      },
+    ),
   };
   const emailDispatchService = { enqueue: jest.fn() };
 

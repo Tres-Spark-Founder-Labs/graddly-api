@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testEntity } from '../common/testing/test-fixture.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 
 import { LevyRecipientProfile } from './entities/levy-recipient-profile.entity.js';
@@ -31,21 +32,22 @@ describe('LevyMatchingService', () => {
   const waitingPoolCreate = jest.fn();
   const waitingPoolSave = jest.fn();
 
-  const recipientProfile: LevyRecipientProfile = {
-    id: 'profile-1',
-    organisationId: 'recipient-org',
-    sector: 'Construction',
-    region: 'North West',
-    employeeCountBand: '10-49',
-    programmeType: 'ST0415 Software Developer',
-    transferAmountRequired: '15000.00',
-    hasDasAccount: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    isDeleted: false,
-    deletedAt: null,
-    organisation: {} as never,
-  };
+  const recipientProfile: LevyRecipientProfile =
+    testEntity<LevyRecipientProfile>({
+      id: 'profile-1',
+      organisationId: 'recipient-org',
+      sector: 'Construction',
+      region: 'North West',
+      employeeCountBand: '10-49',
+      programmeType: 'ST0415 Software Developer',
+      transferAmountRequired: '15000.00',
+      hasDasAccount: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      isDeleted: false,
+      deletedAt: null,
+      organisation: {} as never,
+    });
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({

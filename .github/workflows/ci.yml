@@ -42,6 +42,15 @@ jobs:
       - name: Type-check e2e helpers
         run: yarn typecheck:test-helpers
 
+      # And everything else: src, the unit specs and the e2e specs, with the
+      # same tsconfig the editor uses. ts-jest transpiles without type
+      # checking, so 241 errors had accumulated across 66 spec files — a
+      # stale call signature among them (getThreadForMessaging was still
+      # asserted with its old arguments) — and no run ever failed. Zero now,
+      # and this step is what keeps it there.
+      - name: Type-check everything
+        run: yarn typecheck
+
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
@@ -90,7 +99,6 @@ jobs:
           GRADLLY_FRONTEND_DIR: ${{ github.workspace }}/.frontend
           OTJ_CONTRACT_REQUIRED: 'true'
         run: yarn test --coverage
-
 
   contract-drift:
     name: Contract drift
@@ -277,5 +285,5 @@ jobs:
           JWT_REFRESH_EXPIRES_IN: 7d
           REDIS_HOST: localhost
           REDIS_PORT: 6379
-          THROTTLE_ENABLED: "false"
-          TENANT_DB_CONTEXT_ENABLED: "true"
+          THROTTLE_ENABLED: 'false'
+          TENANT_DB_CONTEXT_ENABLED: 'true'

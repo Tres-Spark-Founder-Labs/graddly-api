@@ -2,6 +2,8 @@ import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testEntity } from '../common/testing/test-fixture.js';
+
 import { LevyRecipientProfile } from './entities/levy-recipient-profile.entity.js';
 import { LevyRecipientProfileService } from './services/levy-recipient-profile.service.js';
 
@@ -57,7 +59,7 @@ describe('LevyRecipientProfileService', () => {
   });
 
   it('updates an existing recipient profile', async () => {
-    const existing: LevyRecipientProfile = {
+    const existing: LevyRecipientProfile = testEntity<LevyRecipientProfile>({
       id: 'profile-1',
       organisationId: 'org-1',
       sector: 'Construction',
@@ -71,7 +73,7 @@ describe('LevyRecipientProfileService', () => {
       isDeleted: false,
       deletedAt: null,
       organisation: {} as never,
-    };
+    });
     profileFindOne.mockResolvedValue(existing);
     profileSave.mockImplementation((value: LevyRecipientProfile) =>
       Promise.resolve(value),

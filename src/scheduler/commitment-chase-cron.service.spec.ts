@@ -7,31 +7,21 @@ import { CommitmentChaseService } from '../commitments/commitment-chase.service.
 import { CommitmentChaseCronService } from './commitment-chase-cron.service.js';
 import { CronLockService } from './cron-lock.service.js';
 import { COMMITMENT_CHASE_CRON_NAME } from './scheduler.constants.js';
+import {
+  createSchedulerRegistryDouble,
+  type SchedulerRegistryDouble,
+} from './testing/scheduler-registry.double.js';
 
 describe('CommitmentChaseCronService', () => {
   let service: CommitmentChaseCronService;
   let chaseService: { sendDueChases: jest.Mock };
-  let schedulerRegistry: jest.Mocked<
-    Pick<
-      SchedulerRegistry,
-      'addCronJob' | 'doesExist' | 'getCronJob' | 'deleteCronJob'
-    >
-  >;
-  const cronJobs = new Map<string, { stop: jest.Mock }>();
+  let schedulerRegistry: SchedulerRegistryDouble['registry'];
+  let cronJobs: SchedulerRegistryDouble['jobs'];
 
   beforeEach(async () => {
-    cronJobs.clear();
     chaseService = { sendDueChases: jest.fn().mockResolvedValue(2) };
-    schedulerRegistry = {
-      addCronJob: jest.fn((name: string, job: { stop: jest.Mock }) => {
-        cronJobs.set(name, job);
-      }),
-      doesExist: jest.fn((_type: string, name: string) => cronJobs.has(name)),
-      getCronJob: jest.fn((name: string) => cronJobs.get(name)),
-      deleteCronJob: jest.fn((name: string) => {
-        cronJobs.delete(name);
-      }),
-    };
+    ({ registry: schedulerRegistry, jobs: cronJobs } =
+      createSchedulerRegistryDouble());
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [

@@ -9,6 +9,10 @@ import { LevyTransferService } from '../levy-exchange/services/levy-transfer.ser
 import { CronLockService } from './cron-lock.service.js';
 import { LevyTransferStatusCronService } from './levy-transfer-status-cron.service.js';
 import { LEVY_TRANSFER_STATUS_CRON_NAME } from './scheduler.constants.js';
+import {
+  createSchedulerRegistryDouble,
+  type SchedulerRegistryDouble,
+} from './testing/scheduler-registry.double.js';
 
 describe('LevyTransferStatusCronService', () => {
   let service: LevyTransferStatusCronService;
@@ -16,16 +20,10 @@ describe('LevyTransferStatusCronService', () => {
     Pick<LevyTransferService, 'syncTransferStatusFromDas'>
   >;
   let transferRepo: { find: jest.Mock };
-  let schedulerRegistry: jest.Mocked<
-    Pick<
-      SchedulerRegistry,
-      'addCronJob' | 'doesExist' | 'getCronJob' | 'deleteCronJob'
-    >
-  >;
-  const cronJobs = new Map<string, { stop: jest.Mock }>();
+  let schedulerRegistry: SchedulerRegistryDouble['registry'];
+  let cronJobs: SchedulerRegistryDouble['jobs'];
 
   beforeEach(async () => {
-    cronJobs.clear();
     transferService = {
       syncTransferStatusFromDas: jest.fn().mockResolvedValue(undefined),
     };
@@ -35,16 +33,8 @@ describe('LevyTransferStatusCronService', () => {
         { id: 'xfer-2', esfaTransferReference: null },
       ]),
     };
-    schedulerRegistry = {
-      addCronJob: jest.fn((name: string, job: { stop: jest.Mock }) => {
-        cronJobs.set(name, job);
-      }),
-      doesExist: jest.fn((_type: string, name: string) => cronJobs.has(name)),
-      getCronJob: jest.fn((name: string) => cronJobs.get(name)),
-      deleteCronJob: jest.fn((name: string) => {
-        cronJobs.delete(name);
-      }),
-    };
+    ({ registry: schedulerRegistry, jobs: cronJobs } =
+      createSchedulerRegistryDouble());
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [

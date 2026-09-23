@@ -191,7 +191,7 @@ describe('PdfGenerationProcessor', () => {
         template: PdfJobTemplate.APPRENTICE_ROSTER,
         rosterQuery,
       },
-    } as Job<IPdfJobPayload>);
+    } as unknown as Job<IPdfJobPayload>);
 
     expect(buildRosterContent).toHaveBeenCalledWith('org-1', rosterQuery);
     expect(renderApprenticeRoster).toHaveBeenCalledWith({

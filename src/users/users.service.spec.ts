@@ -36,7 +36,7 @@ describe('UsersService', () => {
       findOne.mockResolvedValue(null);
       create.mockImplementation((data: Partial<User>) => data);
       save.mockImplementation((user: User) =>
-        Promise.resolve({ id: 'user-1', ...user }),
+        Promise.resolve({ ...user, id: 'user-1' }),
       );
 
       const result = await service.create({
@@ -152,7 +152,7 @@ describe('UsersService', () => {
       findOne.mockResolvedValue(null);
       create.mockImplementation((data: Partial<User>) => data);
       save.mockImplementation((user: User) =>
-        Promise.resolve({ id: 'user-2', ...user }),
+        Promise.resolve({ ...user, id: 'user-2' }),
       );
 
       const result = await service.createFromOidc({

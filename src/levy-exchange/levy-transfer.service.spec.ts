@@ -6,10 +6,12 @@ import {
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
 import {
   getRlsBootstrap,
   runWithCorrelationId,
 } from '../common/context/correlation-id-context.js';
+import { testEntity } from '../common/testing/test-fixture.js';
 import { DAS_CLIENT } from '../das/das-client.constants.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { PdfGenerationJob } from '../pdf/entities/pdf-generation-job.entity.js';
@@ -70,12 +72,12 @@ describe('LevyTransferService', () => {
   const refreshToken = jest.fn();
   const createDownloadUrl = jest.fn();
 
-  const user: AuthenticatedUser = {
+  const user: AuthenticatedUser = testAuthenticatedUser({
     id: 'user-1',
     email: 'donor@example.com',
     organisationId: 'donor-org',
     roles: ['owner'],
-  };
+  });
 
   beforeEach(async () => {
     const queryBuilder = {
@@ -228,7 +230,10 @@ describe('LevyTransferService', () => {
     it('matches donor-or-recipient when no role filter is given', async () => {
       qbGetManyAndCount.mockResolvedValue([[], 0]);
 
-      await service.list({ ...user, organisationId: 'org-1' }, {});
+      await service.list(
+        { ...user, organisationId: 'org-1' },
+        testEntity<Parameters<typeof service.list>[1]>({}),
+      );
 
       expect(qbAndWhere).toHaveBeenCalledWith(
         '(transfer.donorOrganisationId = :organisationId OR transfer.recipientOrganisationId = :organisationId)',
@@ -426,7 +431,7 @@ describe('LevyTransferService', () => {
   });
 
   it('syncs transfer status from DAS', async () => {
-    const transfer: LevyTransfer = {
+    const transfer = testEntity<LevyTransfer>({
       id: 'transfer-1',
       donorOrganisationId: 'donor-org',
       recipientOrganisationId: 'recipient-org',
@@ -443,7 +448,7 @@ describe('LevyTransferService', () => {
       updatedAt: new Date('2026-01-01'),
       isDeleted: false,
       deletedAt: null,
-    };
+    });
     donorLinkFindOne.mockResolvedValue({
       id: 'link-1',
       organisationId: 'donor-org',
@@ -627,12 +632,12 @@ describe('LevyTransferService', () => {
 
   /** F4.2.4 AC3 — the recipient signs last and closes the agreement. */
   describe('the final signature', () => {
-    const recipient: AuthenticatedUser = {
+    const recipient = testAuthenticatedUser({
       id: 'recipient-signer',
       email: 'recipient@example.com',
       organisationId: 'recipient-org',
       roles: ['member'],
-    };
+    });
     const openTransfer = () => ({
       id: 'transfer-1',
       donorOrganisationId: 'donor-org',

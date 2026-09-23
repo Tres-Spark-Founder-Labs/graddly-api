@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
 import { InvitationsService } from '../invitations/invitations.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
@@ -22,10 +23,10 @@ describe('EnrolmentProvisioningService', () => {
   const enrolmentSave = jest.fn();
   const membershipFind = jest.fn();
 
-  const actor = {
+  const actor = testAuthenticatedUser({
     id: 'user-1',
     organisationId: 'org-1',
-  } as const;
+  });
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({

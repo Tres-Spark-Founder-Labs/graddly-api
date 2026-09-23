@@ -1,5 +1,10 @@
 /* eslint-disable @typescript-eslint/naming-convention -- ILR manual override keys */
-import { IlrRowBuilderService } from './ilr-row-builder.service.js';
+import { testEntity } from '../common/testing/test-fixture.js';
+
+import {
+  IlrRowBuilderService,
+  type IlrRowBuildContext,
+} from './ilr-row-builder.service.js';
 import {
   buildEnrolmentGraphFixture,
   minimalMappingConfig,
@@ -31,7 +36,9 @@ describe('IlrRowBuilderService', () => {
     const graph = buildEnrolmentGraphFixture();
     const fields = service.buildFields(minimalMappingConfig, {
       ...graph,
-      organisation: { ukprn: null },
+      organisation: testEntity<IlrRowBuildContext['organisation']>({
+        ukprn: null,
+      }),
       manualOverrides: {},
     });
 

@@ -7,7 +7,10 @@ import { PdfJobStatus } from '../../src/pdf/enums/pdf-job-status.enum.js';
 import { PdfJobTemplate } from '../../src/pdf/enums/pdf-job-template.enum.js';
 import { noopStorageObjects } from '../../src/storage/providers/noop-storage.store.js';
 import { createE2eApp } from '../helpers/e2e-app.js';
-import { expectSuccessEnvelope } from '../helpers/e2e-response-contracts.js';
+import {
+  expectSuccessEnvelope,
+  successData,
+} from '../helpers/e2e-response-contracts.js';
 import {
   expectLevyRoiBreakdownEntryResource,
   expectLevyRoiReportResource,
@@ -68,9 +71,14 @@ describe('LevyRoiReportController (e2e)', () => {
 
     expectSuccessEnvelope(res.body);
     expectLevyRoiReportResource(res.body.data);
-    expect(res.body.data.organisationId).toBe(ctx.employerOrgId);
-    expect(res.body.data.activeApprenticeCount).toBeGreaterThanOrEqual(1);
-    expect(res.body.data.monthlyContributions).toEqual(
+    const summary = successData<{
+      organisationId: string;
+      activeApprenticeCount: number;
+      monthlyContributions: unknown;
+    }>(res.body);
+    expect(summary.organisationId).toBe(ctx.employerOrgId);
+    expect(summary.activeApprenticeCount).toBeGreaterThanOrEqual(1);
+    expect(summary.monthlyContributions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ month: '2025-12', amount: 2000 }),
       ]),
@@ -88,8 +96,9 @@ describe('LevyRoiReportController (e2e)', () => {
 
     expectSuccessEnvelope(res.body);
     expect(Array.isArray(res.body.data)).toBe(true);
-    expect(res.body.data.length).toBeGreaterThanOrEqual(1);
-    expectLevyRoiBreakdownEntryResource(res.body.data[0]);
+    const rows = successData<unknown[]>(res.body);
+    expect(rows.length).toBeGreaterThanOrEqual(1);
+    expectLevyRoiBreakdownEntryResource(rows[0]);
   });
 
   /**

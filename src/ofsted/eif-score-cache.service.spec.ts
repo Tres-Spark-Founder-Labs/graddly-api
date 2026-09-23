@@ -1,9 +1,12 @@
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
+import { testEntity } from '../common/testing/test-fixture.js';
 import { RedisService } from '../redis/redis.service.js';
 
+import { EifScoresPayloadDto } from './dto/eif-scores-response.dto.js';
 import { EifScoreCacheService } from './eif-score-cache.service.js';
+import { EifRag } from './enums/eif-rag.enum.js';
 
 describe('EifScoreCacheService', () => {
   const redisClient = {
@@ -37,14 +40,14 @@ describe('EifScoreCacheService', () => {
   });
 
   it('stores and reads cached payload', async () => {
-    const payload = {
+    const payload = testEntity<EifScoresPayloadDto>({
       overallPercent: 70,
-      overallRag: 'amber',
+      overallRag: EifRag.AMBER,
       alertBanner: false,
       criteria: [],
       calculatedAt: '2026-01-01T00:00:00.000Z',
       cached: false,
-    };
+    });
     redisClient.get.mockResolvedValue(JSON.stringify(payload));
     await expect(service.get('org-1')).resolves.toEqual(payload);
     await service.set('org-1', payload);
@@ -60,7 +63,7 @@ describe('EifScoreCacheService', () => {
     await expect(service.get('org-1')).resolves.toBeNull();
     await service.set('org-1', {
       overallPercent: 0,
-      overallRag: 'red',
+      overallRag: EifRag.RED,
       alertBanner: true,
       criteria: [],
       calculatedAt: '2026-01-01T00:00:00.000Z',

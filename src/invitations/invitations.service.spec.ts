@@ -68,6 +68,7 @@ describe('InvitationsService', () => {
   };
 
   let invitationRepo: {
+    createQueryBuilder: jest.Mock;
     findOne: jest.Mock;
     findAndCount: jest.Mock;
     save: jest.Mock;

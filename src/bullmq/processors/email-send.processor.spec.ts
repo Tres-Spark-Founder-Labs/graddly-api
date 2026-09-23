@@ -39,7 +39,7 @@ describe('EmailSendProcessor', () => {
         to: 'invitee@example.com',
         context: { firstName: 'Sam' },
       },
-    } as Job<IEmailJobPayload>;
+    } as unknown as Job<IEmailJobPayload>;
 
     await processor.process(job);
 
@@ -53,7 +53,7 @@ describe('EmailSendProcessor', () => {
       id: '2',
       name: 'unknown',
       data: {} as IEmailJobPayload,
-    } as Job<IEmailJobPayload>;
+    } as unknown as Job<IEmailJobPayload>;
 
     await processor.process(job);
 

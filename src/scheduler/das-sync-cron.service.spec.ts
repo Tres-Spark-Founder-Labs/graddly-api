@@ -9,35 +9,25 @@ import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { CronLockService } from './cron-lock.service.js';
 import { DasSyncCronService } from './das-sync-cron.service.js';
 import { DAS_SYNC_CRON_NAME } from './scheduler.constants.js';
+import {
+  createSchedulerRegistryDouble,
+  type SchedulerRegistryDouble,
+} from './testing/scheduler-registry.double.js';
 
 describe('DasSyncCronService', () => {
   let service: DasSyncCronService;
   let dispatch: jest.Mocked<Pick<DasSyncDispatchService, 'enqueueSync'>>;
   let organisationsRepo: { find: jest.Mock };
-  let schedulerRegistry: jest.Mocked<
-    Pick<
-      SchedulerRegistry,
-      'addCronJob' | 'doesExist' | 'getCronJob' | 'deleteCronJob'
-    >
-  >;
-  const cronJobs = new Map<string, { stop: jest.Mock }>();
+  let schedulerRegistry: SchedulerRegistryDouble['registry'];
+  let cronJobs: SchedulerRegistryDouble['jobs'];
 
   beforeEach(async () => {
-    cronJobs.clear();
     dispatch = { enqueueSync: jest.fn().mockResolvedValue({ jobId: 'job-1' }) };
     organisationsRepo = {
       find: jest.fn().mockResolvedValue([{ id: 'org-1' }, { id: 'org-2' }]),
     };
-    schedulerRegistry = {
-      addCronJob: jest.fn((name: string, job: { stop: jest.Mock }) => {
-        cronJobs.set(name, job);
-      }),
-      doesExist: jest.fn((_type: string, name: string) => cronJobs.has(name)),
-      getCronJob: jest.fn((name: string) => cronJobs.get(name)),
-      deleteCronJob: jest.fn((name: string) => {
-        cronJobs.delete(name);
-      }),
-    };
+    ({ registry: schedulerRegistry, jobs: cronJobs } =
+      createSchedulerRegistryDouble());
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [

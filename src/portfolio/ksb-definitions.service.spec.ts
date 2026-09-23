@@ -2,6 +2,7 @@ import { ConflictException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
 import { Standard } from '../programmes/entities/standard.entity.js';
 
 import { KsbDefinition } from './entities/ksb-definition.entity.js';
@@ -36,12 +37,12 @@ describe('KsbDefinitionsService', () => {
     repo.findOne.mockResolvedValue(null);
   });
 
-  const user = {
+  const user = testAuthenticatedUser({
     id: 'u1',
     organisationId: 'org-1',
     email: 'a@example.com',
     roles: ['owner'],
-  } as const;
+  });
 
   it('creates a KSB definition', async () => {
     const result = await service.createForStandard(user, 'std-1', {
@@ -94,7 +95,10 @@ describe('KsbDefinitionsService', () => {
       title: 'Old',
       isDeleted: false,
     });
-    repo.save.mockImplementation((v: KsbDefinition) => Promise.resolve(v));
+    repo.save.mockImplementation((v: { id?: string }) => ({
+      ...v,
+      id: v.id ?? 'ksb-1',
+    }));
 
     const result = await service.update(user, 'ksb-1', { title: 'New' });
 
@@ -108,7 +112,10 @@ describe('KsbDefinitionsService', () => {
       isDeleted: false,
     } as KsbDefinition;
     repo.findOne.mockResolvedValue(row);
-    repo.save.mockImplementation((v: KsbDefinition) => Promise.resolve(v));
+    repo.save.mockImplementation((v: { id?: string }) => ({
+      ...v,
+      id: v.id ?? 'ksb-1',
+    }));
 
     await service.remove(user, 'ksb-1');
 

@@ -7,35 +7,25 @@ import { ReviewsOverdueService } from '../reviews/reviews-overdue.service.js';
 import { CronLockService } from './cron-lock.service.js';
 import { ReviewOverdueCronService } from './review-overdue-cron.service.js';
 import { REVIEW_OVERDUE_CRON_NAME } from './scheduler.constants.js';
+import {
+  createSchedulerRegistryDouble,
+  type SchedulerRegistryDouble,
+} from './testing/scheduler-registry.double.js';
 
 describe('ReviewOverdueCronService', () => {
   let service: ReviewOverdueCronService;
   let overdueService: jest.Mocked<
     Pick<ReviewsOverdueService, 'flagOverdueReviews'>
   >;
-  let schedulerRegistry: jest.Mocked<
-    Pick<
-      SchedulerRegistry,
-      'addCronJob' | 'doesExist' | 'getCronJob' | 'deleteCronJob'
-    >
-  >;
-  const cronJobs = new Map<string, { stop: jest.Mock }>();
+  let schedulerRegistry: SchedulerRegistryDouble['registry'];
+  let cronJobs: SchedulerRegistryDouble['jobs'];
 
   beforeEach(async () => {
-    cronJobs.clear();
     overdueService = {
       flagOverdueReviews: jest.fn().mockResolvedValue(3),
     };
-    schedulerRegistry = {
-      addCronJob: jest.fn((name: string, job: { stop: jest.Mock }) => {
-        cronJobs.set(name, job);
-      }),
-      doesExist: jest.fn((_type: string, name: string) => cronJobs.has(name)),
-      getCronJob: jest.fn((name: string) => cronJobs.get(name)),
-      deleteCronJob: jest.fn((name: string) => {
-        cronJobs.delete(name);
-      }),
-    };
+    ({ registry: schedulerRegistry, jobs: cronJobs } =
+      createSchedulerRegistryDouble());
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [

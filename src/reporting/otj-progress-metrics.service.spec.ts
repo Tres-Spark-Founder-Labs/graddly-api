@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testEntity } from '../common/testing/test-fixture.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { OtjSummaryService } from '../otj/otj-summary.service.js';
@@ -133,7 +134,11 @@ describe('OtjProgressMetricsService', () => {
         rejected: '0',
       }),
     };
-    otjLogRepo.createQueryBuilder.mockReturnValueOnce(singleQueryBuilder);
+    otjLogRepo.createQueryBuilder.mockReturnValueOnce(
+      testEntity<ReturnType<typeof otjLogRepo.createQueryBuilder>>(
+        singleQueryBuilder,
+      ),
+    );
 
     const minutes = await service.approvedMinutesForEnrolment('enr-1');
 

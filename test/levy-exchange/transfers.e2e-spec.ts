@@ -102,6 +102,7 @@ describe('Levy Exchange transfers (e2e)', () => {
         accessToken,
         refreshToken: '',
       },
+      orgName: `scope employer ${scope.employerOrgId}`,
       orgId: scope.employerOrgId,
       accessToken,
       authHeaders: {

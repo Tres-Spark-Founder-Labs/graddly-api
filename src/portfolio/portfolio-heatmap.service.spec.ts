@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
 
 import { EnrolmentKsbCoverage } from './entities/enrolment-ksb-coverage.entity.js';
 import { KsbCoverageAssessment } from './enums/ksb-coverage-assessment.enum.js';
@@ -89,12 +90,12 @@ describe('PortfolioHeatmapService', () => {
     ]);
   });
 
-  const user = {
+  const user = testAuthenticatedUser({
     id: 'u1',
     organisationId: 'org-1',
     email: 'a@example.com',
     roles: ['owner'],
-  } as const;
+  });
 
   it('computes adequate strength when two accepted items map to a KSB', async () => {
     const result = await service.getHeatmap(user, 'enr-1');

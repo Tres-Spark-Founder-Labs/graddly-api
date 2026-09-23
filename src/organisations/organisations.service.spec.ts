@@ -29,6 +29,10 @@ jest.mock('node:crypto', () => ({
   randomUUID: jest.fn(),
 }));
 
+/** `randomUUID()` is typed as a uuid-shaped template literal. */
+const PROBE_ORG_UUID = '11111111-1111-4111-8111-111111111111' as const;
+const PROBE_ORG_UUID_2 = '22222222-2222-4222-8222-222222222222' as const;
+
 describe('OrganisationsService', () => {
   let service: OrganisationsService;
   let repository: jest.Mocked<
@@ -106,10 +110,10 @@ describe('OrganisationsService', () => {
 
   describe('create', () => {
     it('auto-generates slug from name and creates org + membership in a transaction', async () => {
-      randomUuidMock.mockReturnValue('org-1');
+      randomUuidMock.mockReturnValue(PROBE_ORG_UUID);
       mockQueryBuilder.getMany.mockResolvedValue([]);
       repository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({
-        id: 'org-1',
+        id: PROBE_ORG_UUID,
         name: 'Acme Trust',
         slug: 'acme-trust',
       } as Organisation);
@@ -124,7 +128,7 @@ describe('OrganisationsService', () => {
       expect(mockManager.query).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO organisations'),
         [
-          'org-1',
+          PROBE_ORG_UUID,
           'Acme Trust',
           'acme-trust',
           null,
@@ -143,7 +147,7 @@ describe('OrganisationsService', () => {
         OrganisationMembership,
         expect.objectContaining({
           user: { id: 'user-1' },
-          organisation: { id: 'org-1' },
+          organisation: { id: PROBE_ORG_UUID },
           role: OrganisationRole.OWNER,
           status: MembershipStatus.ACTIVE,
         }),
@@ -155,20 +159,20 @@ describe('OrganisationsService', () => {
       expect(mockManager.save).toHaveBeenCalledTimes(1);
       expect(mockManager.save).toHaveBeenCalledWith(membershipEntity);
       expect(result).toEqual({
-        id: 'org-1',
+        id: PROBE_ORG_UUID,
         name: 'Acme Trust',
         slug: 'acme-trust',
       });
     });
 
     it('appends numeric suffix when generated slug is already taken', async () => {
-      randomUuidMock.mockReturnValue('org-2');
+      randomUuidMock.mockReturnValue(PROBE_ORG_UUID_2);
       mockQueryBuilder.getMany.mockResolvedValue([
         { slug: 'acme-trust' },
         { slug: 'acme-trust-1' },
       ] as Organisation[]);
       repository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({
-        id: 'org-2',
+        id: PROBE_ORG_UUID_2,
         name: 'Acme Trust',
         slug: 'acme-trust-2',
       } as Organisation);
@@ -180,10 +184,14 @@ describe('OrganisationsService', () => {
 
       expect(mockManager.query).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO organisations'),
-        expect.arrayContaining(['org-2', 'Acme Trust', 'acme-trust-2']),
+        expect.arrayContaining([
+          PROBE_ORG_UUID_2,
+          'Acme Trust',
+          'acme-trust-2',
+        ]),
       );
       expect(result).toEqual({
-        id: 'org-2',
+        id: PROBE_ORG_UUID_2,
         name: 'Acme Trust',
         slug: 'acme-trust-2',
       });
@@ -200,7 +208,7 @@ describe('OrganisationsService', () => {
     });
 
     it('propagates error and rolls back when membership insert fails', async () => {
-      randomUuidMock.mockReturnValue('org-1');
+      randomUuidMock.mockReturnValue(PROBE_ORG_UUID);
       mockQueryBuilder.getMany.mockResolvedValue([]);
       repository.findOne.mockResolvedValueOnce(null);
 

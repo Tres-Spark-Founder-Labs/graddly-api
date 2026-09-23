@@ -4,7 +4,10 @@ import request from 'supertest';
 import { DAS_CLIENT } from '../../src/das/das-client.constants.js';
 import { DasFundingSyncService } from '../../src/das/das-funding-sync.service.js';
 import { createE2eApp } from '../helpers/e2e-app.js';
-import { expectSuccessEnvelope } from '../helpers/e2e-response-contracts.js';
+import {
+  expectSuccessEnvelope,
+  successData,
+} from '../helpers/e2e-response-contracts.js';
 import {
   createEmployerReportingContext,
   createFlowSmeContext,
@@ -53,10 +56,14 @@ describe('SmeOverviewController (e2e)', () => {
         apprentices: expect.any(Array),
       }),
     );
-    expect(res.body.data.summary.activeApprenticeCount).toBeGreaterThanOrEqual(
-      1,
-    );
-    expect(res.body.data.summary.fundingClaimStatus).toBe('no_payments');
+    expect(
+      successData<{ summary: { activeApprenticeCount: number } }>(res.body)
+        .summary.activeApprenticeCount,
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      successData<{ summary: { fundingClaimStatus: string } }>(res.body).summary
+        .fundingClaimStatus,
+    ).toBe('no_payments');
   });
 
   it('reports clawback_pending when synced payments include clawback notices', async () => {
@@ -92,7 +99,10 @@ describe('SmeOverviewController (e2e)', () => {
       .expect(200);
 
     expectSuccessEnvelope(res.body);
-    expect(res.body.data.summary.fundingClaimStatus).toBe('clawback_pending');
+    expect(
+      successData<{ summary: { fundingClaimStatus: string } }>(res.body).summary
+        .fundingClaimStatus,
+    ).toBe('clawback_pending');
   });
 
   it('returns 403 when active org is not a Flow portal', async () => {

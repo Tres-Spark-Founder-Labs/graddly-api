@@ -9,34 +9,24 @@ import { RedisHealthIndicator } from '../health/redis-health.indicator.js';
 import { CronLockService } from './cron-lock.service.js';
 import { HealthCronService } from './health-cron.service.js';
 import { HEALTH_CHECK_CRON_NAME } from './scheduler.constants.js';
+import {
+  createSchedulerRegistryDouble,
+  type SchedulerRegistryDouble,
+} from './testing/scheduler-registry.double.js';
 
 describe('HealthCronService', () => {
   let service: HealthCronService;
   let healthCheck: jest.Mocked<Pick<HealthCheckService, 'check'>>;
-  let schedulerRegistry: jest.Mocked<
-    Pick<
-      SchedulerRegistry,
-      'addCronJob' | 'doesExist' | 'getCronJob' | 'deleteCronJob'
-    >
-  >;
-  const cronJobs = new Map<string, { stop: jest.Mock }>();
+  let schedulerRegistry: SchedulerRegistryDouble['registry'];
+  let cronJobs: SchedulerRegistryDouble['jobs'];
 
   beforeEach(async () => {
-    cronJobs.clear();
     healthCheck = {
       check: jest.fn(),
     };
 
-    schedulerRegistry = {
-      addCronJob: jest.fn((name: string, job: { stop: jest.Mock }) => {
-        cronJobs.set(name, job);
-      }),
-      doesExist: jest.fn((_type: string, name: string) => cronJobs.has(name)),
-      getCronJob: jest.fn((name: string) => cronJobs.get(name)),
-      deleteCronJob: jest.fn((name: string) => {
-        cronJobs.delete(name);
-      }),
-    };
+    ({ registry: schedulerRegistry, jobs: cronJobs } =
+      createSchedulerRegistryDouble());
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [

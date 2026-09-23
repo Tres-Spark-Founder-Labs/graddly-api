@@ -6,6 +6,7 @@ import {
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testEntity } from '../common/testing/test-fixture.js';
 import { DAS_CLIENT } from '../das/das-client.constants.js';
 
 import { DasDonorLink } from './entities/das-donor-link.entity.js';
@@ -116,7 +117,7 @@ describe('DasDonorLinkService', () => {
   });
 
   it('syncs linked donor balance and replaces tranches', async () => {
-    const link: DasDonorLink = {
+    const link: DasDonorLink = testEntity<DasDonorLink>({
       id: 'link-1',
       organisationId: 'org-1',
       label: null,
@@ -132,7 +133,7 @@ describe('DasDonorLinkService', () => {
       updatedAt: new Date(),
       isDeleted: false,
       deletedAt: null,
-    };
+    });
 
     linkFindOne.mockResolvedValue(link);
     tokenFindOne.mockResolvedValue({

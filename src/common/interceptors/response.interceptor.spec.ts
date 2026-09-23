@@ -121,6 +121,8 @@ describe('ResponseInterceptor', () => {
   it('flattens a PaginatedResult into data + meta', async () => {
     const paginated = new PaginatedResult([{ id: 'a' }], {
       total: 1,
+      hasNextPage: false,
+      hasPreviousPage: false,
       page: 1,
       perPage: 20,
       totalPages: 1,
@@ -133,6 +135,8 @@ describe('ResponseInterceptor', () => {
     expect(result.data).toEqual([{ id: 'a' }]);
     expect(result.meta).toEqual({
       total: 1,
+      hasNextPage: false,
+      hasPreviousPage: false,
       page: 1,
       perPage: 20,
       totalPages: 1,

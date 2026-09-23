@@ -4,6 +4,8 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
+import { testEntity } from '../common/testing/test-fixture.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
@@ -80,12 +82,12 @@ describe('OtjLogEntriesService', () => {
     });
   });
 
-  const user = {
+  const user = testAuthenticatedUser({
     id: 'u-1',
     email: 'user@example.com',
     firstName: 'Ada',
     organisationId: 'org-1',
-  } as const;
+  });
 
   const createDto = {
     enrolmentId: 'e-1',
@@ -158,9 +160,12 @@ describe('OtjLogEntriesService', () => {
     };
     repo.createQueryBuilder.mockReturnValue(qb);
 
-    await service.findAll(user, {
-      category: OtjActivityCategory.TAUGHT_LEARNING,
-    });
+    await service.findAll(
+      user,
+      testEntity<Parameters<typeof service.findAll>[1]>({
+        category: OtjActivityCategory.TAUGHT_LEARNING,
+      }),
+    );
 
     expect(andWhere).toHaveBeenCalledWith('otj.category = :category', {
       category: OtjActivityCategory.TAUGHT_LEARNING,
@@ -188,7 +193,9 @@ describe('OtjLogEntriesService', () => {
 
     await service.findAll(
       { ...user, organisationId: 'employer-org-1' },
-      { status: OtjLogStatus.SUBMITTED },
+      testEntity<Parameters<typeof service.findAll>[1]>({
+        status: OtjLogStatus.SUBMITTED,
+      }),
     );
 
     expect(andWhere).toHaveBeenCalledWith(

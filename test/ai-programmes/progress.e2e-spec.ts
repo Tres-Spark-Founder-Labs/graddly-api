@@ -3,7 +3,10 @@ import request from 'supertest';
 
 import { AI_PROGRAMME_CATALOGUE_SEED } from '../helpers/ai-programme-seed.js';
 import { createE2eApp } from '../helpers/e2e-app.js';
-import { expectSuccessEnvelope } from '../helpers/e2e-response-contracts.js';
+import {
+  expectSuccessEnvelope,
+  successData,
+} from '../helpers/e2e-response-contracts.js';
 import { createFlowSmeContext } from '../helpers/reporting-e2e.js';
 
 import type { App } from 'supertest/types';
@@ -62,7 +65,10 @@ describe('AiProgrammeProgressController (e2e)', () => {
       .expect(200);
 
     expectSuccessEnvelope(progressRes.body);
-    expect(progressRes.body.data.percentComplete).toBe(100);
+    expect(
+      successData<{ percentComplete: number }>(progressRes.body)
+        .percentComplete,
+    ).toBe(100);
 
     const completeRes = await request(app.getHttpServer())
       .post(`/api/v1/ai-programmes/enrolments/${enrolmentId}/complete`)
@@ -70,8 +76,12 @@ describe('AiProgrammeProgressController (e2e)', () => {
       .expect(201);
 
     expectSuccessEnvelope(completeRes.body);
-    expect(completeRes.body.data.enrolmentStatus).toBe('completed');
-    expect(completeRes.body.data.summary).toEqual(
+    const completion = successData<{
+      enrolmentStatus: string;
+      summary: unknown;
+    }>(completeRes.body);
+    expect(completion.enrolmentStatus).toBe('completed');
+    expect(completion.summary).toEqual(
       expect.objectContaining({ moduleCount: moduleSlugs.length }),
     );
   });
@@ -100,6 +110,8 @@ describe('AiProgrammeProgressController (e2e)', () => {
       .expect(201);
 
     expectSuccessEnvelope(second.body);
-    expect(second.body.data.enrolmentStatus).toBe('completed');
+    expect(
+      successData<{ enrolmentStatus: string }>(second.body).enrolmentStatus,
+    ).toBe('completed');
   });
 });

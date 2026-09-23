@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { CommitmentStatementGroup } from '../commitments/entities/commitment-statement-group.entity.js';
+import { testEntity } from '../common/testing/test-fixture.js';
 import { EmployerVisitsService } from '../employer-visits/employer-visits.service.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
@@ -117,7 +118,10 @@ describe('EmployerDirectoryService', () => {
     });
     enrolmentFind.mockResolvedValue([]);
 
-    const result = await service.list('provider-1', {});
+    const result = await service.list(
+      'provider-1',
+      testEntity<Parameters<typeof service.list>[1]>({}),
+    );
 
     expect(result.items).toEqual([]);
     expect(result.meta.total).toBe(0);
@@ -128,8 +132,11 @@ describe('EmployerDirectoryService', () => {
       new ForbiddenException('provider only'),
     );
 
-    await expect(service.list('org-employer', {})).rejects.toBeInstanceOf(
-      ForbiddenException,
-    );
+    await expect(
+      service.list(
+        'org-employer',
+        testEntity<Parameters<typeof service.list>[1]>({}),
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

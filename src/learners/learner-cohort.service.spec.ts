@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testEntity } from '../common/testing/test-fixture.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
 import { PdfDispatchService } from '../pdf/pdf-dispatch.service.js';
@@ -88,7 +89,7 @@ describe('LearnerCohortService', () => {
     metricsService.loadActiveEnrolments.mockResolvedValue([]);
     const result = await service.list(
       { id: 'user-1', organisationId: 'org-1' } as never,
-      { format: 'csv' },
+      testEntity<Parameters<typeof service.list>[1]>({ format: 'csv' }),
     );
 
     expect('csv' in result).toBe(true);

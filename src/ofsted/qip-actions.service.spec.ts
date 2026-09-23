@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
 import { PdfDispatchService } from '../pdf/pdf-dispatch.service.js';
@@ -31,11 +32,11 @@ describe('QipActionsService', () => {
 
   let service: QipActionsService;
 
-  const user = {
+  const user = testAuthenticatedUser({
     id: 'user-1',
     organisationId: 'org-1',
-    role: 'owner',
-  } as const;
+    roles: ['owner'],
+  });
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({

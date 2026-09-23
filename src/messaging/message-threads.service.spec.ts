@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
 import { User } from '../users/entities/user.entity.js';
@@ -60,11 +61,11 @@ describe('MessageThreadsService', () => {
     userRepo.find.mockResolvedValue([]);
   });
 
-  const user = {
+  const user = testAuthenticatedUser({
     id: 'u-app',
     organisationId: 'org-1',
     roles: ['member'],
-  } as const;
+  });
 
   it('provisions tutor and manager threads for enrolment', async () => {
     threadRepo.findOne.mockResolvedValue(null);
@@ -182,7 +183,9 @@ describe('MessageThreadsService', () => {
     threadRepo.findOne.mockResolvedValue(thread);
 
     await expect(
-      service.getThreadForMessaging('org-1', 't-1'),
+      // Takes the acting user, not an organisation id: the old signature
+      // was still being asserted here, and only tsc knew.
+      service.getThreadForMessaging(user, 't-1'),
     ).resolves.toEqual(thread);
   });
 

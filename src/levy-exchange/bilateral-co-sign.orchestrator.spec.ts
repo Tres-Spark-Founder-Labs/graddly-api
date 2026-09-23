@@ -2,6 +2,7 @@ import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
 import { EsignatureService } from '../esignature/esignature.service.js';
 import { PdfGenerationJob } from '../pdf/entities/pdf-generation-job.entity.js';
 import { PdfJobStatus } from '../pdf/enums/pdf-job-status.enum.js';
@@ -19,12 +20,12 @@ describe('BilateralCoSignOrchestrator', () => {
   const findOneSignature = jest.fn();
   const pdfJobFindOne = jest.fn();
 
-  const donorUser: AuthenticatedUser = {
+  const donorUser: AuthenticatedUser = testAuthenticatedUser({
     id: 'donor-user',
     email: 'donor@example.com',
     organisationId: 'donor-org',
     roles: ['owner'],
-  };
+  });
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({

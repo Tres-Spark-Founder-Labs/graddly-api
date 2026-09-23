@@ -3,7 +3,10 @@ import request from 'supertest';
 
 import { AI_PROGRAMME_CATALOGUE_SEED } from '../helpers/ai-programme-seed.js';
 import { createE2eApp } from '../helpers/e2e-app.js';
-import { expectSuccessEnvelope } from '../helpers/e2e-response-contracts.js';
+import {
+  expectSuccessEnvelope,
+  successData,
+} from '../helpers/e2e-response-contracts.js';
 import {
   createEmployerReportingContext,
   createFlowOrgContext,
@@ -31,8 +34,9 @@ describe('AiProgrammeCatalogueController (e2e)', () => {
       .expect(200);
 
     expectSuccessEnvelope(res.body);
-    expect(res.body.data.length).toBeGreaterThanOrEqual(2);
-    expect(res.body.data[0]).toEqual(
+    const programmes = successData<unknown[]>(res.body);
+    expect(programmes.length).toBeGreaterThanOrEqual(2);
+    expect(programmes[0]).toEqual(
       expect.objectContaining({
         deliveryType: 'flowportal_ai',
         moduleCount: expect.any(Number),
@@ -50,8 +54,9 @@ describe('AiProgrammeCatalogueController (e2e)', () => {
       .expect(200);
 
     expectSuccessEnvelope(res.body);
-    expect(res.body.data.modules.length).toBe(3);
-    expect(res.body.data.modules[0].slug).toBe('foundations');
+    const programme = successData<{ modules: { slug: string }[] }>(res.body);
+    expect(programme.modules.length).toBe(3);
+    expect(programme.modules[0].slug).toBe('foundations');
   });
 
   it('returns 403 when active org is not Flow portal', async () => {

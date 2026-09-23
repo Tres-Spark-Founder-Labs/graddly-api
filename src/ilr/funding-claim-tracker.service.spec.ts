@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testEntity } from '../common/testing/test-fixture.js';
 import { DasFundingPayment } from '../das/entities/das-funding-payment.entity.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
@@ -74,7 +75,10 @@ describe('FundingClaimTrackerService', () => {
     enrolmentRepo.findAndCount.mockResolvedValue([[e], 1]);
     paymentRepo.find.mockResolvedValue(payments);
     resolutionRepo.find.mockResolvedValue(resolutions);
-    const result = await service.list('org-1', {});
+    const result = await service.list(
+      'org-1',
+      testEntity<Parameters<typeof service.list>[1]>({}),
+    );
     return result.items[0];
   };
 
@@ -227,7 +231,12 @@ describe('FundingClaimTrackerService', () => {
     enrolmentRepo.findAndCount.mockResolvedValue([[enrolment()], 1]);
     paymentRepo.find.mockResolvedValue([payment('6000.00')]);
 
-    const result = await service.list('org-1', { discrepanciesOnly: 'true' });
+    const result = await service.list(
+      'org-1',
+      testEntity<Parameters<typeof service.list>[1]>({
+        discrepanciesOnly: 'true',
+      }),
+    );
 
     // In-progress underpayment is not a discrepancy, so nothing survives.
     expect(result.items).toHaveLength(0);

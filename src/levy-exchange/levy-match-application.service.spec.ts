@@ -6,6 +6,7 @@ import {
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
 import {
   getRlsBootstrap,
   runWithCorrelationId,
@@ -41,19 +42,19 @@ describe('LevyMatchApplicationService', () => {
   const createForUser = jest.fn();
   const membershipFind = jest.fn();
 
-  const recipientUser: AuthenticatedUser = {
+  const recipientUser: AuthenticatedUser = testAuthenticatedUser({
     id: 'recipient-user',
     email: 'recipient@example.com',
     organisationId: 'recipient-org',
     roles: ['owner'],
-  };
+  });
 
-  const donorUser: AuthenticatedUser = {
+  const donorUser: AuthenticatedUser = testAuthenticatedUser({
     id: 'donor-user',
     email: 'donor@example.com',
     organisationId: 'donor-org',
     roles: ['owner'],
-  };
+  });
 
   beforeEach(async () => {
     const queryBuilder = {

@@ -2,6 +2,7 @@ import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
 import { EsignatureService } from '../esignature/esignature.service.js';
 import { PdfGenerationJob } from '../pdf/entities/pdf-generation-job.entity.js';
 import { PdfJobStatus } from '../pdf/enums/pdf-job-status.enum.js';
@@ -35,11 +36,11 @@ describe('SequentialCoSignOrchestrator', () => {
     jest.clearAllMocks();
   });
 
-  const user = {
+  const user = testAuthenticatedUser({
     id: 'u-app',
     organisationId: 'org-1',
     roles: ['member'],
-  } as const;
+  });
 
   const slots = [
     {
@@ -87,7 +88,11 @@ describe('SequentialCoSignOrchestrator', () => {
 
     await expect(
       orchestrator.executeSign({
-        user: { id: 'u-other', organisationId: 'org-1', roles: ['member'] },
+        user: testAuthenticatedUser({
+          id: 'u-other',
+          organisationId: 'org-1',
+          roles: ['member'],
+        }),
         organisationId: 'org-1',
         requestedParty: TripartiteParty.APPRENTICE,
         signatureImageKey: 'sig.png',

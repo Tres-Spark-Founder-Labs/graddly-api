@@ -120,3 +120,18 @@ export function expectValidationErrorBody(
   });
   expectIsoTimestamp(body.timestamp);
 }
+
+/**
+ * The `data` of a success envelope, as the shape the caller asserts on.
+ *
+ * `expectSuccessEnvelope` narrows `data` to `unknown`, which is right — the
+ * interceptor makes no promise about it. Twenty-three `tsc --noEmit` errors
+ * across nine e2e specs were the next line reaching into that `unknown`
+ * anyway, invisible because ts-jest does not type-check. This puts the
+ * assertion's own expectation of the payload in one place, at the call site,
+ * where a wrong guess is a compile error rather than a runtime `undefined`.
+ */
+export function successData<T>(body: unknown): T {
+  expectSuccessEnvelope(body);
+  return body.data as T;
+}

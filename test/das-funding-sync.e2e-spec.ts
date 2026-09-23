@@ -5,7 +5,11 @@ import { DAS_CLIENT } from '../src/das/das-client.constants.js';
 import { DasFundingSyncService } from '../src/das/das-funding-sync.service.js';
 
 import { createE2eApp } from './helpers/e2e-app.js';
-import { expectSuccessEnvelope } from './helpers/e2e-response-contracts.js';
+import {
+  expectPaginatedListEnvelope,
+  expectSuccessEnvelope,
+  successData,
+} from './helpers/e2e-response-contracts.js';
 import { createEmployerReportingContext } from './helpers/reporting-e2e.js';
 import { enterTenantContext } from './helpers/tenant-context.js';
 
@@ -69,9 +73,11 @@ describe('DAS funding sync (e2e)', () => {
       .set(ctx.authHeaders)
       .expect(200);
 
-    expectSuccessEnvelope(listRes.body);
+    expectPaginatedListEnvelope(listRes.body);
     expect(Array.isArray(listRes.body.data)).toBe(true);
-    expect(listRes.body.data.length).toBeGreaterThanOrEqual(2);
+    expect(successData<unknown[]>(listRes.body).length).toBeGreaterThanOrEqual(
+      2,
+    );
     expect(listRes.body.meta).toEqual(
       expect.objectContaining({
         total: expect.any(Number),
@@ -86,7 +92,9 @@ describe('DAS funding sync (e2e)', () => {
       .expect(200);
 
     expectSuccessEnvelope(roiRes.body);
-    expect(roiRes.body.data.fundingSummary).toEqual(
+    expect(
+      successData<{ fundingSummary: unknown }>(roiRes.body).fundingSummary,
+    ).toEqual(
       expect.objectContaining({
         totalReceived: 3000,
         lastPaymentDate: '2026-02-01',

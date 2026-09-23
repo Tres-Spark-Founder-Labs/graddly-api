@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EnrolmentStatus } from '../enrolments/enums/enrolment-status.enum.js';
 import { Organisation } from '../organisations/entities/organisation.entity.js';
@@ -38,11 +39,11 @@ describe('SarReportsService', () => {
 
   let service: SarReportsService;
 
-  const user = {
+  const user = testAuthenticatedUser({
     id: 'user-1',
     organisationId: 'org-1',
-    role: 'owner',
-  } as const;
+    roles: ['owner'],
+  });
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({

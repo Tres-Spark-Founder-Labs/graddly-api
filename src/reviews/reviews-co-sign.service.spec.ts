@@ -2,6 +2,7 @@ import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 import { PdfGenerationJob } from '../pdf/entities/pdf-generation-job.entity.js';
@@ -56,12 +57,12 @@ describe('ReviewsCoSignService', () => {
     jest.clearAllMocks();
   });
 
-  const owner = {
+  const owner = testAuthenticatedUser({
     id: 'u-tutor',
     organisationId: 'org-1',
     email: 'tutor@example.com',
     roles: ['owner'],
-  } as const;
+  });
 
   const signatures = [
     {
@@ -135,11 +136,11 @@ describe('ReviewsCoSignService', () => {
       new ForbiddenException('not assigned'),
     );
 
-    const wrongUser = {
+    const wrongUser = testAuthenticatedUser({
       id: 'u-other',
       organisationId: 'org-1',
       roles: ['member'],
-    } as const;
+    });
 
     await expect(
       service.sign(

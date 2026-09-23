@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
 import { StorageObjectCategory } from '../storage/enums/storage-object-category.enum.js';
 import { StorageKeyBuilder } from '../storage/storage-key.builder.js';
 import { StorageService } from '../storage/storage.service.js';
@@ -33,11 +34,11 @@ describe('MessageAttachmentsService', () => {
     });
   });
 
-  const user = {
+  const user = testAuthenticatedUser({
     id: 'u-1',
     organisationId: 'org-1',
     roles: ['member'],
-  } as const;
+  });
 
   it('creates presigned upload URL for valid attachment', async () => {
     const result = await service.createUploadUrl(user, {

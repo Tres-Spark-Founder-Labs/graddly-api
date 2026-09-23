@@ -3,7 +3,10 @@ import request from 'supertest';
 
 import { AI_PROGRAMME_CATALOGUE_SEED } from '../helpers/ai-programme-seed.js';
 import { createE2eApp } from '../helpers/e2e-app.js';
-import { expectSuccessEnvelope } from '../helpers/e2e-response-contracts.js';
+import {
+  expectSuccessEnvelope,
+  successData,
+} from '../helpers/e2e-response-contracts.js';
 import { createFlowSmeContext } from '../helpers/reporting-e2e.js';
 
 import type { App } from 'supertest/types';
@@ -49,13 +52,19 @@ describe('AiProgrammeEnrolmentController (e2e)', () => {
 
     const progressRes = await request(app.getHttpServer())
       .get(
-        `/api/v1/ai-programmes/enrolments/${res.body.data.enrolmentId}/progress`,
+        `/api/v1/ai-programmes/enrolments/${
+          successData<{ enrolmentId: string }>(res.body).enrolmentId
+        }/progress`,
       )
       .set(ctx.authHeaders)
       .expect(200);
 
     expectSuccessEnvelope(progressRes.body);
-    expect(progressRes.body.data.modules).toHaveLength(3);
-    expect(progressRes.body.data.percentComplete).toBe(0);
+    const progress = successData<{
+      modules: unknown[];
+      percentComplete: number;
+    }>(progressRes.body);
+    expect(progress.modules).toHaveLength(3);
+    expect(progress.percentComplete).toBe(0);
   });
 });

@@ -6,6 +6,7 @@ import { createE2eApp } from '../helpers/e2e-app.js';
 import {
   expectPaginatedListEnvelope,
   expectSuccessEnvelope,
+  successData,
 } from '../helpers/e2e-response-contracts.js';
 import { expectMessageResource } from '../helpers/messaging-contracts.js';
 import {
@@ -45,7 +46,7 @@ describe('Messaging messages (e2e)', () => {
       .expect(200);
     expectSuccessEnvelope(listRes.body);
     expect(listRes.body.data).toHaveLength(1);
-    expectMessageResource(listRes.body.data[0]);
+    expectMessageResource(successData<unknown[]>(listRes.body)[0]);
 
     await request(app.getHttpServer())
       .post(`/api/v1/enrolments/${ctx.enrolmentId}/complete`)

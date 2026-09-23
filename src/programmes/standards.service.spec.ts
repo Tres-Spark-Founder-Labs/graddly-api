@@ -2,6 +2,8 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
+
 import { Programme } from './entities/programme.entity.js';
 import { Standard } from './entities/standard.entity.js';
 import { StandardsService } from './standards.service.js';
@@ -41,7 +43,7 @@ describe('StandardsService', () => {
     jest.clearAllMocks();
   });
 
-  const user = { id: 'u-1', organisationId: 'org-1' } as const;
+  const user = testAuthenticatedUser({ id: 'u-1', organisationId: 'org-1' });
 
   it('creates standard when programme exists and code unique', async () => {
     programmeFindOne.mockResolvedValue({ id: 'prog-1' });

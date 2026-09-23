@@ -8,6 +8,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
 import { Apprentice } from '../apprentices/entities/apprentice.entity.js';
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
 import { CompletionPushService } from '../completion-push/completion-push.service.js';
 import { MessageThreadsService } from '../messaging/message-threads.service.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
@@ -126,7 +127,7 @@ describe('EnrolmentsService', () => {
     userFind.mockResolvedValue([]);
   });
 
-  const user = { id: 'u-1', organisationId: 'org-1' } as const;
+  const user = testAuthenticatedUser({ id: 'u-1', organisationId: 'org-1' });
 
   it('activates draft enrolment and delegates provisioning', async () => {
     const enrolment = {
@@ -164,7 +165,7 @@ describe('EnrolmentsService', () => {
     });
 
     const result = await service.acceptProvider(
-      { id: 'u-2', organisationId: 'org-provider' },
+      testAuthenticatedUser({ id: 'u-2', organisationId: 'org-provider' }),
       'enr-1',
     );
 
@@ -181,7 +182,7 @@ describe('EnrolmentsService', () => {
 
     await expect(
       service.acceptProvider(
-        { id: 'u-2', organisationId: 'org-other' },
+        testAuthenticatedUser({ id: 'u-2', organisationId: 'org-other' }),
         'enr-1',
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);

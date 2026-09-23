@@ -8,6 +8,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 
 import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
+import { testEntity } from '../common/testing/test-fixture.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 import { OrganisationRole } from '../organisations/organisation-role.enum.js';
@@ -26,11 +28,11 @@ import { PortfolioHeatmapCacheService } from './portfolio-heatmap-cache.service.
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
 
-const apprenticeUser = {
+const apprenticeUser = testAuthenticatedUser({
   id: 'user-1',
   organisationId: 'org-1',
   roles: [],
-} as AuthenticatedUser;
+});
 
 const adminUser = {
   id: 'admin-1',
@@ -225,7 +227,10 @@ describe('KsEvidenceItemsService', () => {
       };
       itemRepo.createQueryBuilder.mockReturnValue(qb);
 
-      const result = await service.findAll(apprenticeUser, {});
+      const result = await service.findAll(
+        apprenticeUser,
+        testEntity<Parameters<typeof service.findAll>[1]>({}),
+      );
 
       expect(result.items).toHaveLength(1);
       expect(result.meta.total).toBe(1);
@@ -430,11 +435,11 @@ describe('KsEvidenceItemsService', () => {
 
   describe('remove', () => {
     it('soft-deletes draft evidence', async () => {
-      const row = {
+      const row = testEntity<KsEvidenceItem>({
         id: 'ev-1',
         status: KsEvidenceStatus.DRAFT,
         isDeleted: false,
-      };
+      });
       itemFindOne.mockResolvedValue(row);
       itemSave.mockResolvedValue(row);
 

@@ -2,7 +2,10 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
 import { createE2eApp } from '../helpers/e2e-app.js';
-import { expectPaginatedListEnvelope } from '../helpers/e2e-response-contracts.js';
+import {
+  expectPaginatedListEnvelope,
+  successData,
+} from '../helpers/e2e-response-contracts.js';
 import { expectEmployerDirectoryEntryResource } from '../helpers/reporting-contracts.js';
 import {
   createEmployerReportingContext,
@@ -33,7 +36,10 @@ describe('EmployerDirectoryController (e2e)', () => {
     expectPaginatedListEnvelope(res.body);
     expect(res.body.data.length).toBeGreaterThanOrEqual(1);
     expectEmployerDirectoryEntryResource(res.body.data[0]);
-    expect(res.body.data[0].employerOrganisationId).toBe(ctx.employerOrgId);
+    expect(
+      successData<{ employerOrganisationId: string }[]>(res.body)[0]
+        .employerOrganisationId,
+    ).toBe(ctx.employerOrgId);
   });
 
   it('supports region and learner count filters', async () => {

@@ -4,7 +4,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { BullmqJobInspectionService } from './bullmq-job-inspection.service.js';
 import {
-  QUEUE_DAS_SYNC,
   QUEUE_COMPLETION_PUSH,
   QUEUE_COMPLETION_PUSH_DLQ,
   QUEUE_DAS_SYNC,

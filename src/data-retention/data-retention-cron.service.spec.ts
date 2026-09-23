@@ -2,8 +2,13 @@ import { ConfigService } from '@nestjs/config';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { testEntity } from '../common/testing/test-fixture.js';
 import { CronLockService } from '../scheduler/cron-lock.service.js';
 import { RETENTION_CRON_NAME } from '../scheduler/scheduler.constants.js';
+import {
+  createSchedulerRegistryDouble,
+  type SchedulerRegistryDouble,
+} from '../scheduler/testing/scheduler-registry.double.js';
 
 import { DataRetentionCronService } from './data-retention-cron.service.js';
 import { DataRetentionService } from './data-retention.service.js';
@@ -16,28 +21,14 @@ describe('DataRetentionCronService', () => {
     Pick<DataRetentionService, 'runRetentionJob'>
   >;
   let runLogService: jest.Mocked<Pick<RetentionRunLogService, 'recordRun'>>;
-  let schedulerRegistry: jest.Mocked<
-    Pick<
-      SchedulerRegistry,
-      'addCronJob' | 'doesExist' | 'getCronJob' | 'deleteCronJob'
-    >
-  >;
-  const cronJobs = new Map<string, { stop: jest.Mock }>();
+  let schedulerRegistry: SchedulerRegistryDouble['registry'];
+  let cronJobs: SchedulerRegistryDouble['jobs'];
 
   beforeEach(async () => {
-    cronJobs.clear();
     retentionService = { runRetentionJob: jest.fn() };
     runLogService = { recordRun: jest.fn().mockResolvedValue({ id: 'log-1' }) };
-    schedulerRegistry = {
-      addCronJob: jest.fn((name: string, job: { stop: jest.Mock }) => {
-        cronJobs.set(name, job);
-      }),
-      doesExist: jest.fn((_type: string, name: string) => cronJobs.has(name)),
-      getCronJob: jest.fn((name: string) => cronJobs.get(name)),
-      deleteCronJob: jest.fn((name: string) => {
-        cronJobs.delete(name);
-      }),
-    };
+    ({ registry: schedulerRegistry, jobs: cronJobs } =
+      createSchedulerRegistryDouble());
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [
@@ -144,7 +135,9 @@ describe('DataRetentionCronService', () => {
       const stop = jest.fn();
       cronJobs.set(RETENTION_CRON_NAME, { stop });
       schedulerRegistry.doesExist.mockReturnValue(true);
-      schedulerRegistry.getCronJob.mockReturnValue({ stop });
+      schedulerRegistry.getCronJob.mockReturnValue(
+        testEntity<ReturnType<typeof schedulerRegistry.getCronJob>>({ stop }),
+      );
 
       service.onModuleDestroy();
 

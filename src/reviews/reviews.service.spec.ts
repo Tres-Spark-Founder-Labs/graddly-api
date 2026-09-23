@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { staffLearnerScopeProvider } from '../../test/mocks/learner-scope.mock.js';
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
 
@@ -38,10 +39,10 @@ describe('ReviewsService', () => {
     jest.clearAllMocks();
   });
 
-  const user = {
+  const user = testAuthenticatedUser({
     id: 'u-1',
     organisationId: 'org-1',
-  } as const;
+  });
 
   it('creates a scheduled review', async () => {
     enrolmentRepo.findOne.mockResolvedValue({
@@ -50,7 +51,7 @@ describe('ReviewsService', () => {
       apprenticeId: 'a-1',
     });
     reviewRepo.create.mockImplementation((v: unknown) => v);
-    reviewRepo.save.mockImplementation((v: unknown) =>
+    reviewRepo.save.mockImplementation((v: object) =>
       Promise.resolve({
         ...v,
         id: 'r-1',
@@ -126,7 +127,7 @@ describe('ReviewsService', () => {
       overdueSince: '2026-05-01',
       scheduledAt: new Date('2026-05-01T10:00:00Z'),
     });
-    reviewRepo.save.mockImplementation((v: unknown) => Promise.resolve(v));
+    reviewRepo.save.mockImplementation((v: object) => Promise.resolve(v));
 
     const updated = await service.update(user, 'r-1', {
       scheduledAt: '2026-07-01T10:00:00.000Z',

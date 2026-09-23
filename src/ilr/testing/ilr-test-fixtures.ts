@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention -- ILR ESFA field and entity names */
+import { testEntity } from '../../common/testing/test-fixture.js';
 import { IlrLearnerRecordStatus } from '../enums/ilr-learner-record-status.enum.js';
 
+import type { IlrRowBuildContext } from '../ilr-row-builder.service.js';
 import type {
   IlrFieldMap,
   IlrMappingConfigDocument,
@@ -76,23 +78,26 @@ export function buildSampleFieldMap(): IlrFieldMap {
   };
 }
 
-export function buildEnrolmentGraphFixture() {
+export function buildEnrolmentGraphFixture(): Pick<
+  IlrRowBuildContext,
+  'enrolment' | 'apprentice' | 'standard' | 'organisation'
+> {
   return {
-    enrolment: {
+    enrolment: testEntity<IlrRowBuildContext['enrolment']>({
       id: '11111111-1111-1111-1111-111111111111',
       plannedStartDate: '2025-01-15',
       plannedEndDate: '2026-12-31',
-    },
-    apprentice: {
+    }),
+    apprentice: testEntity<IlrRowBuildContext['apprentice']>({
       firstName: 'Port',
       lastName: 'Folio',
-    },
-    standard: {
+    }),
+    standard: testEntity<IlrRowBuildContext['standard']>({
       code: 'ST0001',
-    },
-    organisation: {
+    }),
+    organisation: testEntity<IlrRowBuildContext['organisation']>({
       ukprn: '10012345',
-    },
+    }),
   };
 }
 

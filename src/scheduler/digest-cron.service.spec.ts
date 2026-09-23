@@ -10,6 +10,10 @@ import { OtjLogEntry } from '../otj/entities/otj-log-entry.entity.js';
 import { CronLockService } from './cron-lock.service.js';
 import { DigestCronService } from './digest-cron.service.js';
 import { DIGEST_CRON_NAME } from './scheduler.constants.js';
+import {
+  createSchedulerRegistryDouble,
+  type SchedulerRegistryDouble,
+} from './testing/scheduler-registry.double.js';
 
 describe('DigestCronService', () => {
   let service: DigestCronService;
@@ -17,16 +21,10 @@ describe('DigestCronService', () => {
   let otjLogRepo: { createQueryBuilder: jest.Mock };
   /** `getRlsBootstrap()` as observed from inside each call. */
   let observed: { read?: boolean; enqueue: boolean[] };
-  let schedulerRegistry: jest.Mocked<
-    Pick<
-      SchedulerRegistry,
-      'addCronJob' | 'doesExist' | 'getCronJob' | 'deleteCronJob'
-    >
-  >;
-  const cronJobs = new Map<string, { stop: jest.Mock }>();
+  let schedulerRegistry: SchedulerRegistryDouble['registry'];
+  let cronJobs: SchedulerRegistryDouble['jobs'];
 
   beforeEach(async () => {
-    cronJobs.clear();
     observed = { enqueue: [] };
     digestDispatch = {
       enqueueWeeklyOtjDigest: jest.fn(() => {
@@ -47,16 +45,8 @@ describe('DigestCronService', () => {
       }),
     };
     otjLogRepo = { createQueryBuilder: jest.fn(() => qb) };
-    schedulerRegistry = {
-      addCronJob: jest.fn((name: string, job: { stop: jest.Mock }) => {
-        cronJobs.set(name, job);
-      }),
-      doesExist: jest.fn((_type: string, name: string) => cronJobs.has(name)),
-      getCronJob: jest.fn((name: string) => cronJobs.get(name)),
-      deleteCronJob: jest.fn((name: string) => {
-        cronJobs.delete(name);
-      }),
-    };
+    ({ registry: schedulerRegistry, jobs: cronJobs } =
+      createSchedulerRegistryDouble());
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [

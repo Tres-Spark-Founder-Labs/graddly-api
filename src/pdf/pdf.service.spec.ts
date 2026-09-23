@@ -1,7 +1,11 @@
 import { Test } from '@nestjs/testing';
 
+import { testEntity } from '../common/testing/test-fixture.js';
+
 import { PDF_RENDERER } from './pdf.constants.js';
 import { PdfService } from './pdf.service.js';
+
+import type { ISignedPdfOptions } from './interfaces/pdf-renderer.interface.js';
 
 describe('PdfService', () => {
   const renderer = {
@@ -87,7 +91,10 @@ describe('PdfService', () => {
     it('delegates to the renderer', async () => {
       const unsigned = Buffer.from('unsigned');
       const signature = Buffer.from('sig');
-      const options = { pageIndex: 0, x: 10, y: 20, width: 100, height: 50 };
+      const options = testEntity<ISignedPdfOptions>({
+        signedAt: new Date('2026-01-01T00:00:00.000Z'),
+        signerLabel: 'A Signer',
+      });
       const signed = Buffer.from('signed');
       renderer.embedSignature.mockResolvedValue(signed);
 

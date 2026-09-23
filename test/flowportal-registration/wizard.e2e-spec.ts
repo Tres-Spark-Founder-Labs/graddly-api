@@ -7,7 +7,10 @@ import { configureApp } from '../../src/configure-app.js';
 import { EmailDispatchService } from '../../src/email/email-dispatch.service.js';
 import { EmailTemplate } from '../../src/email/email-template.enum.js';
 import { RegistrationWizardStep } from '../../src/flowportal-registration/enums/registration-wizard-step.enum.js';
-import { expectSuccessEnvelope } from '../helpers/e2e-response-contracts.js';
+import {
+  expectSuccessEnvelope,
+  successData,
+} from '../helpers/e2e-response-contracts.js';
 
 import type { App } from 'supertest/types';
 
@@ -47,7 +50,9 @@ describe('Flowportal registration wizard (e2e)', () => {
       .expect(201);
 
     expectSuccessEnvelope(createRes.body);
-    const resumeToken = createRes.body.data.resumeToken as string;
+    const resumeToken = successData<{ resumeToken: string }>(
+      createRes.body,
+    ).resumeToken;
     expect(resumeToken).toBeDefined();
 
     const resumeRes = await request(app.getHttpServer())

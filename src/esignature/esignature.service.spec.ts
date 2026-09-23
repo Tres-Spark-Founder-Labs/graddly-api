@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
 import { PdfGenerationJob } from '../pdf/entities/pdf-generation-job.entity.js';
 import { PdfJobStatus } from '../pdf/enums/pdf-job-status.enum.js';
 import { PdfService } from '../pdf/pdf.service.js';
@@ -76,12 +77,12 @@ describe('EsignatureService', () => {
     service = moduleRef.get(EsignatureService);
   });
 
-  const user = {
+  const user = testAuthenticatedUser({
     id: 'user-1',
     email: 'signer@example.com',
     organisationId: 'org-1',
     roles: ['owner'],
-  } as const;
+  });
 
   it('createRecord hashes signature bytes', async () => {
     getObjectBuffer.mockResolvedValue(Buffer.from('png-bytes'));

@@ -8,7 +8,10 @@ import {
 } from '../common/context/correlation-id-context.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
-import { NotificationsService } from '../notifications/notifications.service.js';
+import {
+  NotificationsService,
+  type NotificationEmailOutcome,
+} from '../notifications/notifications.service.js';
 import { TripartiteParty } from '../signing/tripartite-party.enum.js';
 import { User } from '../users/entities/user.entity.js';
 
@@ -35,10 +38,16 @@ describe('CommitmentChaseService', () => {
   // preference on. The gate itself is tested in notifications.service.spec.
   const notificationsService = {
     createForUser: jest.fn(),
-    sendEmail: jest.fn(async ({ payload }: { payload: unknown }) => {
-      await emailDispatchService.enqueue(payload);
-      return 'queued' as const;
-    }),
+    sendEmail: jest.fn(
+      async ({
+        payload,
+      }: {
+        payload: unknown;
+      }): Promise<NotificationEmailOutcome> => {
+        await emailDispatchService.enqueue(payload);
+        return 'queued';
+      },
+    ),
   };
   const emailDispatchService = { enqueue: jest.fn() };
 

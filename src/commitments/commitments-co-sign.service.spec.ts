@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { AuditEventService } from '../audit/audit-event.service.js';
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
 import { EnrolmentsService } from '../enrolments/enrolments.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { EifScoreCacheService } from '../ofsted/eif-score-cache.service.js';
@@ -80,12 +81,12 @@ describe('CommitmentsCoSignService', () => {
     jest.clearAllMocks();
   });
 
-  const user = {
+  const user = testAuthenticatedUser({
     id: 'u-app',
     organisationId: 'org-1',
     email: 'a@example.com',
     roles: ['member'],
-  } as const;
+  });
 
   /**
    * PRD order: provider creates, employer signs, apprentice signs.

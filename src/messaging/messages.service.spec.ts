@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 
 import { MessageAttachment } from './entities/message-attachment.entity.js';
@@ -78,11 +79,11 @@ describe('MessagesService', () => {
     threadsService.getThreadForMessaging.mockResolvedValue(thread);
   });
 
-  const user = {
+  const user = testAuthenticatedUser({
     id: 'u-app',
     organisationId: 'org-1',
     roles: ['member'],
-  } as const;
+  });
 
   it('lists paginated messages', async () => {
     messageRepo.findAndCount.mockResolvedValue([

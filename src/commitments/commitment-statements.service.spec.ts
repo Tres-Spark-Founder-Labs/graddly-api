@@ -3,6 +3,8 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { AuditEventService } from '../audit/audit-event.service.js';
+import { testAuthenticatedUser } from '../auth/testing/authenticated-user.fixture.js';
+import { testEntity } from '../common/testing/test-fixture.js';
 import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { PdfDispatchService } from '../pdf/pdf-dispatch.service.js';
 
@@ -104,12 +106,12 @@ describe('CommitmentStatementsService', () => {
     });
   });
 
-  const user = {
+  const user = testAuthenticatedUser({
     id: 'user-1',
     organisationId: 'org-1',
     email: 'o@example.com',
     roles: ['owner'],
-  } as const;
+  });
 
   const content = {
     trainingPlanSummary: 'Plan',
@@ -343,7 +345,7 @@ describe('CommitmentStatementsService', () => {
   });
 
   it('maps statement entity to response DTO', () => {
-    const statement = {
+    const statement = testEntity<CommitmentStatement>({
       id: 'stmt-1',
       groupId: 'group-1',
       organisationId: 'org-1',
@@ -360,7 +362,7 @@ describe('CommitmentStatementsService', () => {
       supersededAt: null,
       snapshotPdfJobId: null,
       finalSignedPdfKey: null,
-    } as CommitmentStatement;
+    });
     const group = {
       enrolmentId: 'enr-1',
       apprenticeId: 'app-1',

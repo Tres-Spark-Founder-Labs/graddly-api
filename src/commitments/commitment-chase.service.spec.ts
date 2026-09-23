@@ -2,6 +2,10 @@ import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import {
+  getCurrentOrganisationId,
+  getRlsBootstrap,
+} from '../common/context/correlation-id-context.js';
 import { EmailDispatchService } from '../email/email-dispatch.service.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
@@ -159,6 +163,132 @@ describe('CommitmentChaseService', () => {
     expect(dispatchRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ signatureId: 'sig-1' }),
     );
+  });
+
+  /**
+   * The sweep's two contexts: bootstrap for the discovery read, the
+   * statement's own organisation for everything after it. Observed from
+   * inside each repository call rather than asserted about the source.
+   */
+  it('discovers under the bootstrap window and acts in each statement own organisation', async () => {
+    const staleDate = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+    const seen: Record<string, { bootstrap: boolean; org?: string }> = {};
+    const record = (key: string) => {
+      seen[key] = {
+        bootstrap: getRlsBootstrap(),
+        org: getCurrentOrganisationId(),
+      };
+    };
+
+    statementRepo.find.mockImplementation(() => {
+      record('statements');
+      return Promise.resolve([
+        {
+          id: 'stmt-1',
+          organisationId: 'org-1',
+          version: 1,
+          status: CommitmentStatementStatus.AWAITING_SIGNATURES,
+        },
+        {
+          id: 'stmt-2',
+          organisationId: 'org-2',
+          version: 1,
+          status: CommitmentStatementStatus.AWAITING_SIGNATURES,
+        },
+      ]);
+    });
+    signatureRepo.find.mockImplementation(
+      ({ where }: { where: { statementId: string } }) => {
+        record(`signatures:${where.statementId}`);
+        return Promise.resolve([
+          {
+            id: `sig-${where.statementId}`,
+            statementId: where.statementId,
+            signOrder: 1,
+            status: CommitmentSignatureStatus.PENDING,
+            signerUserId: 'user-1',
+            party: TripartiteParty.APPRENTICE,
+            createdAt: staleDate,
+            updatedAt: staleDate,
+          },
+        ]);
+      },
+    );
+    dispatchRepo.findOne.mockImplementation(
+      ({ where }: { where: { organisationId: string } }) => {
+        record(`guard:${where.organisationId}`);
+        return Promise.resolve(null);
+      },
+    );
+    dispatchRepo.save.mockImplementation((row: { organisationId: string }) => {
+      record(`write:${row.organisationId}`);
+      return Promise.resolve(row);
+    });
+    userRepo.findOne.mockResolvedValue({
+      id: 'user-1',
+      firstName: 'Alex',
+      email: 'alex@example.com',
+    });
+
+    const sent = await service.sendDueChases();
+
+    expect(sent).toBe(2);
+    // The discovery read, and only it, runs under the window with no tenant.
+    expect(seen['statements']).toEqual({ bootstrap: true, org: undefined });
+    // Everything after it runs in the statement's organisation.
+    expect(seen['signatures:stmt-1']).toEqual({
+      bootstrap: false,
+      org: 'org-1',
+    });
+    expect(seen['signatures:stmt-2']).toEqual({
+      bootstrap: false,
+      org: 'org-2',
+    });
+    expect(seen['guard:org-1']).toEqual({ bootstrap: false, org: 'org-1' });
+    expect(seen['guard:org-2']).toEqual({ bootstrap: false, org: 'org-2' });
+    expect(seen['write:org-1']).toEqual({ bootstrap: false, org: 'org-1' });
+    expect(seen['write:org-2']).toEqual({ bootstrap: false, org: 'org-2' });
+  });
+
+  it('asks the guard for this statement organisation, not for any row with that signature', async () => {
+    const staleDate = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+    statementRepo.find.mockResolvedValue([
+      {
+        id: 'stmt-1',
+        organisationId: 'org-1',
+        version: 1,
+        status: CommitmentStatementStatus.AWAITING_SIGNATURES,
+      },
+    ]);
+    signatureRepo.find.mockResolvedValue([
+      {
+        id: 'sig-1',
+        statementId: 'stmt-1',
+        signOrder: 1,
+        status: CommitmentSignatureStatus.PENDING,
+        signerUserId: 'user-1',
+        party: TripartiteParty.APPRENTICE,
+        createdAt: staleDate,
+        updatedAt: staleDate,
+      },
+    ]);
+    dispatchRepo.findOne.mockResolvedValue(null);
+    userRepo.findOne.mockResolvedValue({
+      id: 'user-1',
+      firstName: 'Alex',
+      email: 'alex@example.com',
+    });
+
+    await service.sendDueChases();
+
+    expect(dispatchRepo.findOne).toHaveBeenCalledWith({
+      where: {
+        organisationId: 'org-1',
+        signatureId: 'sig-1',
+        chaseKind: CommitmentChaseKind.SEVEN_DAYS,
+        isDeleted: false,
+      },
+    });
   });
 
   it('skips when dispatch already exists', async () => {

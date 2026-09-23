@@ -3,7 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-import { withRlsBootstrap } from '../common/context/correlation-id-context.js';
+import {
+  runWithTenantContext,
+  withRlsBootstrap,
+} from '../common/context/correlation-id-context.js';
 import { EmailTemplate } from '../email/email-template.enum.js';
 import { SerializedEmailPayload } from '../email/payloads/serialized-email.payload.js';
 import { NotificationType } from '../notifications/enums/notification-type.enum.js';
@@ -37,83 +40,137 @@ export class CommitmentChaseService {
     private readonly config: ConfigService,
   ) {}
 
+  /**
+   * F3.4.1 AC6 and F4.3.2 AC4 — the seven-day chase on an unsigned statement.
+   *
+   * ── WHY THE TWO CONTEXTS ────────────────────────────────────────────────
+   *
+   * A cron has no organisation and no user, and every table this sweep
+   * touches is organisation-keyed. Run as the cron, the statement read
+   * below returned nothing: no chase was ever sent for any statement, in
+   * any organisation, while the job logged a tidy count of 0 (proved as
+   * graddly_app by probe, 23 September).
+   *
+   * So: bootstrap to discover, per-organisation context to act — the shape
+   * `levy-transfer-status`, the caseload sweep and the pace sweep use. The
+   * discovery read is the statement list and nothing else; the ids that
+   * leave it are used to enter each statement's own organisation, and the
+   * signature read, the already-chased guard and the dispatch write all run
+   * inside that context, scoped by `app.current_org` like any request.
+   *
+   * The guard is the half that has to be right. Read with no organisation it
+   * matches nothing and stops guarding, so every run chases again; scoped to
+   * the wrong organisation it matches nothing it should and the row it then
+   * writes suppresses the chase permanently. Both directions are proved in
+   * test/commitment-chase-cron.e2e-spec.ts.
+   *
+   * `notifyFirstSigner` is deliberately not routed through here: it is
+   * called from the PDF worker, which already runs inside the job's
+   * organisation and passes `organisationId` explicitly.
+   */
   async sendDueChases(): Promise<number> {
-    const statements = await this.statementRepo.find({
-      where: {
-        status: CommitmentStatementStatus.AWAITING_SIGNATURES,
-      },
-    });
+    const statements = await withRlsBootstrap(() =>
+      this.statementRepo.find({
+        where: {
+          status: CommitmentStatementStatus.AWAITING_SIGNATURES,
+        },
+      }),
+    );
 
     let sent = 0;
     for (const statement of statements) {
-      const signatures = await this.signatureRepo.find({
-        where: { statementId: statement.id },
-        order: { signOrder: 'ASC' },
-      });
-
-      const pending = signatures.find(
-        (row) => row.status === CommitmentSignatureStatus.PENDING,
-      );
-      if (!pending) {
-        continue;
-      }
-
-      const turnStart = this.resolveTurnStart(pending, signatures);
-      if (Date.now() - turnStart.getTime() < CHASE_AFTER_MS) {
-        continue;
-      }
-
-      const existing = await this.dispatchRepo.findOne({
-        where: {
-          signatureId: pending.id,
-          chaseKind: CommitmentChaseKind.SEVEN_DAYS,
-          isDeleted: false,
+      sent += await runWithTenantContext(
+        {
+          label: `commitment-chase:${statement.id}`,
+          organisationId: statement.organisationId,
         },
-      });
-      if (existing) {
-        continue;
-      }
-
-      try {
-        const notified = await this.notifySigner(statement, pending, {
-          isChase: true,
-          daysUnsigned: 7,
-        });
-
-        /**
-         * Only record the dispatch when something was actually sent.
-         *
-         * This used to write the row unconditionally and count the chase as
-         * sent, even when `notifySigner` had silently done nothing because it
-         * could not resolve the signer. The row then matched the `existing`
-         * check above on every subsequent run, so a signature that had never
-         * been chased was permanently excluded from chasing — the failure
-         * hid itself.
-         */
-        if (!notified) {
-          this.logger.warn(
-            `Commitment chase skipped for signature ${pending.id}: signer ${pending.signerUserId} could not be notified`,
-          );
-          continue;
-        }
-
-        await this.dispatchRepo.save(
-          this.dispatchRepo.create({
-            organisationId: statement.organisationId,
-            signatureId: pending.id,
-            chaseKind: CommitmentChaseKind.SEVEN_DAYS,
-            sentAt: new Date(),
-          }),
-        );
-        sent++;
-      } catch (error) {
-        this.logger.warn(
-          `Commitment chase failed for signature ${pending.id}: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
+        () => this.chaseStatement(statement),
+      );
     }
 
     return sent;
+  }
+
+  /**
+   * One statement's chase, inside its own organisation's context.
+   *
+   * Returns 1 when a chase was sent, 0 otherwise — the sweep's count.
+   */
+  private async chaseStatement(
+    statement: CommitmentStatement,
+  ): Promise<number> {
+    const signatures = await this.signatureRepo.find({
+      where: { statementId: statement.id },
+      order: { signOrder: 'ASC' },
+    });
+
+    const pending = signatures.find(
+      (row) => row.status === CommitmentSignatureStatus.PENDING,
+    );
+    if (!pending) {
+      return 0;
+    }
+
+    const turnStart = this.resolveTurnStart(pending, signatures);
+    if (Date.now() - turnStart.getTime() < CHASE_AFTER_MS) {
+      return 0;
+    }
+
+    /**
+     * The guard, scoped by this statement's organisation. `organisationId`
+     * is in the where clause as well as in the context so the query says
+     * what it means rather than relying on the policy alone.
+     */
+    const existing = await this.dispatchRepo.findOne({
+      where: {
+        organisationId: statement.organisationId,
+        signatureId: pending.id,
+        chaseKind: CommitmentChaseKind.SEVEN_DAYS,
+        isDeleted: false,
+      },
+    });
+    if (existing) {
+      return 0;
+    }
+
+    try {
+      const notified = await this.notifySigner(statement, pending, {
+        isChase: true,
+        daysUnsigned: 7,
+      });
+
+      /**
+       * Only record the dispatch when something was actually sent.
+       *
+       * This used to write the row unconditionally and count the chase as
+       * sent, even when `notifySigner` had silently done nothing because it
+       * could not resolve the signer. The row then matched the `existing`
+       * check above on every subsequent run, so a signature that had never
+       * been chased was permanently excluded from chasing — the failure
+       * hid itself.
+       */
+      if (!notified) {
+        this.logger.warn(
+          `Commitment chase skipped for signature ${pending.id}: signer ${pending.signerUserId} could not be notified`,
+        );
+        return 0;
+      }
+
+      await this.dispatchRepo.save(
+        this.dispatchRepo.create({
+          organisationId: statement.organisationId,
+          signatureId: pending.id,
+          chaseKind: CommitmentChaseKind.SEVEN_DAYS,
+          sentAt: new Date(),
+        }),
+      );
+      return 1;
+    } catch (error) {
+      this.logger.warn(
+        `Commitment chase failed for signature ${pending.id}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return 0;
+    }
   }
 
   async notifyFirstSigner(

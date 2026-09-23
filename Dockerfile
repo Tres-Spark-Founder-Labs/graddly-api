@@ -38,4 +38,4 @@ ENV NODE_ENV=production
 EXPOSE 3000
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD ["node", "node_modules/concurrently/dist/bin/concurrently.js", "-k", "-n", "api,worker", "node", "dist/src/main.js", "node", "dist/src/worker.js"]
+CMD ["node", "node_modules/concurrently/dist/bin/concurrently.js", "-k", "-n", "api,worker", "node dist/src/main.js", "node dist/src/worker.js"]

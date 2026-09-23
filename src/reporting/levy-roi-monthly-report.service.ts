@@ -43,6 +43,29 @@ export class LevyRoiMonthlyReportService {
      * match no rows under RLS. Bootstrap is set for the duration of the
      * sweep, exactly as the other cron-driven services do — the tenant
      * scoping that matters is applied per organisation as we iterate.
+     *
+     * ── WHY THE WINDOW COVERS THE WRITES TOO ──────────────────────────────
+     *
+     * **What it writes:** `report_subscriptions.lastSentAt` per subscription
+     * it queued an email for, and nothing else. The report itself is an email
+     * job; no tenant row is created or amended from another tenant's data.
+     *
+     * **Why it is platform-wide rather than per tenant:** the unit of work is
+     * "every enabled subscription this month", read in one pass across
+     * organisations, and the stamp is the sweep's own record that it has run
+     * for that subscription — the platform's bookkeeping, not an action by
+     * anyone in the tenant. Each organisation's figures are still gathered
+     * under its own id (`sendForOrganisation`), so a report only ever
+     * contains one tenant's data.
+     *
+     * **What would have to change if it became tenant-specific:** if the
+     * sweep ever wrote something a tenant owns — a stored report row, an
+     * audit entry attributed to a user, a per-tenant delivery log — the
+     * window would shrink to `listAllEnabled` and each organisation's work
+     * would move inside `runWithTenantContext`, keyed on its id, as
+     * `commitment-chase` and `review-reminders` now do. The test for
+     * "still correct" is that nothing inside the window reads one
+     * organisation and writes for another.
      */
     return withRlsBootstrap(async () => {
       const subscriptions = await this.subscriptionsService.listAllEnabled();

@@ -28,6 +28,17 @@ export class ReviewsOverdueService {
    *
    * Bootstrap is correct here rather than per-organisation context: overdue is
    * a platform-wide, purely time-based sweep with no per-tenant phase.
+   *
+   * **What it writes:** `isOverdue` and `overdueSince` on scheduled reviews
+   * whose slot has passed by three days — derived from `scheduledAt` and the
+   * clock, from no other tenant's data.
+   *
+   * **What would have to change if it became tenant-specific:** a
+   * provider-set grace period, a notification, or anything attributed to a
+   * user would make this an action inside one tenant. The window would then
+   * shrink to a discovery read of the affected organisations and the UPDATE
+   * would move inside `runWithTenantContext` per organisation, as
+   * `commitment-chase` and `review-reminders` do.
    */
   async flagOverdueReviews(): Promise<number> {
     const overdueThreshold = new Date();

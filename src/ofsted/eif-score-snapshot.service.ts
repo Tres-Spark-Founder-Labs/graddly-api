@@ -61,7 +61,33 @@ export class EifScoreSnapshotService {
     private readonly calculator: EifScoreCalculatorService,
   ) {}
 
-  /** Captures every provider organisation. Returns how many were recorded. */
+  /**
+   * Captures every provider organisation. Returns how many were recorded.
+   *
+   * ── WHY THE WINDOW COVERS THE WRITES TOO ────────────────────────────────
+   *
+   * **What it writes:** one `eif_score_snapshots` row per provider per day,
+   * derived entirely from that provider's own rows by the calculator — a
+   * daily point on a trend line, not a decision about any learner.
+   *
+   * **Why it is platform-wide rather than per tenant:** the sweep has no
+   * organisation of its own and no acting user, and the snapshot is taken
+   * for every provider in one pass so the trend has the same timestamp
+   * across the estate. Entering each provider's context per row would be the
+   * other shape (caseload, pace, chase), and it is the right shape when a
+   * write belongs to a *person's* action in one tenant. This one belongs to
+   * the platform's clock. `captureForOrganisation` opens its own window for
+   * the same reason when an operator runs it by hand during an incident.
+   *
+   * **What would have to change if it became tenant-specific:** the moment a
+   * snapshot carried anything the tenant supplies at capture time — a
+   * provider-set weighting, a comment, an acting user id — the window would
+   * have to shrink to the read that discovers the providers, and the capture
+   * would move inside `runWithTenantContext` per provider, as the caseload
+   * sweep does. Anything read from another tenant inside this window would
+   * be a leak, so the calculator must stay keyed on the one organisation id
+   * it is given.
+   */
   async captureAll(now: Date = new Date()): Promise<number> {
     return withRlsBootstrap(async () => {
       const organisations = await this.organisationRepo.find({

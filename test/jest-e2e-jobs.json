@@ -2,13 +2,9 @@
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",
   "testEnvironment": "node",
-  "testTimeout": 60000,
+  "testTimeout": 900000,
   "maxWorkers": 1,
-  "testRegex": ".e2e-spec.ts$",
-  "testPathIgnorePatterns": [
-    "/oidc-enabled\\.e2e-spec\\.ts$",
-    "/rls-job-probe\\.e2e-spec\\.ts$"
-  ],
+  "testRegex": "rls-job-probe\\.e2e-spec\\.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },

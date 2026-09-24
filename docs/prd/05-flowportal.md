@@ -1,6 +1,6 @@
 > Source: Gradlly PRD v1.0 (March 2026). Archived docx: [Gradlly-PRD-v1.0.docx](./archive/Gradlly-PRD-v1.0.docx)
 
-## PORTAL 4  ·  PRODUCT REQUIREMENTS
+## PORTAL 4 · PRODUCT REQUIREMENTS
 
 ## FlowPortal
 
@@ -42,7 +42,7 @@ Desktop and mobile equally important — many SME owners will access via phone
 
 - The Levy Exchange is a two-sided marketplace that automates every step of the ESFA levy transfer process — from DAS account linking to compliance documentation — cutting transfer time from weeks to 48 hours.
 
-6.2.1 Donor-Side Features
+  6.2.1 Donor-Side Features
 
 ### F4.1.1 F4.1.1
 
@@ -325,3 +325,161 @@ Concierge dashboard shows: onboarding checklist completion %, upcoming scheduled
 Automated milestone emails are sent at: registration, DAS linking, first learner enrolment, first OTJ approval, first review
 
 Money-back guarantee is documented in the SME welcome pack and linked from the dashboard
+
+## 6.4 Module C — AI Apprenticeship Programmes
+
+- Module C is the learning half of FlowPortal: the AI apprenticeship
+  programmes an SME can put a funded learner on, and the record of that
+  learner's progress through them.
+
+- §10.1 places F4.4.1, F4.4.2 and F4.4.3 in Phase 1 scope and §10.2 places
+  F4.4.4 and F4.4.5 in Phase 2. This section was absent from v1.0 of the
+  document while the three Phase 1 features were built, which left them the
+  only Must Haves in the register that could be neither passed nor failed.
+
+- Programmes in this module are delivered by Gradlly's own AI provider
+  organisation rather than by the SME's own training provider, and are
+  distinguished from ordinary employer-led programmes by their delivery type.
+
+  6.4.1 Catalogue and Enrolment
+
+### F4.4.1
+
+## AI Programme Catalogue
+
+## Must Have
+
+**Phase:** Phase 1
+
+## Description
+
+- SME employers must be able to browse the AI apprenticeship programmes
+  available to them, and see what each programme covers, before committing a
+  learner to one.
+
+**Acceptance criteria**
+
+1. The catalogue lists every AI programme that is active, one entry per
+   programme, ordered alphabetically by title.
+
+2. Each entry shows the programme's title, its code, its description where one
+   is held, and the number of modules it contains.
+
+3. A programme that is not active — draft or archived — does not appear in the
+   catalogue, and a request for that programme by its identifier is refused as
+   not found.
+
+4. Opening a programme shows its module outline: every module it contains, in
+   teaching order, with each module's title and its description where one is
+   held.
+
+5. The catalogue is available only where the active organisation is a
+   FlowPortal organisation. A request made with any other organisation active
+   is refused as forbidden.
+
+6. Where no AI programme is active, the catalogue states that there are none
+   rather than showing an error or an empty screen.
+
+### F4.4.2
+
+## Enrolment on an AI Track
+
+## Must Have
+
+**Phase:** Phase 1
+
+## Description
+
+- An SME must be able to enrol one of its apprentices on an AI programme from
+  that programme's own page, whether the apprentice is already on the SME's
+  record or is being added at the point of enrolment.
+
+**Acceptance criteria**
+
+1. An enrolment can be created against any programme in the catalogue, either
+   by naming an apprentice the organisation already holds or by supplying a new
+   apprentice's first name, last name and email address.
+
+2. An attempt that supplies neither an existing apprentice nor all three
+   identity fields is refused, and the refusal names what is required.
+
+3. A successful enrolment returns the enrolment's identifier and the number of
+   modules opened against it, and the enrolment is active on return — the SME
+   performs no separate activation step.
+
+4. The enrolment belongs to the SME's own organisation and names the AI
+   programme's provider organisation as the delivering provider.
+
+5. Enrolling the same apprentice on the same programme a second time is
+   refused, and the first enrolment is unaffected.
+
+6. An enrolment against a programme that is not in the active catalogue is
+   refused as not found.
+
+7. From the moment of enrolment every module in the programme has a progress
+   record against that enrolment, each beginning at not started.
+
+6.4.2 Progress and Completion
+
+### F4.4.3
+
+## Module Progress and Programme Completion
+
+## Must Have
+
+**Phase:** Phase 1
+
+## Description
+
+- Progress through an AI programme must be recorded module by module, be
+  visible as a single percentage, and the programme must be closeable only once
+  every module is done.
+
+**Acceptance criteria**
+
+1. The progress view lists every module in the programme with its current
+   status — not started, in progress, or completed — alongside a percentage
+   complete, being completed modules as a proportion of all modules, rounded to
+   the nearest whole number.
+
+2. A module's status can be set to any of the three values, and setting it to
+   completed records the date and time of completion against that module.
+
+3. Setting a status for a module that does not belong to the enrolment's
+   programme is refused as not found.
+
+4. Completing the programme is refused while any module is not completed, and
+   the refusal states how many modules remain.
+
+5. Once every module is completed, completing the programme marks the enrolment
+   completed, records the completion date and time, and stores a summary naming
+   the programme and the modules covered.
+
+6. Completing a programme that is already complete returns the original
+   completion unchanged — neither a second completion record nor an error.
+
+7. No module progress can be recorded against an enrolment that is already
+   complete, and the attempt is refused.
+
+6.4.3 Phase 2 Features
+
+- F4.4.4 applied project submission and F4.4.5 asynchronous learning modules
+  are Phase 2 (§10.2) and are not specified here. Module C in Phase 1 carries
+  the curriculum outline and the progress record; it does not host learning
+  content, and nothing is submitted through it for marking.
+
+  6.4.4 Known gaps in the current build — not acceptance criteria
+
+These are things Module C plainly needs that none of the criteria above
+require, recorded so that a conformance audit reads them as known and open
+rather than as a pass, and so that the criteria above are not quietly written
+to fit what exists.
+
+| Gap                                        | What is missing                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Duration, level and funding value          | A catalogue entry carries title, code, description and a module count. It carries no duration, no apprenticeship level and no funding value, because the programme record holds none of them. An SME choosing between programmes cannot see how long one takes, what level it is, or what it is worth — which is most of what the choice turns on. |
+| Catalogue administration                   | Programmes and their modules exist only as seeded data created by migration. Nothing in the product publishes, edits, reorders or retires a programme, so criterion 3 of F4.4.1 is exercisable only by changing the database directly.                                                                                                             |
+| Who records progress                       | Progress and completion are written by a member of the SME's FlowPortal organisation. There is no learner-facing route, and an apprentice on an AI track need not hold a login at all, so the learner cannot record their own progress or see it without the SME showing them.                                                                     |
+| Reversing a completed module               | A module can be moved back from completed to not started, which clears its completion time and leaves no record that it was ever completed. Whether a completed module should be reversible at all, and by whom, is unspecified.                                                                                                                   |
+| Completion is unattributed and unannounced | A programme completion is a learner outcome. It writes no audit entry — `AiProgrammeCompletion` is outside the audited set — and sends no notification to the learner, the SME or the provider. Nobody's name is against it and nobody is told.                                                                                                    |
+| A programme with no standard               | Enrolment requires the programme to have an active standard behind it and is refused when it does not. Nothing in the catalogue indicates which programmes are enrolable, so the failure appears only at the point of enrolling a named learner.                                                                                                   |

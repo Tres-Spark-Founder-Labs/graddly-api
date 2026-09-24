@@ -35,3 +35,8 @@ yarn-error.log*
 # they hold the same secrets as .env, which is ignored above. GitHub push
 # protection caught one of these in commit 8569428.
 .env.bak-*
+
+# Deployed-database credentials, for a one-off migration or additive seed run.
+# Never tracked: this file exists so the values can live on disk instead of in
+# a shell history or a chat transcript.
+.env.live

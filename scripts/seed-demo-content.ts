@@ -56,10 +56,14 @@
  *   npx nest build
  *   SEED_ALLOW=yes node dist/scripts/seed-demo-content.js
  *
- * Deployed — the host must match what the connection actually resolves to:
+ * Deployed — set the connection the data source actually reads, and name the
+ * host on purpose. `DATABASE_URL` is deliberately refused: nothing connects
+ * with it (see `resolveHost` below).
+ *
  *   SEED_ALLOW=yes \
- *   SEED_REMOTE_HOST=<the exact host from your connection string> \
- *   DATABASE_URL=<connection string> \
+ *   SEED_REMOTE_HOST=<the same value as DB_HOST> \
+ *   DB_HOST=<host> DB_PORT=<port> DB_NAME=<database> \
+ *   DB_USERNAME=<user> DB_PASSWORD=<password> \
  *   node dist/scripts/seed-demo-content.js
  *
  * Run `migration:run` against that database first. This script writes columns
@@ -162,14 +166,31 @@ const LOCAL_HOSTS = new Set([
   'postgres',
 ]);
 
+/**
+ * The host this script will actually connect to — which is `DB_HOST`, and
+ * never `DATABASE_URL`.
+ *
+ * `src/config/data-source.ts` builds its connection from `DB_HOST`, `DB_PORT`,
+ * `DB_USERNAME`, `DB_PASSWORD` and `DB_NAME`. It has no `url` option, so
+ * `DATABASE_URL` is read by nothing. Deriving the guard's idea of the target
+ * from it — as `seed-flow-portal.ts` did, and as this script did when it was
+ * written — makes the guard check one database while the writes go to
+ * another: set `DATABASE_URL` to a deployed connection string and the guard
+ * is satisfied about the remote host while every row lands in whatever
+ * `DB_HOST` happens to be, usually localhost.
+ *
+ * So the host comes from the connection's own input, and a set-but-ignored
+ * `DATABASE_URL` is a hard error rather than a silent misdirection.
+ */
 function resolveHost(): string {
-  const url = process.env.DATABASE_URL;
-  if (url) {
-    try {
-      return new URL(url).hostname;
-    } catch {
-      return '(unparseable DATABASE_URL)';
-    }
+  if (process.env.DATABASE_URL) {
+    throw new Error(
+      'DATABASE_URL is set but this script cannot use it: the data source ' +
+        'connects with DB_HOST / DB_PORT / DB_USERNAME / DB_PASSWORD / ' +
+        'DB_NAME and has no url option. Unset DATABASE_URL and set those ' +
+        'instead, or the guard would check one database while the writes go ' +
+        'to another.',
+    );
   }
   return process.env.DB_HOST ?? 'localhost';
 }

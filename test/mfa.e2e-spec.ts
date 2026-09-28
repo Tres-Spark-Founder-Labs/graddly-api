@@ -3,10 +3,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { authenticator } from 'otplib';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { DataSource } from 'typeorm';
 
 import { AppModule } from './../src/app.module.js';
 import { configureApp } from './../src/configure-app.js';
 import { createVerifiedUser } from './helpers/e2e-http.js';
+import { buildOrgPayload } from './helpers/e2e-organisation.js';
 import { createE2ePgClient } from './helpers/rls-db.js';
 
 import type { Client } from 'pg';
@@ -26,6 +28,19 @@ describe('MFA (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
+  });
+
+  it('runs as graddly_app with RLS enforced', async () => {
+    const [row] = await app
+      .get(DataSource)
+      .query<
+        { role: string; rolsuper: boolean; rolbypassrls: boolean }[]
+      >(`SELECT current_user AS role, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user`);
+    expect(row).toEqual({
+      role: 'graddly_app',
+      rolsuper: false,
+      rolbypassrls: false,
+    });
   });
 
   async function enrollAndConfirm(accessToken: string) {
@@ -242,6 +257,97 @@ describe('MFA (e2e)', () => {
 
       expect(loginRes.body.data.accessToken).toEqual(expect.any(String));
       expect(loginRes.body.data.mfaRequired).toBeUndefined();
+    });
+  });
+
+  /**
+   * PRD §7.2 — "MFA required for provider and employer admin accounts".
+   *
+   * Driven where the real system decides: a login, then a protected endpoint,
+   * then enrolment, then the same endpoint again. The flag defaults true, so
+   * this is the shipped behaviour rather than a configuration the test turns
+   * on for itself.
+   */
+  describe('MFA required for provider and employer admins (PRD §7.2)', () => {
+    async function providerOwner(label: string) {
+      const user = await createVerifiedUser(app, {
+        email: `mfa-required-${label}-${Date.now()}@example.com`,
+      });
+      await request(app.getHttpServer())
+        .post('/api/v1/organisations')
+        .set('Authorization', `Bearer ${user.accessToken}`)
+        .send({
+          ...buildOrgPayload(`MFA Required ${label} ${Date.now()}`),
+          portalType: 'provider',
+        })
+        .expect(201);
+
+      // Sign in again: the organisation did not exist when the first token
+      // was issued, so the requirement is computed on this login.
+      const login = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: user.email, password: user.password })
+        .expect(200);
+
+      return { user, login };
+    }
+
+    it('tells the client at login that enrolment is required', async () => {
+      const { login } = await providerOwner('login');
+
+      expect(login.body.data).toMatchObject({
+        accessToken: expect.any(String),
+        refreshToken: expect.any(String),
+        // The tokens are real and are needed: enrolment is itself an
+        // authenticated flow.
+        mfaEnrolmentRequired: true,
+      });
+    });
+
+    it('refuses every other endpoint until enrolment completes, then serves them', async () => {
+      const { login } = await providerOwner('gate');
+      const token = login.body.data.accessToken as string;
+
+      const refused = await request(app.getHttpServer())
+        .get('/api/v1/organisations')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(403);
+
+      expect(refused.body).toMatchObject({
+        statusCode: 403,
+        code: 'MFA_ENROLMENT_REQUIRED',
+      });
+
+      // The enrolment route itself still answers, or there would be no way out.
+      await enrollAndConfirm(token);
+
+      /**
+       * The same access token now works. The `mfaEnrol` claim inside it is
+       * stale — it was issued before enrolment — and the guard checks the live
+       * `mfaEnabled` as well, so nobody has to wait 15 minutes for a token
+       * that agrees with them.
+       */
+      await request(app.getHttpServer())
+        .get('/api/v1/organisations')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+    });
+
+    it('leaves an ordinary member alone', async () => {
+      const user = await createVerifiedUser(app, {
+        email: `mfa-not-required-${Date.now()}@example.com`,
+      });
+
+      const login = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: user.email, password: user.password })
+        .expect(200);
+
+      expect(login.body.data.mfaEnrolmentRequired).toBeUndefined();
+      await request(app.getHttpServer())
+        .get('/api/v1/auth/me')
+        .set('Authorization', `Bearer ${login.body.data.accessToken}`)
+        .expect(200);
     });
   });
 

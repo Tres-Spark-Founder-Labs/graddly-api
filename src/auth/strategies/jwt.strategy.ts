@@ -74,9 +74,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         ...user,
         organisationId: membership.organisation.id,
         roles: [membership.role],
+        mfaEnrolmentRequired: payload.mfaEnrol === true,
       };
     }
 
-    return { ...user };
+    return { ...user, mfaEnrolmentRequired: payload.mfaEnrol === true };
   }
 }

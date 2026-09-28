@@ -74,6 +74,23 @@ export const envSchema = z
       .max(300)
       .default(30),
 
+    /**
+     * PRD §7.2 — "forced re-authentication after 8 hours of inactivity".
+     *
+     * Measured between refreshes, not between requests. The refresh token
+     * carries the moment it was last exchanged, and a refresh arriving more
+     * than this long afterwards is refused and the whole token family
+     * revoked. Because a live access token lasts 15 minutes, the worst case
+     * is a session surviving 8h15m of true inactivity; moving the stamp on
+     * every authenticated request would close that quarter hour at the price
+     * of a write on the hot path for every call the platform serves.
+     */
+    SESSION_IDLE_TIMEOUT_SECONDS: z.coerce
+      .number()
+      .int()
+      .min(60)
+      .default(28_800),
+
     REDIS_HOST: z.string().min(1).default('localhost'),
     REDIS_PORT: z.coerce.number().int().min(1).max(65535).default(6379),
     REDIS_PASSWORD: z.string().optional(),
@@ -475,6 +492,24 @@ export const envSchema = z
     COMPANIES_HOUSE_API_KEY: z.string().optional().default(''),
 
     MFA_ENCRYPTION_KEY: z.string().optional().default(''),
+
+    /**
+     * PRD §7.2 — "MFA required for provider and employer admin accounts".
+     *
+     * When true, a user holding `owner` or `admin` in any organisation whose
+     * portal type is `provider` or `employer` must hold MFA. They still sign
+     * in and still reach the enrolment endpoints; every other authenticated
+     * route refuses them until they have enrolled.
+     *
+     * Default true, because the safe default for a security control is on.
+     * **Turning it on is an event, not a setting** — see the rollout sequence
+     * in `.env.example` and `docs/mfa-required-for-admins.md`. Setting it
+     * false takes effect on the next request, so it is also the rollback.
+     */
+    MFA_REQUIRED_FOR_ADMINS: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((v) => v === 'true'),
   })
   .superRefine((data, ctx) => {
     const deployed =

@@ -6,7 +6,9 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { EmailDispatchService } from '../../email/email-dispatch.service.js';
 import { OrganisationMembership } from '../../organisations/entities/organisation-membership.entity.js';
+import { MembershipStatus } from '../../organisations/membership-status.enum.js';
 import { OrganisationRole } from '../../organisations/organisation-role.enum.js';
+import { PortalType } from '../../organisations/portal-type.enum.js';
 import { RedisService } from '../../redis/redis.service.js';
 import { User } from '../../users/entities/user.entity.js';
 import { UsersService } from '../../users/users.service.js';
@@ -646,6 +648,134 @@ describe('AuthService', () => {
         },
         expect.any(Object),
       );
+    });
+  });
+
+  /**
+   * PRD §7.2 — "Multi-factor authentication for admin accounts". The login
+   * response and the access token both carry the requirement, so a client
+   * knows before its first guarded call and the guard needs no query.
+   */
+  describe('MFA enrolment requirement (PRD §7.2)', () => {
+    const dto = { email: 'john@example.com', password: 'P@ssw0rd!' };
+    const verifiedUser = { ...mockUser, isEmailVerified: true };
+
+    const membership = (
+      role: OrganisationRole,
+      portalType: PortalType,
+      status: MembershipStatus = MembershipStatus.ACTIVE,
+    ) => ({
+      role,
+      status,
+      createdAt: new Date('2026-01-01'),
+      organisation: { id: 'org-uuid-1', portalType },
+    });
+
+    beforeEach(() => {
+      mockUsersService.findByEmail.mockResolvedValue(verifiedUser);
+      mockCompare.mockResolvedValue(true);
+    });
+
+    it('flags a provider owner with no MFA, in the response and the claim', async () => {
+      mockMembershipRepo.find.mockResolvedValue([
+        membership(OrganisationRole.OWNER, PortalType.PROVIDER),
+      ]);
+
+      const result = await authService.login(dto);
+
+      expect(result).toMatchObject({ mfaEnrolmentRequired: true });
+      expect(mockJwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ mfaEnrol: true }),
+        expect.any(Object),
+      );
+    });
+
+    it('flags an employer admin the same way', async () => {
+      mockMembershipRepo.find.mockResolvedValue([
+        membership(OrganisationRole.ADMIN, PortalType.EMPLOYER),
+      ]);
+
+      const result = await authService.login(dto);
+
+      expect(result).toMatchObject({ mfaEnrolmentRequired: true });
+    });
+
+    it('leaves an ordinary member alone', async () => {
+      mockMembershipRepo.find.mockResolvedValue([
+        membership(OrganisationRole.MEMBER, PortalType.PROVIDER),
+      ]);
+
+      const result = await authService.login(dto);
+
+      expect(result).not.toHaveProperty('mfaEnrolmentRequired');
+      expect(mockJwtService.sign).toHaveBeenCalledWith(
+        expect.not.objectContaining({ mfaEnrol: true }),
+        expect.any(Object),
+      );
+    });
+
+    it('leaves an owner of an apprentice or flow organisation alone', async () => {
+      mockMembershipRepo.find.mockResolvedValue([
+        membership(OrganisationRole.OWNER, PortalType.APPRENTICE),
+        membership(OrganisationRole.OWNER, PortalType.FLOW),
+      ]);
+
+      const result = await authService.login(dto);
+
+      expect(result).not.toHaveProperty('mfaEnrolmentRequired');
+    });
+
+    it('ignores a revoked membership: the role is not held any more', async () => {
+      mockMembershipRepo.find.mockResolvedValue([
+        membership(
+          OrganisationRole.OWNER,
+          PortalType.PROVIDER,
+          MembershipStatus.REVOKED,
+        ),
+      ]);
+
+      const result = await authService.login(dto);
+
+      expect(result).not.toHaveProperty('mfaEnrolmentRequired');
+    });
+
+    it('ignores a membership that is still only an invitation', async () => {
+      mockMembershipRepo.find.mockResolvedValue([
+        membership(
+          OrganisationRole.ADMIN,
+          PortalType.EMPLOYER,
+          MembershipStatus.PENDING,
+        ),
+      ]);
+
+      const result = await authService.login(dto);
+
+      expect(result).not.toHaveProperty('mfaEnrolmentRequired');
+    });
+
+    /** The rollback lever: false takes effect on the next login, not a deploy. */
+    it('flags nobody while MFA_REQUIRED_FOR_ADMINS is false', async () => {
+      const configGet = mockConfigService.get as jest.Mock;
+      const asShipped = configGet.getMockImplementation() as (
+        key: string,
+        fallback?: unknown,
+      ) => unknown;
+      configGet.mockImplementation((key: string, fallback?: unknown) =>
+        key === 'app.security.mfaRequiredForAdmins'
+          ? false
+          : asShipped(key, fallback),
+      );
+      mockMembershipRepo.find.mockResolvedValue([
+        membership(OrganisationRole.OWNER, PortalType.PROVIDER),
+      ]);
+
+      try {
+        const result = await authService.login(dto);
+
+        expect(result).not.toHaveProperty('mfaEnrolmentRequired');
+      } finally {
+        configGet.mockImplementation(asShipped);
+      }
     });
   });
 });

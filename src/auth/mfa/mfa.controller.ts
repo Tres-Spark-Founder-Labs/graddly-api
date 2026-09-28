@@ -31,6 +31,7 @@ import { ResponseMessage } from '../../common/interceptors/response-message.deco
 import { LearnerAccessible } from '../../common/learner-scope/learner-accessible.decorator.js';
 import { AuthService } from '../auth.service.js';
 import { CurrentUser } from '../decorators/current-user.decorator.js';
+import { MfaEnrolmentAllowed } from '../decorators/mfa-enrolment-allowed.decorator.js';
 import { AuthResponseDto } from '../dto/auth-response.dto.js';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard.js';
 
@@ -54,6 +55,12 @@ import type { AuthenticatedUser } from '../interfaces/authenticated-user.interfa
   MfaEnrollResponseDto,
   MfaConfirmResponseDto,
 )
+/**
+ * PRD §7.2 — every route here is reachable by an account that still owes MFA
+ * enrolment, because this is where that enrolment happens. See
+ * `MfaEnrolmentAllowed`.
+ */
+@MfaEnrolmentAllowed()
 @Controller('auth/mfa')
 export class MfaController {
   constructor(

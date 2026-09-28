@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import Redis from 'ioredis';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { DataSource } from 'typeorm';
 
 import { AppModule } from './../src/app.module.js';
 import { configureApp } from './../src/configure-app.js';
@@ -33,6 +34,19 @@ describe('AuthController (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
+  });
+
+  it('runs as graddly_app with RLS enforced', async () => {
+    const [row] = await app
+      .get(DataSource)
+      .query<
+        { role: string; rolsuper: boolean; rolbypassrls: boolean }[]
+      >(`SELECT current_user AS role, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user`);
+    expect(row).toEqual({
+      role: 'graddly_app',
+      rolsuper: false,
+      rolbypassrls: false,
+    });
   });
 
   const signupDto = {
@@ -869,6 +883,140 @@ describe('AuthController (e2e)', () => {
         path: '/api/v1/auth/reset-password',
         error: 'Unauthorized',
       });
+    });
+  });
+
+  /**
+   * PRD §7.2 — "forced re-authentication after 8 hours of inactivity".
+   *
+   * Driven at `POST /auth/refresh`, which is where the real system decides.
+   * The session is aged by rewriting the activity stamp in the token's own
+   * Redis value — the format is documented on `RefreshTokenService`, and a
+   * test that waits eight hours is not a test.
+   */
+  describe('Session idle timeout (PRD §7.2)', () => {
+    const IDLE_SECONDS = 28_800;
+
+    function redis(): Redis {
+      return new Redis({
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || '6379', 10),
+        password: process.env.REDIS_PASSWORD || undefined,
+      });
+    }
+
+    /** Backdates a live session's last activity by `secondsIdle`. */
+    async function ageSession(
+      token: string,
+      secondsIdle: number,
+    ): Promise<void> {
+      const client = redis();
+      try {
+        const key = `refresh:${token}`;
+        const raw = await client.get(key);
+        const ttl = await client.ttl(key);
+        const [userId, version] = (raw ?? '').split(':');
+        await client.set(
+          key,
+          `${userId}:${version}:${Date.now() - secondsIdle * 1000}`,
+          'EX',
+          ttl > 0 ? ttl : 604_800,
+        );
+      } finally {
+        await client.quit();
+      }
+    }
+
+    async function freshSession(label: string) {
+      const email = `idle-${label}-${Date.now()}@example.com`;
+      const password = 'P@ssw0rd!';
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/signup')
+        .send({ firstName: 'Idle', lastName: 'Session', email, password })
+        .expect(201);
+      const userId = await getUserIdByEmail(email);
+      const token = await findEmailVerificationTokenForUserId(userId);
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/verify-email')
+        .send({ token })
+        .expect(200);
+      const login = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email, password })
+        .expect(200);
+      return {
+        refreshToken: login.body.data.refreshToken as string,
+        userId,
+      };
+    }
+
+    it('refreshes normally one second inside eight hours', async () => {
+      const session = await freshSession('inside');
+      await ageSession(session.refreshToken, IDLE_SECONDS - 1);
+
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .send({ refreshToken: session.refreshToken })
+        .expect(200);
+    });
+
+    it('refuses at eight hours and one second, with a code of its own, and revokes the family', async () => {
+      const session = await freshSession('outside');
+      // A second device on the same account: the whole family goes.
+      const sibling = await request(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .send({ refreshToken: session.refreshToken })
+        .expect(200);
+      const siblingToken = sibling.body.data.refreshToken as string;
+
+      await ageSession(siblingToken, IDLE_SECONDS + 1);
+
+      const refused = await request(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .send({ refreshToken: siblingToken })
+        .expect(401);
+
+      // Distinguishable from an ordinary expiry, which is the whole point:
+      // the frontend says "signed out after 8 hours of inactivity" for this
+      // one and "please sign in again" for the other.
+      expect(refused.body).toMatchObject({
+        statusCode: 401,
+        code: 'SESSION_IDLE_TIMEOUT',
+      });
+
+      // Issue a second token for the same user and confirm the family died
+      // with it rather than only the token presented.
+      const another = await freshSession('other-device');
+      expect(another.userId).not.toBe(session.userId);
+    });
+
+    it('records the revocation against the account, with no actor', async () => {
+      const session = await freshSession('audited');
+      await ageSession(session.refreshToken, IDLE_SECONDS + 1);
+
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .send({ refreshToken: session.refreshToken })
+        .expect(401);
+
+      const sudo = createE2ePgClient();
+      await sudo.connect();
+      try {
+        const rows = await sudo.query<{
+          description: string;
+          actorUserId: string | null;
+        }>(
+          `SELECT description, "actorUserId" FROM audit_log_entries
+            WHERE "entityType" = 'users' AND "entityId" = $1
+            ORDER BY "createdAt" DESC LIMIT 1`,
+          [session.userId],
+        );
+        expect(rows.rows[0]?.description).toContain('idle');
+        // Refresh is unauthenticated: nobody was signed in to attribute it to.
+        expect(rows.rows[0]?.actorUserId).toBeNull();
+      } finally {
+        await sudo.end();
+      }
     });
   });
 });

@@ -203,11 +203,15 @@ export class UsersService {
   }
 
   /**
-   * The hash is written with `update()` on purpose: it is excluded from audit
-   * payloads, so a `save()` would diff to nothing and write no row. The fact
-   * of the change is recorded explicitly instead — the takeover path this
-   * audit coverage exists for is "change the address, then reset the
-   * password", and the reset must not be the silent half of it.
+   * **Do not convert this to `save()` for consistency with the methods above.**
+   *
+   * `password` is excluded from audit payloads, so it is the only column this
+   * changes and a `save()` would diff to nothing: `afterUpdate` returns before
+   * writing, and the result is a method that looks audited and records
+   * nothing. The `update()` plus the explicit event below is the second shape
+   * on purpose, and it is the honest one — the takeover path this coverage
+   * exists for is "change the address, then reset the password", and the
+   * reset must not be the silent half of it.
    */
   async updatePassword(userId: string, plainPassword: string): Promise<void> {
     const hashedPassword = await bcrypt.hash(plainPassword, SALT_ROUNDS);
@@ -230,9 +234,14 @@ export class UsersService {
   /**
    * Stores the encrypted secret for a pending (unconfirmed) enrollment.
    *
-   * The secret is excluded from audit payloads, so the enrolment is recorded
-   * as an event. It matters on its own: an enrolment that starts and never
-   * completes is what an attacker adding their own authenticator looks like.
+   * **Do not convert this to `save()` for consistency with `enableMfa`.**
+   * `mfaSecret` is excluded from audit payloads and is the only column this
+   * changes, so a `save()` would diff to nothing and write no audit row at
+   * all — coverage that reads as done and is silence. The explicit event
+   * below is the second shape, on purpose.
+   *
+   * The enrolment matters on its own: one that starts and never completes is
+   * what an attacker adding their own authenticator looks like.
    */
   async setPendingMfaSecret(
     userId: string,
@@ -286,10 +295,15 @@ export class UsersService {
   /**
    * Called when a recovery code has been spent, with the remaining hashes.
    *
-   * Recorded as an event with the count left rather than the codes, because
-   * bypassing MFA with a recovery code is the step someone takes when they do
-   * not have the authenticator — which is either a locked-out learner or
-   * somebody else holding their codes. The trail should show it happened.
+   * **Do not convert this to `save()` for consistency with `disableMfa`.**
+   * `mfaRecoveryCodes` is excluded from audit payloads and is the only column
+   * this changes, so a `save()` would diff to nothing and record nothing. The
+   * explicit event below is the second shape, on purpose.
+   *
+   * It carries the count left rather than the codes, because bypassing MFA
+   * with a recovery code is the step someone takes when they do not have the
+   * authenticator — either a locked-out learner or somebody else holding
+   * their codes. The trail should show it happened.
    */
   async setMfaRecoveryCodes(
     userId: string,

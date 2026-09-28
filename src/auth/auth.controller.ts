@@ -48,6 +48,7 @@ import { UsersService } from '../users/users.service.js';
 
 import { AuthService } from './auth.service.js';
 import { CurrentUser } from './decorators/current-user.decorator.js';
+import { MfaEnrolmentAllowed } from './decorators/mfa-enrolment-allowed.decorator.js';
 import { ActiveOrganisationMeDto } from './dto/active-organisation-context.dto.js';
 import { AuthResponseDto } from './dto/auth-response.dto.js';
 import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
@@ -356,6 +357,9 @@ export class AuthController {
   }
 
   @LearnerAccessible()
+  // Reachable while MFA enrolment is outstanding: signing out must not
+  // require the thing you are locked out of.
+  @MfaEnrolmentAllowed()
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard)
@@ -376,6 +380,7 @@ export class AuthController {
   }
 
   @LearnerAccessible()
+  @MfaEnrolmentAllowed()
   @Post('logout-all')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard)
@@ -396,6 +401,12 @@ export class AuthController {
   }
 
   @LearnerAccessible()
+  // Reachable while enrolment is outstanding: the shell needs a name and an
+  // organisation list to render the page the user enrols from, and refusing
+  // the one endpoint that says who you are would leave them at a wall with no
+  // way to read it. The enrolment flag itself is not in this response — see
+  // the destructure in `me()` for why.
+  @MfaEnrolmentAllowed()
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -444,6 +455,12 @@ export class AuthController {
     const {
       organisationId: _organisationId,
       roles: _roles,
+      // PRD §7.2 — mirrored from the `mfaEnrol` claim, and in the same family
+      // as `roles` above: session state rather than profile, so it is stripped
+      // here and `/auth/me` keeps the shape `MeResponseDto` documents. The
+      // login response carries the flag, and every guarded route answers 403
+      // `MFA_ENROLMENT_REQUIRED`, so nothing needs it from this endpoint.
+      mfaEnrolmentRequired: _mfaEnrolmentRequired,
       memberships: _memberships,
       password: _password,
       ...publicUser

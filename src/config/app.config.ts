@@ -41,6 +41,10 @@ export default registerAs('app', () => {
     refresh: {
       reuseGraceSeconds: e.REFRESH_REUSE_GRACE_SECONDS,
     },
+    session: {
+      // PRD §7.2 idle timeout, measured between refreshes. See env.schema.
+      idleTimeoutSeconds: e.SESSION_IDLE_TIMEOUT_SECONDS,
+    },
     throttle: {
       enabled: e.THROTTLE_ENABLED,
     },
@@ -247,6 +251,8 @@ export default registerAs('app', () => {
     },
     security: {
       mfaEncryptionKey: e.MFA_ENCRYPTION_KEY?.trim() || e.JWT_SECRET,
+      // PRD §7.2 — MFA compulsory for provider and employer owners/admins.
+      mfaRequiredForAdmins: e.MFA_REQUIRED_FOR_ADMINS,
     },
   };
 });

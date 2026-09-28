@@ -459,14 +459,66 @@ export class AuthService {
    * with earliest membership createdAt as tiebreaker.
    * Used only for JWT generation; loads minimal data with no portal scoping.
    */
-  private async resolveActiveMembershipForUser(
+  /**
+   * PRD §7.2 — "MFA required for provider and employer admin accounts".
+   *
+   * True when the user holds owner or admin in **any** organisation whose
+   * portal type is provider or employer, across all their memberships rather
+   * than only the active one: the requirement follows the privilege, and a
+   * provider owner who happens to be looking at an employer organisation is
+   * still a provider owner.
+   *
+   * Derived from memberships the caller has already loaded, so it costs
+   * nothing on top of issuing a token. Membership status is deliberately not
+   * filtered here — `resolveActiveMembershipForUser` does not filter it
+   * either, and a suspended admin who can still sign in should still be held
+   * to the same requirement.
+   */
+  private requiresMfaEnrolment(
+    user: User,
+    memberships: OrganisationMembership[],
+  ): boolean {
+    if (!this.config.get<boolean>('app.security.mfaRequiredForAdmins', true)) {
+      return false;
+    }
+    if (user.mfaEnabled) {
+      return false;
+    }
+
+    // Only a live membership counts. `pickActiveMembership` below takes the
+    // list as it comes, which is fine for choosing an org claim; this gate can
+    // refuse an account every route it has, so it is the stricter read:
+    // somebody whose provider membership was revoked administers nothing and
+    // must not be held at an enrolment wall for an organisation they left.
+    return memberships.some(
+      (membership) =>
+        membership.status === MembershipStatus.ACTIVE &&
+        (membership.role === OrganisationRole.OWNER ||
+          membership.role === OrganisationRole.ADMIN) &&
+        (membership.organisation?.portalType === PortalType.PROVIDER ||
+          membership.organisation?.portalType === PortalType.EMPLOYER),
+    );
+  }
+
+  private async loadMembershipsForUser(
     userId: string,
-  ): Promise<OrganisationMembership | null> {
-    const memberships = await this.membershipRepo.find({
+  ): Promise<OrganisationMembership[]> {
+    return this.membershipRepo.find({
       where: { user: { id: userId } },
       relations: ['organisation'],
     });
+  }
 
+  private async resolveActiveMembershipForUser(
+    userId: string,
+  ): Promise<OrganisationMembership | null> {
+    const memberships = await this.loadMembershipsForUser(userId);
+    return this.pickActiveMembership(memberships);
+  }
+
+  private pickActiveMembership(
+    memberships: OrganisationMembership[],
+  ): OrganisationMembership | null {
     if (memberships.length === 0) {
       return null;
     }
@@ -489,7 +541,9 @@ export class AuthService {
   ): Promise<AuthResponseDto> {
     setCurrentUserId(user.id);
 
-    const membership = await this.resolveActiveMembershipForUser(user.id);
+    const memberships = await this.loadMembershipsForUser(user.id);
+    const membership = this.pickActiveMembership(memberships);
+    const mfaEnrolmentRequired = this.requiresMfaEnrolment(user, memberships);
 
     const jwtPayload: IJwtPayload = {
       sub: user.id,
@@ -500,6 +554,7 @@ export class AuthService {
             roles: [membership.role],
           }
         : {}),
+      ...(mfaEnrolmentRequired ? { mfaEnrol: true } : {}),
     };
 
     const accessTtl = this.config.get<number>(
@@ -513,6 +568,12 @@ export class AuthService {
     const refreshToken =
       existingRefreshToken ?? (await this.refreshTokenService.issue(user.id));
 
-    return { accessToken, refreshToken };
+    return {
+      accessToken,
+      refreshToken,
+      // Only when true: an optional field that is always present is a field
+      // every client has to interpret.
+      ...(mfaEnrolmentRequired ? { mfaEnrolmentRequired: true } : {}),
+    };
   }
 }

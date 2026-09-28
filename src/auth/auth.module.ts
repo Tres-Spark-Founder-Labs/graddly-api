@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { AuditEventModule } from '../audit/audit-event.module.js';
 import { EmailModule } from '../email/email.module.js';
 import { OrganisationMembership } from '../organisations/entities/organisation-membership.entity.js';
 import { UsersModule } from '../users/users.module.js';
@@ -24,6 +25,8 @@ import { JwtStrategy } from './strategies/jwt.strategy.js';
   imports: [
     UsersModule,
     EmailModule,
+    // Idle-timeout and reuse revocations are recorded against the account.
+    AuditEventModule,
     TypeOrmModule.forFeature([OrganisationMembership]),
     forwardRef(() => OidcModule.register()),
     PassportModule,

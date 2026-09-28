@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AuthResponseDto {
   @ApiProperty({
@@ -12,4 +12,21 @@ export class AuthResponseDto {
     description: 'Long-lived opaque refresh token (default 7 days)',
   })
   refreshToken!: string;
+
+  /**
+   * PRD §7.2 — MFA is compulsory for this account and it has not enrolled.
+   *
+   * Present and true only in that case. The tokens are real and are needed:
+   * enrolment is itself an authenticated flow. Every other authenticated
+   * route refuses the caller with `MFA_ENROLMENT_REQUIRED` until enrolment
+   * completes, so a client seeing this should route straight to MFA setup
+   * rather than to a dashboard it cannot load.
+   */
+  @ApiPropertyOptional({
+    example: true,
+    description:
+      'True when the account must enrol in MFA before any other endpoint ' +
+      'will serve it (provider and employer owners and admins).',
+  })
+  mfaEnrolmentRequired?: boolean;
 }

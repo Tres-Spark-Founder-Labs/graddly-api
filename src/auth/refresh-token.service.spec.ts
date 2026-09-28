@@ -2,11 +2,13 @@ import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AuditEventService } from '../audit/audit-event.service.js';
 import { RedisService } from '../redis/redis.service.js';
 
 import { RefreshTokenService } from './refresh-token.service.js';
 
 const USER_ID = 'user-uuid-1';
+const IDLE_TIMEOUT_SECONDS = 28_800;
 
 describe('RefreshTokenService', () => {
   let service: RefreshTokenService;
@@ -35,9 +37,22 @@ describe('RefreshTokenService', () => {
       const values = new Map<string, unknown>([
         ['app.jwt.refreshExpiresInSeconds', 604_800],
         ['app.refresh.reuseGraceSeconds', 30],
+        ['app.session.idleTimeoutSeconds', IDLE_TIMEOUT_SECONDS],
       ]);
       return values.get(key) ?? fallback;
     }),
+  };
+
+  const record = jest.fn();
+
+  /** Re-stamps a stored token's activity field, as an idle session would be. */
+  const ageSession = (token: string, secondsIdle: number): void => {
+    const entry = store.get(`refresh:${token}`);
+    const [userId, version] = (entry?.value ?? '').split(':');
+    store.set(`refresh:${token}`, {
+      value: `${userId}:${version}:${Date.now() - secondsIdle * 1000}`,
+      ttl: entry?.ttl,
+    });
   };
 
   beforeEach(async () => {
@@ -50,6 +65,7 @@ describe('RefreshTokenService', () => {
         RefreshTokenService,
         { provide: RedisService, useValue: mockRedis },
         { provide: ConfigService, useValue: mockConfig },
+        { provide: AuditEventService, useValue: { record } },
       ],
     }).compile();
 
@@ -60,7 +76,14 @@ describe('RefreshTokenService', () => {
     const token = await service.issue(USER_ID);
 
     expect(token).toEqual(expect.any(String));
-    expect(store.get(`refresh:${token}`)?.value).toBe(`${USER_ID}:0`);
+    // userId:version:lastActivityMs — the activity stamp rides with the token
+    // it describes, so the two cannot expire out of step.
+    const [userId, version, lastActivity] = (
+      store.get(`refresh:${token}`)?.value ?? ''
+    ).split(':');
+    expect(userId).toBe(USER_ID);
+    expect(version).toBe('0');
+    expect(Number(lastActivity)).toBeGreaterThan(Date.now() - 5_000);
   });
 
   it('rotates a valid refresh token and stores a tombstone', async () => {
@@ -103,5 +126,93 @@ describe('RefreshTokenService', () => {
 
     expect(store.has(`refresh:${token}`)).toBe(false);
     expect(store.get(`refresh-revoked:${token}`)?.value).toBe(USER_ID);
+  });
+
+  /** PRD §7.2 — "forced re-authentication after 8 hours of inactivity". */
+  describe('idle timeout', () => {
+    it('refreshes normally one second inside the window, and moves the stamp', async () => {
+      const token = await service.issue(USER_ID);
+      ageSession(token, IDLE_TIMEOUT_SECONDS - 1);
+
+      const result = await service.consume(token);
+
+      const stamp = Number(
+        (store.get(`refresh:${result.newRefreshToken}`)?.value ?? '').split(
+          ':',
+        )[2],
+      );
+      expect(stamp).toBeGreaterThan(Date.now() - 5_000);
+    });
+
+    it('refuses one second outside it, and revokes the whole family', async () => {
+      const idle = await service.issue(USER_ID);
+      const sibling = await service.issue(USER_ID);
+      ageSession(idle, IDLE_TIMEOUT_SECONDS + 1);
+
+      await expect(service.consume(idle)).rejects.toThrow(
+        UnauthorizedException,
+      );
+
+      // The other device goes with it: ending the session means ending it.
+      expect(versionCounters.get(`user:${USER_ID}:refreshVer`)).toBe(1);
+      await expect(service.consume(sibling)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('carries a code the client can tell apart from an ordinary expiry', async () => {
+      const token = await service.issue(USER_ID);
+      ageSession(token, IDLE_TIMEOUT_SECONDS + 1);
+
+      await expect(service.consume(token)).rejects.toMatchObject({
+        response: { code: 'SESSION_IDLE_TIMEOUT' },
+      });
+    });
+
+    it('records the revocation against the account, with no actor', async () => {
+      const token = await service.issue(USER_ID);
+      ageSession(token, IDLE_TIMEOUT_SECONDS + 1);
+
+      await expect(service.consume(token)).rejects.toThrow();
+
+      expect(record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entityType: 'users',
+          entityId: USER_ID,
+          // Refresh is unauthenticated: a token was presented, nobody was
+          // signed in, and claiming an actor would be a guess.
+          user: { id: null },
+          organisationId: null,
+        }),
+      );
+      const [call] = record.mock.calls.at(-1) as [{ detail: string }];
+      expect(call.detail).toContain('idle');
+    });
+
+    it('records the reuse revocation too, which only logged a warning before', async () => {
+      const token = await service.issue(USER_ID);
+      await service.consume(token);
+      record.mockClear();
+
+      await expect(service.consume(token)).rejects.toThrow(
+        UnauthorizedException,
+      );
+
+      const [call] = record.mock.calls.at(-1) as [{ detail: string }];
+      expect(call.detail).toContain('presented twice');
+    });
+
+    /**
+     * The deploy constraint: a session in flight when this shipped has a
+     * two-field value and must not be signed out for it.
+     */
+    it('treats a token issued before the timeout existed as active now', async () => {
+      const token = await service.issue(USER_ID);
+      store.set(`refresh:${token}`, { value: `${USER_ID}:0` });
+
+      await expect(service.consume(token)).resolves.toMatchObject({
+        userId: USER_ID,
+      });
+    });
   });
 });

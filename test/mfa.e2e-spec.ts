@@ -1,4 +1,5 @@
 import { INestApplication } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { authenticator } from 'otplib';
 import request from 'supertest';
@@ -24,6 +25,16 @@ describe('MFA (e2e)', () => {
     app = moduleFixture.createNestApplication();
     configureApp(app);
     await app.init();
+
+    /**
+     * `.env.test` ships this gate off, because most suites sign in as the
+     * owner of a provider or employer organisation and the gate is precisely
+     * what refuses that account until it holds MFA. This suite owns the
+     * behaviour, so it turns the gate back on for its own app once the module
+     * is built: `JwtAuthGuard` and `AuthService` read the same ConfigService
+     * instance, so the switch reaches both.
+     */
+    app.get(ConfigService).set('app.security.mfaRequiredForAdmins', true);
   });
 
   afterAll(async () => {

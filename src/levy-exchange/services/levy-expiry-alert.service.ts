@@ -15,7 +15,7 @@ import { OrganisationRole } from '../../organisations/organisation-role.enum.js'
 import { PortalType } from '../../organisations/portal-type.enum.js';
 import { DasLevyTranche } from '../entities/das-levy-tranche.entity.js';
 import { LevyExpiryAlertDispatch } from '../entities/levy-expiry-alert-dispatch.entity.js';
-import { DasDonorLinkStatus } from '../enums/das-donor-link-status.enum.js';
+import { DONOR_LINK_READABLE_STATUSES } from '../enums/das-donor-link-status.enum.js';
 import { LevyExpiryAlertType } from '../enums/levy-expiry-alert-type.enum.js';
 
 @Injectable()
@@ -77,7 +77,17 @@ export class LevyExpiryAlertService {
 
     let sent = 0;
     for (const tranche of tranches) {
-      if (tranche.donorLink?.status !== DasDonorLinkStatus.LINKED) {
+      /**
+       * A hand-entered schedule warns the employer exactly as a synced one
+       * does. This used to require `LINKED`, which meant that in every
+       * deployment without ESFA credentials — all of them, under D-05 — the
+       * alert never fired for anybody. The money expires on the same date
+       * whichever way the date got into the database.
+       */
+      if (
+        !tranche.donorLink?.status ||
+        !DONOR_LINK_READABLE_STATUSES.includes(tranche.donorLink.status)
+      ) {
         continue;
       }
 

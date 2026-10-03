@@ -35,7 +35,10 @@ import { LevyMatchApplication } from '../entities/levy-match-application.entity.
 import { LevyTransferDocument } from '../entities/levy-transfer-document.entity.js';
 import { LevyTransferSignature } from '../entities/levy-transfer-signature.entity.js';
 import { LevyTransfer } from '../entities/levy-transfer.entity.js';
-import { DasDonorLinkStatus } from '../enums/das-donor-link-status.enum.js';
+import {
+  DasDonorLinkStatus,
+  DONOR_LINK_READABLE_STATUSES,
+} from '../enums/das-donor-link-status.enum.js';
 import { LevyMatchApplicationStatus } from '../enums/levy-match-application-status.enum.js';
 import { LevyTransferDocumentStatus } from '../enums/levy-transfer-document-status.enum.js';
 import {
@@ -337,16 +340,29 @@ export class LevyTransferService {
       throw new BadRequestException('Recipient organisation has no UKPRN');
     }
 
+    /**
+     * Submitting a transfer is a live call to the ESFA, so unlike the expiry
+     * and surplus reads this one genuinely needs a connected account. A manual
+     * account is looked up all the same, so the refusal can say which of the
+     * two problems the employer has: no account at all, or an account that was
+     * typed in and therefore has no consent to transfer under.
+     */
     const donorLink = await this.donorLinkRepo.findOne({
       where: {
         organisationId: transfer.donorOrganisationId,
-        status: DasDonorLinkStatus.LINKED,
+        status: In([...DONOR_LINK_READABLE_STATUSES]),
         isDeleted: false,
       },
       order: { updatedAt: 'DESC' },
     });
     if (!donorLink) {
       throw new BadRequestException('Donor DAS account is not linked');
+    }
+    if (donorLink.status !== DasDonorLinkStatus.LINKED) {
+      throw new BadRequestException(
+        'This levy account was entered by hand, so there is no ESFA consent to ' +
+          'transfer under. Connect the account through DAS before sending a transfer.',
+      );
     }
 
     const accessToken = await this.resolveDonorAccessToken(donorLink.id);
@@ -390,15 +406,25 @@ export class LevyTransferService {
       return;
     }
 
+    /**
+     * There is nothing to poll for a hand-entered account: no consent, no
+     * token, no reference at the ESFA. Skipped rather than attempted.
+     *
+     * Attempting it is what used to happen, and it did not merely fail — the
+     * throw escaped this cron, and with no `unhandledRejection` handler on the
+     * worker it took the whole process down, taking every other background job
+     * with it until someone restarted it. Observed on 29 September: the daily
+     * sweep met a seeded manual donor and the worker exited 1.
+     */
     const donorLink = await this.donorLinkRepo.findOne({
       where: {
         organisationId: transfer.donorOrganisationId,
-        status: DasDonorLinkStatus.LINKED,
+        status: In([...DONOR_LINK_READABLE_STATUSES]),
         isDeleted: false,
       },
       order: { updatedAt: 'DESC' },
     });
-    if (!donorLink) {
+    if (!donorLink || donorLink.status !== DasDonorLinkStatus.LINKED) {
       return;
     }
 

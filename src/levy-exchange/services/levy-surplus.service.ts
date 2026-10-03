@@ -9,7 +9,7 @@ import { DasDonorLink } from '../entities/das-donor-link.entity.js';
 import { DasLevyTranche } from '../entities/das-levy-tranche.entity.js';
 import { LevySurplusSnapshot } from '../entities/levy-surplus-snapshot.entity.js';
 import { LevyTransfer } from '../entities/levy-transfer.entity.js';
-import { DasDonorLinkStatus } from '../enums/das-donor-link-status.enum.js';
+import { DONOR_LINK_READABLE_STATUSES } from '../enums/das-donor-link-status.enum.js';
 import { LevyTransferStatus } from '../enums/levy-transfer-status.enum.js';
 
 export type LevySurplusSummary = {
@@ -237,7 +237,11 @@ export class LevySurplusService {
     return this.donorLinkRepo.find({
       where: {
         organisationId,
-        status: DasDonorLinkStatus.LINKED,
+        // Hand-entered accounts count. Their figures were typed rather than
+        // synced, but they are the figures this employer has, and excluding
+        // them emptied the expiry calendar and zeroed the surplus for every
+        // deployment running in manual mode — which is all of them.
+        status: In([...DONOR_LINK_READABLE_STATUSES]),
         isDeleted: false,
       },
       order: { createdAt: 'ASC' },

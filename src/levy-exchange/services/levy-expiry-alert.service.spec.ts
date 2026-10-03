@@ -149,4 +149,41 @@ describe('LevyExpiryAlertService', () => {
     expect(sent).toBe(0);
     expect(dispatchRepo.save).not.toHaveBeenCalled();
   });
+
+  /**
+   * The case that mattered in practice. Under D-05 no deployment has ESFA
+   * credentials, so every real donor link is `manual` — and requiring `LINKED`
+   * meant this alert never fired for anybody, while the money expired on
+   * schedule. A typed-in expiry date warns exactly as a synced one does.
+   */
+  it('alerts on a hand-entered donor link, as it does on a synced one', async () => {
+    // First window only, for the reason the mock in beforeEach spells out:
+    // returning the tranche for both windows counts the mock, not the service.
+    let windowCall = 0;
+    trancheRepo.find.mockImplementation(() => {
+      windowCall += 1;
+      return Promise.resolve(
+        windowCall === 1
+          ? [
+              {
+                ...tranche,
+                donorLink: {
+                  status: DasDonorLinkStatus.MANUAL,
+                  label: 'Acme DAS',
+                },
+              },
+            ]
+          : [],
+      );
+    });
+    membershipRepo.find.mockResolvedValue([
+      { id: 'm-1', user: { id: 'u-1', firstName: 'Sam', email: 's@x.com' } },
+    ]);
+
+    const sent = await service.sendDueAlerts();
+
+    expect(sent).toBe(1);
+    expect(notificationsService.createForUser).toHaveBeenCalledTimes(1);
+    expect(dispatchRepo.save).toHaveBeenCalledTimes(1);
+  });
 });

@@ -61,6 +61,9 @@ describe('QipActionsService', () => {
     service = moduleRef.get(QipActionsService);
     jest.clearAllMocks();
     membershipRepo.findOne.mockResolvedValue({ id: 'm-1' });
+    // Every read path now names the owner; default to "nobody found" so each
+    // test opts in to the names it cares about.
+    userRepo.findBy.mockResolvedValue([]);
   });
 
   it('rejects invalid EIF criterion slug', async () => {
@@ -133,6 +136,80 @@ describe('QipActionsService', () => {
     const result = await service.findAll(user, { page: 1, perPage: 20 });
 
     expect(result.items).toHaveLength(1);
+  });
+
+  /**
+   * The list is what the QIP screen and the owner column render. Returning the
+   * id alone is what put a uuid in front of a user, so the name travels with
+   * it — resolved once for the page, not once per row.
+   */
+  it('names the owner on every row, in one lookup', async () => {
+    const row = (id: string, ownerId: string) => ({
+      id,
+      organisationId: 'org-1',
+      title: 'Action',
+      description: null,
+      assignedOwnerUserId: ownerId,
+      targetCompletionDate: '2026-12-31',
+      eifCriterionSlug: 'safeguarding',
+      evidenceNotes: null,
+      evidenceAttachmentKeys: null,
+      status: QipActionStatus.IN_PROGRESS,
+    });
+    repo.createQueryBuilder.mockReturnValue({
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest
+        .fn()
+        .mockResolvedValue([
+          [
+            row('qip-1', 'user-1'),
+            row('qip-2', 'user-2'),
+            row('qip-3', 'user-1'),
+          ],
+          3,
+        ]),
+    });
+    userRepo.findBy.mockResolvedValue([
+      { id: 'user-1', firstName: 'Sarah', lastName: 'Hutchinson' },
+      { id: 'user-2', firstName: 'Marcus', lastName: 'Leigh' },
+    ]);
+
+    const result = await service.findAll(user, { page: 1, perPage: 20 });
+
+    expect(result.items.map((item) => item.assignedOwnerDisplayName)).toEqual([
+      'Sarah Hutchinson',
+      'Marcus Leigh',
+      'Sarah Hutchinson',
+    ]);
+    // Three rows, two owners, one query.
+    expect(userRepo.findBy).toHaveBeenCalledTimes(1);
+  });
+
+  /** A deleted account leaves the action behind; the screen says so. */
+  it('leaves the name null when the owner no longer exists', async () => {
+    repo.findOne.mockResolvedValue({
+      id: 'qip-1',
+      organisationId: 'org-1',
+      title: 'Action',
+      description: null,
+      assignedOwnerUserId: 'user-gone',
+      targetCompletionDate: '2026-12-31',
+      eifCriterionSlug: 'safeguarding',
+      evidenceNotes: null,
+      evidenceAttachmentKeys: null,
+      status: QipActionStatus.IN_PROGRESS,
+    });
+    userRepo.findBy.mockResolvedValue([]);
+
+    const found = await service.findOne(user, 'qip-1');
+
+    expect(found.assignedOwnerUserId).toBe('user-gone');
+    expect(found.assignedOwnerDisplayName).toBeNull();
   });
 
   it('returns summary counts by status', async () => {

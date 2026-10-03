@@ -21,6 +21,26 @@ export class QipActionResponseDto {
   })
   assignedOwnerUserId!: string;
 
+  /**
+   * The same pairing `enrolments` already ships as `apprenticeUserDisplayName`
+   * and its siblings: the id for the form, the name for the screen.
+   *
+   * Without it every consumer of this endpoint has two bad options — print the
+   * uuid, or fetch the whole organisation's users to translate one id. The SAR
+   * export already resolves these names for exactly that reason
+   * (`qip-actions.service.ts`, "an inspector cannot chase an identifier"); the
+   * list endpoint was the half that never got it.
+   *
+   * Null only when the owner row has gone (a deleted account), which the UI
+   * should render as "Unassigned" rather than blank.
+   */
+  @ApiProperty({
+    nullable: true,
+    example: 'Sarah Hutchinson',
+    description: 'Owner name for display. Null when the user no longer exists.',
+  })
+  assignedOwnerDisplayName!: string | null;
+
   @ApiProperty({ format: 'date' })
   targetCompletionDate!: string;
 

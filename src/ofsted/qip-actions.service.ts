@@ -78,7 +78,7 @@ export class QipActionsService {
       status: dto.status ?? QipActionStatus.NOT_STARTED,
     });
     await this.eifScoreCache.invalidate(organisationId);
-    return this.toResponse(await this.repo.save(entity));
+    return this.toResponseWithOwner(await this.repo.save(entity));
   }
 
   async findAll(
@@ -118,8 +118,9 @@ export class QipActionsService {
       .take(perPage);
 
     const [rows, total] = await qb.getManyAndCount();
+    const ownerNames = await this.resolveOwnerNames(rows);
     return new PaginatedResult(
-      rows.map((row) => this.toResponse(row)),
+      rows.map((row) => this.toResponse(row, ownerNames)),
       buildPaginationMeta({ total, page, perPage }),
     );
   }
@@ -144,7 +145,7 @@ export class QipActionsService {
     id: string,
   ): Promise<QipActionResponseDto> {
     const row = await this.findEntity(user, id);
-    return this.toResponse(row);
+    return this.toResponseWithOwner(row);
   }
 
   /**
@@ -201,7 +202,7 @@ export class QipActionsService {
     if (dto.status !== undefined) row.status = dto.status;
 
     await this.eifScoreCache.invalidate(user.organisationId!);
-    return this.toResponse(await this.repo.save(row));
+    return this.toResponseWithOwner(await this.repo.save(row));
   }
 
   async remove(user: AuthenticatedUser, id: string): Promise<void> {
@@ -356,13 +357,66 @@ export class QipActionsService {
     return row.targetCompletionDate < today;
   }
 
-  private toResponse(entity: QipAction): QipActionResponseDto {
+  /**
+   * Owner names for a set of QIP rows, in one query.
+   *
+   * ── WHY BOOTSTRAP, AND WHY THAT IS NOT A WIDENING ───────────────────────────
+   *
+   * `users` carries no organisation column — a person belongs to an
+   * organisation through a membership — so a tenant-scoped read of it returns
+   * nothing and every name would come back null. The same problem is already
+   * solved twice in this codebase the same way: `enrolments.service.ts` hydrates
+   * `apprenticeUserDisplayName` and its siblings under `withRlsBootstrap`, and
+   * the SAR export below resolves these very owners that way.
+   *
+   * What keeps it safe is where the ids come from. They are read off rows the
+   * caller's own organisation filter already returned, so this can only name
+   * people who are already on this organisation's actions. It never takes an id
+   * from a request.
+   */
+  private async resolveOwnerNames(
+    rows: QipAction[],
+  ): Promise<Map<string, string>> {
+    const ownerIds = [
+      ...new Set(rows.map((row) => row.assignedOwnerUserId).filter(Boolean)),
+    ];
+    if (ownerIds.length === 0) {
+      return new Map();
+    }
+
+    const owners = await withRlsBootstrap(() =>
+      this.userRepo.findBy({ id: In(ownerIds) }),
+    );
+
+    return new Map(
+      owners.map((owner) => [
+        owner.id,
+        `${owner.firstName} ${owner.lastName}`.trim(),
+      ]),
+    );
+  }
+
+  /** One row, when the caller has no batch to resolve against. */
+  private async toResponseWithOwner(
+    entity: QipAction,
+  ): Promise<QipActionResponseDto> {
+    return this.toResponse(entity, await this.resolveOwnerNames([entity]));
+  }
+
+  private toResponse(
+    entity: QipAction,
+    ownerNames: Map<string, string> = new Map(),
+  ): QipActionResponseDto {
     return {
       id: entity.id,
       organisationId: entity.organisationId,
       title: entity.title,
       description: entity.description,
       assignedOwnerUserId: entity.assignedOwnerUserId,
+      // Null rather than the id: a screen that falls back to a uuid is the
+      // behaviour this field exists to remove.
+      assignedOwnerDisplayName:
+        ownerNames.get(entity.assignedOwnerUserId) ?? null,
       targetCompletionDate: entity.targetCompletionDate,
       eifCriterionSlug: entity.eifCriterionSlug,
       evidenceNotes: entity.evidenceNotes,

@@ -12,6 +12,7 @@ import { Enrolment } from '../enrolments/entities/enrolment.entity.js';
 import { EpaOutcomeRecord } from '../enrolments/entities/epa-outcome.entity.js';
 import { IlrLearnerRecord } from '../ilr/entities/ilr-learner-record.entity.js';
 import { LearnersModule } from '../learners/learners.module.js';
+import { DasLevyTranche } from '../levy-exchange/entities/das-levy-tranche.entity.js';
 import { LevyRecipientProfile } from '../levy-exchange/entities/levy-recipient-profile.entity.js';
 import { LevyTransfer } from '../levy-exchange/entities/levy-transfer.entity.js';
 import { LevyExchangeModule } from '../levy-exchange/levy-exchange.module.js';
@@ -75,6 +76,9 @@ import { SmeOverviewService } from './sme-overview.service.js';
       Review,
       CommitmentStatementGroup,
       DasLevyBalance,
+      // Utilisation derives "expiring within 90 days" from these when no DAS
+      // payload has ever been synced.
+      DasLevyTranche,
       IlrLearnerRecord,
       // F1.4.1 AC1 — EPA pass rate, from outcomes the provider records.
       EpaOutcomeRecord,

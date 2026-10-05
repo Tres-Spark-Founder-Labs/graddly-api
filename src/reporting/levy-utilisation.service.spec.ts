@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DasLevyForecastService } from '../das/das-levy-forecast.service.js';
 import { DasLevyMonthlyService } from '../das/das-levy-monthly.service.js';
 import { DasLevyBalance } from '../das/entities/das-levy-balance.entity.js';
+import { DasLevyTranche } from '../levy-exchange/entities/das-levy-tranche.entity.js';
 import { PortalType } from '../organisations/portal-type.enum.js';
 
 import { LevyRoiBreakdownGroup } from './enums/levy-roi-breakdown-group.enum.js';
@@ -23,6 +24,7 @@ describe('LevyUtilisationService', () => {
   const forecastService = { forecastForOrganisation: jest.fn() };
   const levyRoiReportService = { getBreakdown: jest.fn() };
   const levyBalanceFindOne = jest.fn();
+  const trancheFind = jest.fn();
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -36,11 +38,16 @@ describe('LevyUtilisationService', () => {
           provide: getRepositoryToken(DasLevyBalance),
           useValue: { findOne: levyBalanceFindOne },
         },
+        {
+          provide: getRepositoryToken(DasLevyTranche),
+          useValue: { find: trancheFind },
+        },
       ],
     }).compile();
 
     service = moduleRef.get(LevyUtilisationService);
     jest.clearAllMocks();
+    trancheFind.mockResolvedValue([]);
   });
 
   it('assembles utilisation payload for employer orgs', async () => {
@@ -105,5 +112,107 @@ describe('LevyUtilisationService', () => {
     await expect(service.getUtilisation('org-provider')).rejects.toBeInstanceOf(
       ForbiddenException,
     );
+  });
+
+  /** Only a synced payload may be presented as a synced figure. */
+  it('marks segments parsed from a DAS payload as das-sourced', async () => {
+    portalService.assertPortalType.mockResolvedValue({
+      portalType: PortalType.EMPLOYER,
+    });
+    levyBalanceFindOne.mockResolvedValue({
+      balance: '5000',
+      currency: 'GBP',
+      utilisationSegments: {
+        used: 1000,
+        expiringWithin90Days: 500,
+        available: 5000,
+        currency: 'GBP',
+      },
+    });
+    monthlyService.listLast12Months.mockResolvedValue([]);
+    monthlyService.toMonthlyContributionDtos.mockReturnValue([]);
+    forecastService.forecastForOrganisation.mockResolvedValue({
+      horizonMonths: 12,
+      activeEnrolmentCount: 0,
+      projectedMonthlySpend: 0,
+      projectedCompletionLiability: 0,
+      estimatedRunwayMonths: null,
+    });
+    levyRoiReportService.getBreakdown.mockResolvedValue([]);
+
+    const result = await service.getUtilisation('org-employer');
+
+    expect(result.segmentsSource).toBe('das');
+    expect(result.segments.used).toBe(1000);
+  });
+
+  /**
+   * The case D-05 left broken. With no DAS payload there are no segments, and
+   * the dashboard read 0% used however much the employer had entered. The
+   * figures are theirs, so they are used — and labelled as theirs.
+   */
+  it('derives segments from hand-entered figures when nothing has synced', async () => {
+    portalService.assertPortalType.mockResolvedValue({
+      portalType: PortalType.EMPLOYER,
+    });
+    levyBalanceFindOne.mockResolvedValue({
+      balance: '1095930.00',
+      currency: 'GBP',
+      utilisationSegments: null,
+    });
+    monthlyService.listLast12Months.mockResolvedValue([]);
+    monthlyService.toMonthlyContributionDtos.mockReturnValue([
+      { month: '2026-08', amount: 4000, spend: 1500 },
+      { month: '2026-09', amount: 4000, spend: 2500.5 },
+    ]);
+    const inWindow = new Date();
+    inWindow.setUTCDate(inWindow.getUTCDate() + 18);
+    const outOfWindow = new Date();
+    outOfWindow.setUTCDate(outOfWindow.getUTCDate() + 200);
+    trancheFind.mockResolvedValue([
+      { amount: '7800.00', expiresOn: inWindow.toISOString().slice(0, 10) },
+      { amount: '12500.00', expiresOn: outOfWindow.toISOString().slice(0, 10) },
+    ]);
+    forecastService.forecastForOrganisation.mockResolvedValue({
+      horizonMonths: 12,
+      activeEnrolmentCount: 0,
+      projectedMonthlySpend: 0,
+      projectedCompletionLiability: 0,
+      estimatedRunwayMonths: null,
+    });
+    levyRoiReportService.getBreakdown.mockResolvedValue([]);
+
+    const result = await service.getUtilisation('org-employer');
+
+    expect(result.segmentsSource).toBe('manual');
+    // The spend the employer recorded month by month, not zero.
+    expect(result.segments.used).toBe(4000.5);
+    // Only the tranche inside the 90-day window counts.
+    expect(result.segments.expiringWithin90Days).toBe(7800);
+    expect(result.segments.available).toBe(1095930);
+    expect(result.segments.currency).toBe('GBP');
+  });
+
+  /** No levy account at all is a third state, and says so rather than lying. */
+  it('reports segments as unavailable when there is no levy account', async () => {
+    portalService.assertPortalType.mockResolvedValue({
+      portalType: PortalType.EMPLOYER,
+    });
+    levyBalanceFindOne.mockResolvedValue(null);
+    monthlyService.listLast12Months.mockResolvedValue([]);
+    monthlyService.toMonthlyContributionDtos.mockReturnValue([]);
+    forecastService.forecastForOrganisation.mockResolvedValue({
+      horizonMonths: 12,
+      activeEnrolmentCount: 0,
+      projectedMonthlySpend: 0,
+      projectedCompletionLiability: 0,
+      estimatedRunwayMonths: null,
+    });
+    levyRoiReportService.getBreakdown.mockResolvedValue([]);
+
+    const result = await service.getUtilisation('org-employer');
+
+    expect(result.segmentsSource).toBe('unavailable');
+    expect(result.segments.available).toBe(0);
   });
 });

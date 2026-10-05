@@ -49,6 +49,25 @@ export class LevyUtilisationResponseDto {
   @ApiProperty({ type: LevyUtilisationSegmentsDto })
   segments!: LevyUtilisationSegmentsDto;
 
+  /**
+   * Where the three segments above came from, so a screen never presents a
+   * typed figure as one the ESFA sent.
+   *
+   *   das          parsed from a DAS sync payload
+   *   manual       derived from what somebody entered by hand
+   *   unavailable  no levy account on record yet, so the segments are zeroes
+   *
+   * The balance tile already distinguishes "Entered manually" from "DAS
+   * synced"; utilisation now carries the same distinction instead of looking
+   * synced whatever its origin.
+   */
+  @ApiProperty({
+    enum: ['das', 'manual', 'unavailable'],
+    example: 'manual',
+    description: 'Provenance of the utilisation segments.',
+  })
+  segmentsSource!: 'das' | 'manual' | 'unavailable';
+
   @ApiProperty({ type: [LevyUtilisationMonthlyPointDto] })
   monthlySeries!: LevyUtilisationMonthlyPointDto[];
 

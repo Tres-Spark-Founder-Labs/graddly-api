@@ -75,6 +75,7 @@ import { DasLevyBalance } from '../src/das/entities/das-levy-balance.entity.js';
 import { DasLevyMonthlyEntry } from '../src/das/entities/das-levy-monthly-entry.entity.js';
 import { DasSyncStatus } from '../src/das/enums/das-sync-status.enum.js';
 import { Enrolment } from '../src/enrolments/entities/enrolment.entity.js';
+import { EnrolmentPipelineState } from '../src/enrolments/enums/enrolment-pipeline-state.enum.js';
 import { EnrolmentStatus } from '../src/enrolments/enums/enrolment-status.enum.js';
 import { DasDonorLink } from '../src/levy-exchange/entities/das-donor-link.entity.js';
 import { DasLevyTranche } from '../src/levy-exchange/entities/das-levy-tranche.entity.js';
@@ -642,6 +643,13 @@ function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 86_400_000);
 }
 
+/** A date N days before another, for pipeline stamps that precede the start. */
+function daysBefore(from: Date, days: number): Date {
+  const out = new Date(from);
+  out.setUTCDate(out.getUTCDate() - days);
+  return out;
+}
+
 /** Deterministic pseudo-random so reseeding produces the same database. */
 function makeRandom(seed: number) {
   let state = seed;
@@ -997,6 +1005,32 @@ async function main() {
           employerOrganisationId: employerOrg.id,
           providerOrganisationId: providerOrg.id,
           epaDate: a.epaDate ?? null,
+          /**
+           * ── F1.2.5 AC5: THE PIPELINE, WHICH THIS SEED USED TO LEAVE NULL ──
+           *
+           * Every seeded learner is training: they have a provider, an
+           * employer, a portal account and logged hours. A provider cannot
+           * have none of that and still not have accepted them, yet
+           * `pipelineState` was null on all fifteen.
+           *
+           * That is not cosmetic. `listLinkedProviders` decides whether an
+           * employer has a provider by pipeline position, not by
+           * `providerOrganisationId` (enrolments.service.ts:219) — so the
+           * employer's enrol wizard reported "No linked training providers
+           * yet. A provider appears here once they have accepted an enrolment
+           * from you" while four accepted enrolments sat in the database. It
+           * reads as the chicken-and-egg problem it is not.
+           *
+           * Set to `provider_accepted` and no further, deliberately.
+           * `ilr_created` would claim ILR records this seed never builds, and
+           * `das_confirmed` would claim the ESFA confirmed something that no
+           * deployment has the credentials to ask. The minimum truthful state
+           * is the one a provider actually reached.
+           */
+          pipelineState: EnrolmentPipelineState.PROVIDER_ACCEPTED,
+          pipelineInvitedAt: daysBefore(startDate, 30),
+          pipelineAccountCreatedAt: daysBefore(startDate, 21),
+          pipelineProviderAcceptedAt: daysBefore(startDate, 14),
         }),
       );
 

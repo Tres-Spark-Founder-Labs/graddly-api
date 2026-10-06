@@ -34,6 +34,21 @@ export class S3StorageProvider implements IStorageProvider {
         accessKeyId && secretAccessKey
           ? { accessKeyId, secretAccessKey }
           : undefined,
+      /**
+       * Without this, every presigned upload URL is born broken.
+       *
+       * From v3.729 the SDK defaults to `WHEN_SUPPORTED`, which attaches a
+       * CRC32 of the request payload. A presign has no payload, so what gets
+       * baked into the URL is `x-amz-checksum-crc32=AAAAAA==` -- the CRC32 of
+       * zero bytes. The browser then PUTs the actual file, S3 checksums it,
+       * the two disagree, and the upload is rejected for every file that is
+       * not empty.
+       *
+       * `WHEN_REQUIRED` keeps checksums for the operations that mandate them
+       * and leaves the presigned PUT alone. Verified by inspecting the signed
+       * URL's query string, which is what the spec below asserts.
+       */
+      requestChecksumCalculation: 'WHEN_REQUIRED',
     });
     this.bucket = this.config.get<string>('app.storage.bucket', '');
   }

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention -- AWS SDK mock class names */
+import { S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -45,6 +46,18 @@ describe('S3StorageProvider', () => {
     }).compile();
 
     provider = module.get(S3StorageProvider);
+  });
+
+  /**
+   * Regression guard. The SDK's default checksum mode bakes the CRC32 of an
+   * empty payload into every presigned PUT, so S3 rejects the real file when
+   * the browser sends it -- an upload path that cannot work for any non-empty
+   * file, and which fails at S3 rather than anywhere we would see it.
+   */
+  it('turns off the default payload checksum, which presigned PUTs cannot satisfy', () => {
+    expect(jest.mocked(S3Client).mock.calls[0]?.[0]).toMatchObject({
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+    });
   });
 
   it('presigns upload URLs', async () => {

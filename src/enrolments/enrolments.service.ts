@@ -848,6 +848,16 @@ export class EnrolmentsService {
             enrolment.otjBehindPercent === undefined
               ? null
               : Number(enrolment.otjBehindPercent),
+          // Same column type, same treatment. Missed until now only because
+          // no form ever set a price, so every value was null and the
+          // mismatch with EnrolmentResponseDto's `number | null` could not
+          // show itself. The employer roster totals this field across the
+          // list, which with strings concatenates rather than adds.
+          agreedPrice:
+            enrolment.agreedPrice === null ||
+            enrolment.agreedPrice === undefined
+              ? null
+              : Number(enrolment.agreedPrice),
         }),
       );
     });

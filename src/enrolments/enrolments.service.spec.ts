@@ -336,6 +336,52 @@ describe('EnrolmentsService', () => {
     });
   });
 
+  /**
+   * The direction that did not exist. Without it an employer had no way to
+   * name their own training provider anywhere in the product, and the enrol
+   * wizard offered a list that is empty until a provider has already accepted
+   * an enrolment — a loop with no entry point.
+   */
+  it('resolves provider organisation by UKPRN for employer portal', async () => {
+    organisationFindOne
+      .mockResolvedValueOnce({
+        id: 'org-1',
+        portalType: PortalType.EMPLOYER,
+        isDeleted: false,
+      })
+      .mockResolvedValueOnce({
+        id: 'prov-1',
+        name: 'Northern Futures Training Ltd',
+        ukprn: '10099887',
+        portalType: PortalType.PROVIDER,
+        isDeleted: false,
+      });
+
+    const result = await service.lookupCounterpartOrganisationByUkprn(user, {
+      ukprn: '10099887',
+    });
+
+    expect(result).toEqual({
+      id: 'prov-1',
+      name: 'Northern Futures Training Ltd',
+      ukprn: '10099887',
+      portalType: PortalType.PROVIDER,
+    });
+  });
+
+  /** An apprentice or FlowPortal organisation has no counterpart to look up. */
+  it('refuses a caller that is neither employer nor provider', async () => {
+    organisationFindOne.mockResolvedValueOnce({
+      id: 'org-1',
+      portalType: PortalType.APPRENTICE,
+      isDeleted: false,
+    });
+
+    await expect(
+      service.lookupCounterpartOrganisationByUkprn(user, { ukprn: '10012345' }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it('creates draft enrolment', async () => {
     apprenticeFindOne.mockResolvedValue({ id: 'app-1' });
     standardFindOne.mockResolvedValue({ id: 'std-1' });

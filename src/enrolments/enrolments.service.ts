@@ -392,23 +392,49 @@ export class EnrolmentsService {
     return this.loadOrgMemberOptions(user.organisationId!);
   }
 
+  /**
+   * Find the organisation on the other side of an enrolment, by UKPRN.
+   *
+   * ── WHY THIS LOOKS BOTH WAYS NOW ───────────────────────────────────────────
+   *
+   * It used to assert the caller was a provider and search only for employers,
+   * so "find your counterpart" worked in exactly one direction. The effect was
+   * not a missing convenience: an employer had no way to name their own
+   * training provider anywhere in the product. The enrol wizard offers only
+   * providers that have already accepted an enrolment, so a new employer saw
+   * "No linked training providers yet. A provider appears here once they have
+   * accepted an enrolment from you" and had nothing to click — a loop with no
+   * entry point, which F1.2.5 AC2 never intended.
+   *
+   * The counterpart of an employer is a provider and the counterpart of a
+   * provider is an employer, so the direction is derived from who is asking
+   * rather than hard-coded. Nothing is widened: the caller must still belong to
+   * an employer or provider organisation, and still learns only a name and a
+   * UKPRN they already had to know in order to ask.
+   */
   async lookupCounterpartOrganisationByUkprn(
     user: AuthenticatedUser,
     query: LookupCounterpartOrganisationQueryDto,
   ): Promise<CounterpartOrganisationLookupResponseDto> {
-    await this.assertProviderPortal(user.organisationId!);
+    const callerPortal = await this.resolveOrganisationPortalType(
+      user.organisationId!,
+    );
+    const wanted =
+      callerPortal === PortalType.PROVIDER
+        ? PortalType.EMPLOYER
+        : PortalType.PROVIDER;
 
     return withRlsBootstrap(async () => {
       const organisation = await this.organisationRepo.findOne({
         where: {
           ukprn: query.ukprn,
-          portalType: PortalType.EMPLOYER,
+          portalType: wanted,
           isDeleted: false,
         },
       });
       if (!organisation?.ukprn) {
         throw new NotFoundException(
-          'No employer organisation found for this UKPRN',
+          `No ${wanted} organisation found for this UKPRN`,
         );
       }
 
@@ -959,6 +985,35 @@ export class EnrolmentsService {
     if (!standard) {
       throw new NotFoundException('Standard not found');
     }
+  }
+
+  /**
+   * The caller's own portal type, for actions whose direction depends on it.
+   *
+   * Refuses anyone who is neither an employer nor a provider: an apprentice or
+   * a FlowPortal organisation has no counterpart to look up, and answering
+   * them would be inventing a relationship that does not exist.
+   */
+  private async resolveOrganisationPortalType(
+    organisationId: string,
+  ): Promise<PortalType> {
+    const organisation = await withRlsBootstrap(() =>
+      this.organisationRepo.findOne({
+        where: { id: organisationId, isDeleted: false },
+      }),
+    );
+    if (!organisation) {
+      throw new NotFoundException('Organisation not found');
+    }
+    if (
+      organisation.portalType !== PortalType.PROVIDER &&
+      organisation.portalType !== PortalType.EMPLOYER
+    ) {
+      throw new ForbiddenException(
+        'This action requires an active employer or provider organisation',
+      );
+    }
+    return organisation.portalType;
   }
 
   private async assertProviderPortal(organisationId: string): Promise<void> {

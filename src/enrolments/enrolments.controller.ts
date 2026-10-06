@@ -273,13 +273,17 @@ export class EnrolmentsController {
   @Get('counterpart-organisations/lookup')
   @ResponseMessage('Counterpart organisation resolved successfully')
   @ApiOperation({
-    summary: 'Resolve an employer organisation by UKPRN for enrolment linking',
+    summary:
+      'Resolve the counterpart organisation by UKPRN for enrolment linking',
     description:
-      'Provider-only. PRD F2.4.1 — counterpart employers are linked explicitly (UKPRN lookup or existing ' +
-      'relationship via employer directory), not discovered via a global org list.',
+      'The direction follows the caller: a provider resolves employers, an employer resolves providers. ' +
+      'PRD F2.4.1 — counterparts are linked explicitly (UKPRN lookup or an existing relationship), ' +
+      'not discovered via a global org list, so only an exact UKPRN match is returned and nothing is listed. ' +
+      'F1.2.5 AC2 — this is how an employer names their training provider before any provider has accepted ' +
+      'an enrolment from them, which is what populates GET /enrolments/linked-providers.',
   })
   @ApiOkResponse({
-    description: 'Employer organisation matching the UKPRN',
+    description: 'Counterpart organisation matching the UKPRN',
     schema: {
       properties: {
         message: { type: 'string' },
@@ -288,11 +292,13 @@ export class EnrolmentsController {
     },
   })
   @ApiNotFoundResponse({
-    description: 'No employer organisation found for this UKPRN',
+    description:
+      'No counterpart organisation found for this UKPRN, or the active organisation does not exist',
     type: ErrorResponseDto,
   })
   @ApiForbiddenResponse({
-    description: 'Active organisation is not a provider portal',
+    description:
+      'Active organisation is neither an employer nor a provider portal',
     type: ErrorResponseDto,
   })
   @ApiUnprocessableEntityResponse({

@@ -978,7 +978,26 @@ async function main() {
       );
 
       const startDate = new Date(`${a.start}T00:00:00.000Z`);
-      const months = STANDARDS.find((s) => s.code === a.standard)!.months;
+      const seededStandard = STANDARDS.find((s) => s.code === a.standard)!;
+      const months = seededStandard.months;
+
+      /**
+       * The negotiated price for this apprenticeship, which the seed left null
+       * on every enrolment.
+       *
+       * It is not decoration. `averageCostPerCompletion` is the mean
+       * `agreedPrice` across *completed* enrolments
+       * (levy-roi-report.service.ts:425), so with no price the employer's
+       * cost-per-apprentice table reads "No provider cost data yet" and the
+       * roster footer totals £0 committed — on a levy product, where the whole
+       * point is knowing what the training costs.
+       *
+       * Set to the standard's maximum funding band. Like `otjHours` above this
+       * is a demo convention rather than a sourced figure: a real agreed price
+       * is negotiated between employer and provider and is usually at or below
+       * the band. Nothing should read it as what any provider actually charges.
+       */
+      const agreedPrice = seededStandard.funding;
 
       const enrolment = await m.save(
         m.create(Enrolment, {
@@ -998,6 +1017,7 @@ async function main() {
           cancelledAt: a.cancelledAt
             ? new Date(`${a.cancelledAt}T00:00:00.000Z`)
             : null,
+          agreedPrice: String(agreedPrice),
           plannedStartDate: a.start,
           plannedEndDate: a.end,
           plannedDurationMonths: months,
